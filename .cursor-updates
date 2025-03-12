@@ -1,1 +1,7 @@
 - Updated API endpoints to use new Weaviate API and implemented improved filter UI with proper numeric range handling
+- Fixed age filter handling to respect API naming differences (age_min/age_max vs age_lower/age_upper) and skip unnecessary filter parameters
+- Updated search results to handle new API response format with schema.org data and added pagination
+- Implemented server-side pagination using API offset with 20 results per page and stopped updating filters based on search results
+- Added debugging tools to help inspect API responses and state in the developer console
+- Temporarily disabled pagination to simplify API integration, showing fixed limit of 20 results
+- Updated search results layout with compact cards and implemented result selection to show details in the right panel

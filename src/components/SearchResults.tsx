@@ -1,21 +1,28 @@
 "use client";
 
-import { Box, Stack, Typography } from "@mui/material";
+import { Box, Stack, Typography, Chip, Card, CardContent, CardActionArea } from "@mui/material";
 import { SearchResult } from "@/services/api";
 import { ResourceData } from "@/components/ResourceCard";
 import DatasetCard from "@/components/DatasetCard";
 import VariableCard from "@/components/VariableCard";
 import StudyCard from "@/components/StudyCard";
 import SourceCard from "@/components/SourceCard";
+import { Info } from "lucide-react";
+import { useState } from "react";
+import CompactResultCard from "@/components/CompactResultCard";
 
 interface SearchResultsProps {
   results: SearchResult[];
   resourceTypeFilter?: string[];
+  onSelectResult?: (result: SearchResult) => void;
+  selectedResultId?: string;
 }
 
 export default function SearchResults({
   results,
   resourceTypeFilter,
+  onSelectResult,
+  selectedResultId,
 }: SearchResultsProps) {
   // Filter results based on resourceTypeFilter if provided, using case-insensitive comparison
   let filteredResults =
@@ -27,11 +34,12 @@ export default function SearchResults({
         )
       : results;
 
-  // Sort filtered results by score (highest score on top), defaulting score to 0 if undefined
+  // Sort filtered results by cosine_similarity (highest similarity on top), 
+  // falling back to score if cosine_similarity is not available
   const sortedResults = filteredResults.sort((a, b) => {
-    const scoreA = a.score || 0;
-    const scoreB = b.score || 0;
-    return scoreB - scoreA;
+    const similarityA = a.cosine_similarity || a.score || 0;
+    const similarityB = b.cosine_similarity || b.score || 0;
+    return similarityB - similarityA;
   });
 
   // Debug log to inspect filtering and sorting
@@ -39,8 +47,14 @@ export default function SearchResults({
     resourceTypeFilter,
     originalResults: results,
     filteredResults,
-    sortedResults,
+    sortedResults
   });
+
+  const handleSelectResult = (result: SearchResult) => {
+    if (onSelectResult) {
+      onSelectResult(result);
+    }
+  };
 
   if (!sortedResults.length) {
     return (
@@ -53,44 +67,28 @@ export default function SearchResults({
   }
 
   return (
-    <Stack spacing={2}>
-      {sortedResults.map((result) => {
-        // Handle potentially undefined resource_type with a default fallback
-        const resourceType = result.resource_type?.trim().toLowerCase() || '';
-        
-        if (resourceType === "dataset") {
+    <Box>
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="subtitle1">
+          {sortedResults.length} results
+        </Typography>
+      </Box>
+
+      <Stack spacing={1.5} sx={{ mb: 4 }}>
+        {sortedResults.map((result, index) => {
+          // Determine if this result is selected
+          const isSelected = selectedResultId === result.id;
+          
           return (
-            <DatasetCard
-              key={result.id || `dataset-${Math.random()}`}
-              dataset={result as unknown as ResourceData}
+            <CompactResultCard 
+              key={result.id || `result-${index}`}
+              result={result}
+              isSelected={isSelected}
+              onClick={() => handleSelectResult(result)}
             />
           );
-        } else if (resourceType === "variable") {
-          return (
-            <VariableCard
-              key={result.id || `variable-${Math.random()}`}
-              variable={result as unknown as ResourceData}
-            />
-          );
-        } else if (resourceType === "study") {
-          return (
-            <StudyCard
-              key={result.id || `study-${Math.random()}`}
-              study={result as unknown as ResourceData}
-            />
-          );
-        } else if (resourceType === "source") {
-          return (
-            <SourceCard
-              key={result.id || `source-${Math.random()}`}
-              source={result as unknown as ResourceData}
-            />
-          );
-        } else {
-          console.log("Non supported resource type:", result);
-          return null;
-        }
-      })}
-    </Stack>
+        })}
+      </Stack>
+    </Box>
   );
 }

@@ -59,27 +59,85 @@ const NumericFilter: React.FC<{
   filter: AggregateFilter;
   onChange: (selected: string[]) => void;
 }> = ({ filter, onChange }) => {
+  // Better parsing of numeric values from filter options
   const numericValues = filter.options
-    .map((o) => Number(o))
+    .map((o) => {
+      const parsed = Number(o);
+      return parsed;
+    })
     .filter((n) => !isNaN(n) && isFinite(n)); // Filter out NaN and infinity values
   
   // Handle case with no valid numeric values
   if (numericValues.length === 0) {
+    console.warn(`No valid numeric values found for filter ${filter.id}, using defaults`);
+    
+    // Use defaults based on filter id if possible
+    let defaultMin = 0;
+    let defaultMax = 100;
+    
+    if (filter.id === "sample_size" || filter.id.includes("sample_size")) {
+      defaultMax = 100000;
+    } else if (filter.id === "duration_years" || filter.id.includes("duration")) {
+      defaultMax = 100;
+    } else if (filter.id === "num_variables" || filter.id.includes("variables")) {
+      defaultMax = 10000;
+    } else if (filter.id === "num_sweeps" || filter.id.includes("sweeps")) {
+      defaultMax = 50;
+    } else if (filter.id === "start_year" || filter.id === "end_year" || 
+               filter.id.includes("year")) {
+      defaultMin = 1900;
+      defaultMax = 2024;
+    } else if (filter.id === "age_range" || filter.id.includes("age")) {
+      defaultMax = 100;
+    }
+    
+    // Use these defaults
+    const [value, setValue] = useState<number[]>([defaultMin, defaultMax]);
+    
+    const handleChange = (event: Event, newValue: number | number[]) => {
+      if (Array.isArray(newValue)) {
+        setValue(newValue);
+      }
+    };
+
+    const handleChangeCommitted = (
+      event: React.SyntheticEvent | Event,
+      newValue: number | number[]
+    ) => {
+      if (Array.isArray(newValue)) {
+        onChange([String(newValue[0]), String(newValue[1])]);
+      }
+    };
+    
     return (
-      <Box>
-        <Typography variant="caption" color="error">
-          No valid range data available
-        </Typography>
+      <Box sx={{ minWidth: 150 }}>
+        <FancySlider
+          value={value}
+          onChange={handleChange}
+          onChangeCommitted={handleChangeCommitted}
+          valueLabelDisplay="auto"
+          min={defaultMin}
+          max={defaultMax}
+        />
+        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+          <Typography variant="caption">{value[0]}</Typography>
+          <Typography variant="caption">{value[1]}</Typography>
+        </Box>
       </Box>
     );
   }
   
+  // If we have valid numeric values, use them
   // Get min and max from the numeric values
   const min = Math.min(...numericValues);
   const max = Math.max(...numericValues);
   
+  // If min and max are equal, adjust max slightly to create a valid range
+  const actualMin = min;
+  const actualMax = min === max ? max + 1 : max;
+  
   // Initialize state with the full range
-  const [value, setValue] = useState<number[]>([min, max]);
+  const [value, setValue] = useState<number[]>([actualMin, actualMax]);
 
   const handleChange = (event: Event, newValue: number | number[]) => {
     if (Array.isArray(newValue)) {
@@ -96,24 +154,6 @@ const NumericFilter: React.FC<{
     }
   };
 
-  // If min and max are the same, just display a disabled slider
-  if (min === max) {
-    return (
-      <Box sx={{ minWidth: 150 }}>
-        <Typography variant="caption" sx={{ mb: 1, display: 'block' }}>
-          Fixed value: {min}
-        </Typography>
-        <FancySlider
-          value={[min, min]}
-          disabled
-          valueLabelDisplay="off"
-          min={min}
-          max={min + 1} // Prevent zero-width slider error
-        />
-      </Box>
-    );
-  }
-
   return (
     <Box sx={{ minWidth: 150 }}>
       <FancySlider
@@ -121,8 +161,8 @@ const NumericFilter: React.FC<{
         onChange={handleChange}
         onChangeCommitted={handleChangeCommitted}
         valueLabelDisplay="auto"
-        min={min}
-        max={max}
+        min={actualMin}
+        max={actualMax}
       />
       <Box sx={{ display: "flex", justifyContent: "space-between" }}>
         <Typography variant="caption">{value[0]}</Typography>
@@ -385,25 +425,110 @@ export default function FilterPanel({
 
   // Handle special case of age_range filter when user selects a range
   const handleFilterSelection = (categoryId: string, selectedOptions: string[]) => {
-    // If this is the age_range filter, we need to set both age_lower and age_upper
+    // If this is the age_range filter, we need to set both age_min and age_max
+    // (API uses age_min/age_max for search but returns age_lower/age_upper in aggregations)
     if (categoryId === "sample_characteristics#age_range") {
       if (selectedOptions.length === 2) {
         const [minAge, maxAge] = selectedOptions.map(Number);
         
-        // Set age_lower to the selected minimum
-        if (onSelectionChange) {
-          onSelectionChange("age_lower", [String(minAge)]);
-          // Set age_upper to the selected maximum
-          onSelectionChange("age_upper", [String(maxAge)]);
-        }
+        // Find the original age filter to check if this is the full range
+        const sampleCharacteristicsFilter = filters.find(f => f.id === "sample_characteristics");
+        const ageRangeFilter = sampleCharacteristicsFilter?.subFilters?.find(f => f.id === "age_range");
         
-        // Update local state for both age filters
-        setSelectedFilters(prev => ({
-          ...prev,
-          "age_lower": [String(minAge)],
-          "age_upper": [String(maxAge)],
-          [categoryId]: selectedOptions
-        }));
+        if (ageRangeFilter) {
+          const fullRangeValues = ageRangeFilter.options
+            .map(o => Number(o))
+            .filter(n => !isNaN(n) && isFinite(n));
+          
+          const originalMin = fullRangeValues.length > 0 ? Math.min(...fullRangeValues) : 0;
+          const originalMax = fullRangeValues.length > 0 ? Math.max(...fullRangeValues) : 100;
+          
+          // Only set the filters if the user has actually filtered (not at full range)
+          const isFullRange = minAge <= originalMin + 0.1 && maxAge >= originalMax - 0.1;
+          
+          if (!isFullRange) {
+            // Set age_min and age_max for API (not age_lower and age_upper)
+            if (onSelectionChange) {
+              onSelectionChange("age_min", [String(minAge)]);
+              onSelectionChange("age_max", [String(maxAge)]);
+            }
+            
+            // Update local state
+            setSelectedFilters(prev => ({
+              ...prev,
+              "age_min": [String(minAge)],
+              "age_max": [String(maxAge)],
+              [categoryId]: selectedOptions
+            }));
+          } else {
+            // Clear the filters if at full range
+            if (onSelectionChange) {
+              onSelectionChange("age_min", []);
+              onSelectionChange("age_max", []);
+            }
+            
+            // Update local state - remove the filters
+            setSelectedFilters(prev => {
+              const newState = { ...prev };
+              delete newState["age_min"];
+              delete newState["age_max"];
+              return {
+                ...newState,
+                [categoryId]: selectedOptions
+              };
+            });
+          }
+        }
+      }
+    } else if (categoryId.includes("#") && categoryId.split("#")[1] && numericFields.includes(categoryId.split("#")[1])) {
+      // For other numeric fields, check if they're at their full range
+      const [parentId, filterId] = categoryId.split("#");
+      
+      if (selectedOptions.length === 2) {
+        const [minValue, maxValue] = selectedOptions.map(Number);
+        
+        // Find the original filter to check if this is the full range
+        const parentFilter = filters.find(f => f.id === parentId);
+        const numericFilter = parentFilter?.subFilters?.find(f => f.id === filterId);
+        
+        if (numericFilter) {
+          const fullRangeValues = numericFilter.options
+            .map(o => Number(o))
+            .filter(n => !isNaN(n) && isFinite(n));
+          
+          const originalMin = fullRangeValues.length > 0 ? Math.min(...fullRangeValues) : 0;
+          const originalMax = fullRangeValues.length > 0 ? Math.max(...fullRangeValues) : 100;
+          
+          // Only set the filter if the user has actually filtered (not at full range)
+          const isFullRange = minValue <= originalMin + 0.1 && maxValue >= originalMax - 0.1;
+          
+          if (!isFullRange) {
+            // Handle regular filter selection
+            setSelectedFilters(prev => ({
+              ...prev,
+              [filterId]: selectedOptions,
+              [categoryId]: selectedOptions
+            }));
+            
+            if (onSelectionChange) {
+              onSelectionChange(filterId, selectedOptions);
+            }
+          } else {
+            // Clear the filter if at full range
+            setSelectedFilters(prev => {
+              const newState = { ...prev };
+              delete newState[filterId];
+              return {
+                ...newState,
+                [categoryId]: selectedOptions
+              };
+            });
+            
+            if (onSelectionChange) {
+              onSelectionChange(filterId, []);
+            }
+          }
+        }
       }
     } else {
       // Handle regular filter selection

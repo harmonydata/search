@@ -55,6 +55,7 @@ export default function StudyDetail({ study }: StudyDetailProps) {
           width={80}
           height={40}
           style={{ objectFit: "contain" }}
+          unoptimized={true}
         />
       </Box>
 
@@ -126,6 +127,7 @@ export default function StudyDetail({ study }: StudyDetailProps) {
           width={80}
           height={40}
           style={{ objectFit: "contain" }}
+          unoptimized={true}
         />
       </Box>
 
@@ -153,6 +155,7 @@ export default function StudyDetail({ study }: StudyDetailProps) {
               width={40}
               height={40}
               style={{ objectFit: "contain" }}
+              unoptimized={true}
             />
           </Card>
         ))}

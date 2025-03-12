@@ -68,7 +68,8 @@ interface ExtendedAggregateFilter extends AggregateFilter {
 const NumericFilter: React.FC<{
   filter: AggregateFilter;
   onChange: (selected: string[]) => void;
-}> = ({ filter, onChange }) => {
+  initialSelected?: string[];
+}> = ({ filter, onChange, initialSelected = [] }) => {
   // Better parsing of numeric values from filter options
   const numericValues = filter.options
     .map((o) => {
@@ -101,9 +102,28 @@ const NumericFilter: React.FC<{
       defaultMax = 100;
     }
     
-    // Use these defaults
-    const [value, setValue] = useState<number[]>([defaultMin, defaultMax]);
+    // Check for initial selected values
+    let initialMin = defaultMin;
+    let initialMax = defaultMax;
+    if (initialSelected && initialSelected.length === 2) {
+      const [min, max] = initialSelected.map(Number);
+      if (!isNaN(min) && isFinite(min)) initialMin = min;
+      if (!isNaN(max) && isFinite(max)) initialMax = max;
+    }
     
+    // Use these defaults or initial values
+    const [value, setValue] = useState<number[]>([initialMin, initialMax]);
+    
+    // Update internal state when initialSelected changes
+    React.useEffect(() => {
+      if (initialSelected && initialSelected.length === 2) {
+        const [min, max] = initialSelected.map(Number);
+        if (!isNaN(min) && isFinite(min) && !isNaN(max) && isFinite(max)) {
+          setValue([min, max]);
+        }
+      }
+    }, [initialSelected]);
+
     const handleChange = (event: Event, newValue: number | number[]) => {
       if (Array.isArray(newValue)) {
         setValue(newValue);
@@ -146,8 +166,27 @@ const NumericFilter: React.FC<{
   const actualMin = min;
   const actualMax = min === max ? max + 1 : max;
   
-  // Initialize state with the full range
-  const [value, setValue] = useState<number[]>([actualMin, actualMax]);
+  // Check for initial selected values
+  let initialMin = actualMin;
+  let initialMax = actualMax;
+  if (initialSelected && initialSelected.length === 2) {
+    const [min, max] = initialSelected.map(Number);
+    if (!isNaN(min) && isFinite(min)) initialMin = min;
+    if (!isNaN(max) && isFinite(max)) initialMax = max;
+  }
+  
+  // Initialize state with the range
+  const [value, setValue] = useState<number[]>([initialMin, initialMax]);
+  
+  // Update internal state when initialSelected changes
+  React.useEffect(() => {
+    if (initialSelected && initialSelected.length === 2) {
+      const [min, max] = initialSelected.map(Number);
+      if (!isNaN(min) && isFinite(min) && !isNaN(max) && isFinite(max)) {
+        setValue([min, max]);
+      }
+    }
+  }, [initialSelected]);
 
   const handleChange = (event: Event, newValue: number | number[]) => {
     if (Array.isArray(newValue)) {
@@ -187,8 +226,14 @@ const DropdownFilter: React.FC<{
   filter: AggregateFilter;
   onChange: (selected: string[]) => void;
   mapping?: Record<string, string>;
-}> = ({ filter, onChange, mapping }) => {
-  const [value, setValue] = useState<string[]>([]);
+  initialSelected?: string[];
+}> = ({ filter, onChange, mapping, initialSelected = [] }) => {
+  const [value, setValue] = useState<string[]>(initialSelected);
+
+  // Update internal state when initialSelected changes
+  React.useEffect(() => {
+    setValue(initialSelected);
+  }, [initialSelected]);
 
   // Format the options for display
   const getOptionLabel = (option: string) => {
@@ -225,8 +270,14 @@ const ChipsFilter: React.FC<{
   filter: AggregateFilter;
   onChange: (selected: string[]) => void;
   mapping?: Record<string, string>;
-}> = ({ filter, onChange, mapping }) => {
-  const [selected, setSelected] = useState<string[]>([]);
+  initialSelected?: string[];
+}> = ({ filter, onChange, mapping, initialSelected = [] }) => {
+  const [selected, setSelected] = useState<string[]>(initialSelected);
+
+  // Update internal state when initialSelected changes
+  React.useEffect(() => {
+    setSelected(initialSelected);
+  }, [initialSelected]);
 
   const handleToggle = (option: string) => {
     let newSelected: string[];
@@ -764,6 +815,7 @@ export default function FilterPanel({
           onChange={(selected) =>
             handleFilterSelection(activeFilter.id, selected)
           }
+          initialSelected={selectedFilters[activeFilter.id] || []}
         />
       );
     } else if (activeFilter.options.length > DROPDOWN_THRESHOLD) {
@@ -777,6 +829,7 @@ export default function FilterPanel({
             handleFilterSelection(activeFilter.id, selected)
           }
           mapping={mapping}
+          initialSelected={selectedFilters[activeFilter.id] || []}
         />
       );
     } else {
@@ -790,6 +843,7 @@ export default function FilterPanel({
             handleFilterSelection(activeFilter.id, selected)
           }
           mapping={mapping}
+          initialSelected={selectedFilters[activeFilter.id] || []}
         />
       );
     }
@@ -909,6 +963,7 @@ export default function FilterPanel({
                       onChange={(selected) => {
                         handleFilterSelection(key, selected);
                       }}
+                      initialSelected={selectedFilters[key] || []}
                     />
                   );
                 } else if (processedOptions.length > DROPDOWN_THRESHOLD) {
@@ -925,6 +980,7 @@ export default function FilterPanel({
                         handleFilterSelection(key, selected);
                       }}
                       mapping={mapping}
+                      initialSelected={selectedFilters[key] || []}
                     />
                   );
                 } else {
@@ -941,6 +997,7 @@ export default function FilterPanel({
                         handleFilterSelection(key, selected);
                       }}
                       mapping={mapping}
+                      initialSelected={selectedFilters[key] || []}
                     />
                   );
                 }
@@ -987,6 +1044,7 @@ export default function FilterPanel({
                 onChange={(selected) => {
                   handleFilterSelection(activeFilter.id, selected);
                 }}
+                initialSelected={selectedFilters[activeFilter.id] || []}
               />
             </Box>
           ) : activeFilter.options.length > DROPDOWN_THRESHOLD ? (
@@ -1009,6 +1067,7 @@ export default function FilterPanel({
                     ? languageMap
                     : undefined
                 }
+                initialSelected={selectedFilters[activeFilter.id] || []}
               />
             </Box>
           ) : (
@@ -1031,6 +1090,7 @@ export default function FilterPanel({
                     ? languageMap
                     : undefined
                 }
+                initialSelected={selectedFilters[activeFilter.id] || []}
               />
             </Box>
           )}

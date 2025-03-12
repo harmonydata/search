@@ -11,3 +11,11 @@
 - Improved label formatting throughout the filter panel to consistently replace underscores with spaces
 - Updated numeric filter handling to use proper {field}_min and {field}_max parameter format for all numeric ranges
 - Added reset filters button and improved search result cards with better title wrapping, keywords as text, variable chips, and image support
+- Fixed image loading error by adding cataloguementalhealth.ac.uk to allowed domains in next.config.js
+- Enhanced image handling by adding more domains to next.config.js and implementing error handling for dynamic image loading
+- Fixed image domain configuration by switching to remotePatterns and improved filter state management to maintain selected filters when switching between filter categories
+- Updated result cards according to design: removed borders/backgrounds, made image section wider, aligned images with title, used SquareChip components, and fixed image loading issues
+- Made result cards completely borderless according to design requirements
+- Fixed result cards to completely remove all borders, including from the ButtonBase component
+- Simplified result card implementation by replacing Card with Box component for completely borderless design
+- Simplified result card styling to fix box shadow issue with minimal code changes

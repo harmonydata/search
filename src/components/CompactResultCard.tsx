@@ -76,16 +76,6 @@ export default function CompactResultCard({ result, isSelected, onClick }: Compa
               <Typography variant="h6" gutterBottom noWrap sx={{ mb: 0.5 }}>
                 {title}
               </Typography>
-              
-              {result.cosine_similarity && (
-                <Chip 
-                  size="small" 
-                  label={`${Math.round(result.cosine_similarity * 100)}%`} 
-                  color="primary" 
-                  variant="outlined"
-                  sx={{ ml: 1, mt: 0.5 }}
-                />
-              )}
             </Box>
             
             {keywords.length > 0 && (

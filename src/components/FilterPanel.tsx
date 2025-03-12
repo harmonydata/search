@@ -249,9 +249,14 @@ export default function FilterPanel({
   const [selectedFilters, setSelectedFilters] = useState<
     Record<string, string[]>
   >({});
+  
+  // Track whether initial filters have been set
+  const [initialFiltersSet, setInitialFiltersSet] = useState<boolean>(false);
 
   React.useEffect(() => {
-    if (filtersData && filtersData.length > 0) {
+    // Only process and set filters if they haven't been set yet
+    // or if filtersData has changed AND we haven't set any filters yet
+    if (!initialFiltersSet && filtersData && filtersData.length > 0) {
       let filtersCopy = [...filtersData];
       
       // List of filter IDs that should be grouped under "Sample Characteristics"
@@ -336,8 +341,12 @@ export default function FilterPanel({
       if (!selectedCategory && filtersCopy.length > 0) {
         setSelectedCategory(filtersCopy[0].id);
       }
-    } else {
-      // If filtersData prop is not provided, fetch from API
+      
+      // Mark initial filters as set
+      setInitialFiltersSet(true);
+      console.log("Initial filters set with", filtersCopy.length, "categories");
+    } else if (!initialFiltersSet && (!filtersData || filtersData.length === 0)) {
+      // If filtersData prop is not provided and we haven't set filters yet, fetch from API
       fetchAggregateFilters()
         .then((data) => {
           let filtersCopy = [...data];
@@ -416,12 +425,18 @@ export default function FilterPanel({
           if (filtersCopy.length > 0 && !selectedCategory) {
             setSelectedCategory(filtersCopy[0].id);
           }
+          
+          // Mark initial filters as set
+          setInitialFiltersSet(true);
+          console.log("Initial filters set from API with", filtersCopy.length, "categories");
         })
         .catch((error) => {
           console.error("Error fetching aggregate filters:", error);
         });
     }
-  }, [filtersData, selectedCategory]);
+    // Remove the dependency on filtersData so it doesn't re-run when prop changes
+    // Only respond to changes in initialFiltersSet state
+  }, [initialFiltersSet, selectedCategory]);
 
   // Handle special case of age_range filter when user selects a range
   const handleFilterSelection = (categoryId: string, selectedOptions: string[]) => {

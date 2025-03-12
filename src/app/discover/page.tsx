@@ -78,6 +78,7 @@ const sampleStudyDetail = {
 // Create a new component for the search functionality
 function DiscoverPageContent() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [filters, setFilters] = useState<AggregateFilter[]>([]);
   const [selectedFilters, setSelectedFilters] = useState<
@@ -98,6 +99,17 @@ function DiscoverPageContent() {
     [resourceType]
   );
 
+  // Debounce search query to prevent firing API calls on every keystroke
+  useEffect(() => {
+    const timerId = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500); // 500ms delay after user stops typing
+    
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [searchQuery]);
+
   // Debug helper function to log current state to console
   const debugState = useCallback(() => {
     // Store state in window for later inspection
@@ -108,6 +120,7 @@ function DiscoverPageContent() {
         totalHits,
         resultsPerPage,
         searchQuery,
+        debouncedSearchQuery,
         selectedFilters,
         filters,
         results,
@@ -123,6 +136,7 @@ function DiscoverPageContent() {
           // totalPages: Math.ceil(totalHits / resultsPerPage) 
         },
         searchQuery,
+        debouncedSearchQuery,
         selectedFilters,
         filterCount: filters.length,
         resultCount: results.length,
@@ -134,7 +148,7 @@ function DiscoverPageContent() {
     }
   }, [
     // currentPage, 
-    totalHits, resultsPerPage, searchQuery, selectedFilters, filters, results, selectedResult
+    totalHits, resultsPerPage, searchQuery, debouncedSearchQuery, selectedFilters, filters, results, selectedResult
   ]);
 
   // Handle result selection
@@ -169,12 +183,15 @@ function DiscoverPageContent() {
     }
   }, []);
 
-  // Fetch initial aggregations for filters
+  // Fetch initial aggregations for filters - this should only happen once
   useEffect(() => {
     async function fetchInitialAggregations() {
       try {
-        const filters = await fetchAggregateFilters();
-        setFilters(processAggregations(filters));
+        console.log("Fetching initial aggregations...");
+        const aggregateData = await fetchAggregateFilters();
+        const processedFilters = processAggregations(aggregateData);
+        setFilters(processedFilters);
+        console.log("Initial aggregations set:", processedFilters.length, "filters");
       } catch (error) {
         console.error("Failed to fetch initial aggregations:", error);
       }
@@ -227,13 +244,13 @@ function DiscoverPageContent() {
       // Create a request ID for tracking this particular search request
       const requestId = `search-${Date.now()}`;
       console.group(`🔍 Search Request: ${requestId}`);
-      console.log('Search query:', searchQuery || '(empty)');
+      console.log('Search query:', debouncedSearchQuery || '(empty)');
       console.log('Filters:', combinedFilters);
       console.log('Results per page:', resultsPerPage);
       // console.log('Page:', currentPage, 'Results per page:', resultsPerPage);
       
       const res: SearchResponse = await fetchSearchResults(
-        searchQuery,
+        debouncedSearchQuery,
         combinedFilters,
         // currentPage,
         resultsPerPage
@@ -261,8 +278,8 @@ function DiscoverPageContent() {
       // Set total hits for pagination
       setTotalHits(res.num_hits || 0);
       
-      // NOTE: We no longer update filters based on search results
-      // This keeps the filters stable during search
+      // IMPORTANT: We do NOT update filters based on search results
+      // This ensures filters remain stable and consistent during search
     } catch (error) {
       console.error("Search failed:", error);
     } finally {
@@ -284,7 +301,7 @@ function DiscoverPageContent() {
     return str.charAt(0).toUpperCase() + str.slice(1).replace(/_/g, ' ');
   }
 
-  // Process aggregations to create filters
+  // Process aggregations to create filters - this should only be called with initial aggregation data
   const processAggregations = (aggs: Record<string, any>): AggregateFilter[] => {
     const aggregateFilters: AggregateFilter[] = [];
 
@@ -460,10 +477,11 @@ function DiscoverPageContent() {
     return aggregateFilters;
   };
 
-  // When search query or selected filters change, perform search
+  // Search only when debounced search query or selected filters change
+  // This prevents excessive API calls during typing
   useEffect(() => {
     performSearch();
-  }, [searchQuery, selectedFilters, resourceTypeFilter 
+  }, [debouncedSearchQuery, selectedFilters, resourceTypeFilter 
     // , currentPage
   ]);
 
@@ -553,7 +571,12 @@ function DiscoverPageContent() {
             }}
             InputProps={{
               endAdornment: (
-                <Box sx={{ mr: 1, ml: -0.5 }}>
+                <Box sx={{ mr: 1, ml: -0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {searchQuery !== debouncedSearchQuery && (
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                      Typing...
+                    </Typography>
+                  )}
                   <Image
                     src="/icons/discover.svg"
                     alt="Search"
@@ -633,7 +656,7 @@ function DiscoverPageContent() {
                 <li><code>window.__debugState</code> - Current component state</li>
               </ul>
               
-              <strong>Current Search:</strong> {searchQuery || '(empty)'}<br />
+              <strong>Current Search:</strong> {debouncedSearchQuery || '(empty)'}<br />
               <strong>Total hits:</strong> {totalHits}<br />
               {/* <strong>Page:</strong> {currentPage} of {Math.ceil(totalHits / resultsPerPage)} (Total hits: {totalHits})<br /> */}
               <strong>Selected Filters:</strong> {Object.keys(selectedFilters).length > 0 
@@ -647,7 +670,7 @@ function DiscoverPageContent() {
                 debugState();
                 // Copy debug information to clipboard
                 const debugInfo = JSON.stringify({
-                  search: searchQuery,
+                  search: debouncedSearchQuery,
                   // page: currentPage,
                   totalHits,
                   selectedFilters

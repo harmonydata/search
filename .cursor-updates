@@ -5,3 +5,5 @@
 - Added debugging tools to help inspect API responses and state in the developer console
 - Temporarily disabled pagination to simplify API integration, showing fixed limit of 20 results
 - Updated search results layout with compact cards and implemented result selection to show details in the right panel
+- Removed cosine similarity chip from result cards and implemented search debouncing
+- Fixed filter panel bug where filters disappeared when clicked by properly managing filter state

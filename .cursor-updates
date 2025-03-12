@@ -1,0 +1,1 @@
+- Updated API endpoints to use new Weaviate API and implemented improved filter UI with proper numeric range handling

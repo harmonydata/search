@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Typography, Chip, Card, Button } from "@mui/material";
+import { Box, Typography, Card } from "@mui/material";
 import Image from "next/image";
 import { ChevronDown } from "lucide-react";
 import SquareChip from "@/components/SquareChip";

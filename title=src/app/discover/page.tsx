@@ -1,5 +1,5 @@
 "use client";
-
+import React, { Suspense } from "react";
 import { useState, useEffect, useMemo } from "react";
 import { Box, Container, TextField, Button, Typography } from "@mui/material";
 import { ChevronDown } from "lucide-react";
@@ -14,7 +14,11 @@ import {
   AggregateFilter,
 } from "@/services/api";
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+
+// Function to capitalize filter labels
+function capitalize(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1).replace(/_/g, ' ');
+}
 
 // Sample study detail remains static for now
 const sampleStudyDetail = {
@@ -74,37 +78,31 @@ const sampleStudyDetail = {
   ],
 };
 
-// Create a new component for the search functionality
+export default function DiscoverPage() {
+  return (
+    <Suspense fallback={<div className="p-4">Loading Discover Content...</div>}>
+      <DiscoverPageContent />
+    </Suspense>
+  );
+}
+
 function DiscoverPageContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [filters, setFilters] = useState<AggregateFilter[]>([]);
-  const [selectedFilters, setSelectedFilters] = useState<
-    Record<string, string[]>
-  >({});
+  const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
   const resourceType = searchParams.get("resource_type");
-  const resourceTypeFilter = useMemo(
-    () => (resourceType ? [resourceType] : []),
-    [resourceType]
-  );
+  const resourceTypeFilter = useMemo(() => (resourceType ? [resourceType] : []), [resourceType]);
 
   async function performSearch() {
     setLoading(true);
     try {
-      // Create a copy of the filters to send to the API
       const combinedFilters = { ...selectedFilters };
-      
-      // Add resource_type filter if present in URL params
       if (resourceType) {
         combinedFilters.resource_type = [resourceType];
       }
-      
-      // Process age-related filters - we now have age_lower and age_upper in selectedFilters
-      // We don't need to do anything special here as the FilterPanel component
-      // has already updated both age_lower and age_upper in the selectedFilters
-
       const res: SearchResponse = await fetchSearchResults(
         searchQuery,
         combinedFilters
@@ -113,62 +111,16 @@ function DiscoverPageContent() {
       // Set results from the API response
       setResults(res.results || []);
       
-      // Transform aggregations from the new API format
+      // Transform aggregations from the new API format (object with nested objects)
+      // to the format expected by the FilterPanel component (array of AggregateFilter)
       if (res.aggregations) {
-        // Identify numeric fields that should use range sliders
-        const numericFields = [
-          'sample_size', 
-          'age_lower', 
-          'age_upper', 
-          'start_year', 
-          'end_year', 
-          'duration_years', 
-          'num_variables', 
-          'num_sweeps'
-        ];
-        
-        const aggregateFilters: AggregateFilter[] = [];
-        
-        // Process each aggregation
-        Object.entries(res.aggregations).forEach(([key, value]) => {
-          // Handle numeric fields that contain statistics (min, max, etc.)
-          if (numericFields.includes(key) && typeof value === 'object' && !Array.isArray(value)) {
-            const stats = value as Record<string, number>;
-            
-            // Make sure we have minimum and maximum values
-            if ('minimum' in stats && 'maximum' in stats && 
-                !isNaN(stats.minimum) && isFinite(stats.minimum) && 
-                !isNaN(stats.maximum) && isFinite(stats.maximum)) {
-              
-              // Create a range filter with min and max values
-              aggregateFilters.push({
-                id: key,
-                label: capitalize(key),
-                options: [
-                  String(Math.floor(stats.minimum)),
-                  String(Math.ceil(stats.maximum))
-                ]
-              });
-            } else {
-              // If we're missing valid min/max, create a default range
-              console.warn(`Missing valid min/max for ${key}, using defaults`);
-              aggregateFilters.push({
-                id: key,
-                label: capitalize(key),
-                options: ["0", "100"] // Default range
-              });
-            }
-          }
-          // Handle regular categorical filters
-          else if (typeof value === 'object' && !Array.isArray(value)) {
-            aggregateFilters.push({
-              id: key,
-              label: capitalize(key),
-              options: Object.keys(value as Record<string, any>),
-            });
-          }
-        });
-        
+        const aggregateFilters: AggregateFilter[] = Object.entries(res.aggregations)
+          .filter(([key, value]) => typeof value === 'object' && !Array.isArray(value))
+          .map(([key, value]) => ({
+            id: key,
+            label: capitalize(key),
+            options: Object.keys(value as unknown as Record<string, any>),
+          }));
         setFilters(aggregateFilters);
       } else {
         setFilters([]);
@@ -178,20 +130,6 @@ function DiscoverPageContent() {
     } finally {
       setLoading(false);
     }
-  }
-
-  // Helper function to handle filter selection from FilterPanel
-  const handleFilterSelection = (category: string, selectedOptions: string[]) => {
-    // Just update the selected filters - the special case of age_range is handled in FilterPanel
-    setSelectedFilters(prev => ({
-      ...prev,
-      [category]: selectedOptions
-    }));
-  };
-
-  // Helper function to capitalize filter labels
-  function capitalize(str: string): string {
-    return str.charAt(0).toUpperCase() + str.slice(1).replace(/_/g, ' ');
   }
 
   useEffect(() => {
@@ -211,20 +149,13 @@ function DiscoverPageContent() {
             InputProps={{
               endAdornment: (
                 <Box sx={{ mr: 1, ml: -0.5 }}>
-                  <Image
-                    src="/icons/discover.svg"
-                    alt="Search"
-                    width={20}
-                    height={20}
-                  />
+                  <Image src="/icons/discover.svg" alt="Search" width={20} height={20} />
                 </Box>
               ),
               sx: {
                 height: 48,
                 "& .MuiOutlinedInput-root": { borderRadius: 24 },
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "grey.200",
-                },
+                "& .MuiOutlinedInput-notchedOutline": { borderColor: "grey.200" },
               },
             }}
             sx={{ "& .MuiOutlinedInput-root": { borderRadius: 24 } }}
@@ -233,22 +164,11 @@ function DiscoverPageContent() {
             <Button
               variant="contained"
               color="secondary"
-              sx={{
-                minWidth: 0,
-                width: 40,
-                height: 40,
-                borderRadius: "50%",
-                p: 0,
-              }}
+              sx={{ minWidth: 0, width: 40, height: 40, borderRadius: "50%", p: 0 }}
             >
-              <ChevronDown
-                size={14}
-                style={{ fill: "#004735", stroke: "none" }}
-              />
+              <ChevronDown size={14} style={{ fill: "#004735", stroke: "none" }} />
             </Button>
-            <Typography
-              sx={{ color: "#191B22", fontWeight: 500, whiteSpace: "nowrap" }}
-            >
+            <Typography sx={{ color: "#191B22", fontWeight: 500, whiteSpace: "nowrap" }}>
               Advanced Search
             </Typography>
           </Box>
@@ -257,7 +177,9 @@ function DiscoverPageContent() {
         {/* Filter Panel updated with aggregations from search */}
         <FilterPanel
           filtersData={filters}
-          onSelectionChange={handleFilterSelection}
+          onSelectionChange={(category, selectedOptions) =>
+            setSelectedFilters((prev) => ({ ...prev, [category]: selectedOptions }))
+          }
         />
 
         {/* Main Content Area */}
@@ -267,10 +189,7 @@ function DiscoverPageContent() {
             {loading ? (
               <Typography>Loading search results...</Typography>
             ) : (
-              <SearchResults
-                results={results}
-                resourceTypeFilter={resourceTypeFilter}
-              />
+              <SearchResults results={results} resourceTypeFilter={resourceTypeFilter} />
             )}
           </Box>
 
@@ -292,19 +211,4 @@ function DiscoverPageContent() {
       </Container>
     </Box>
   );
-}
-
-// Main page component with Suspense boundary
-export default function DiscoverPage() {
-  return (
-    <Suspense
-      fallback={
-        <Box sx={{ p: 4 }}>
-          <Typography>Loading...</Typography>
-        </Box>
-      }
-    >
-      <DiscoverPageContent />
-    </Suspense>
-  );
-}
+} 

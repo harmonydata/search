@@ -73,24 +73,16 @@ export default function CompactResultCard({ result, isSelected, onClick }: Compa
   };
   
   return (
-    <Box
-      sx={{
-        boxShadow: 'none',
-        transition: 'background 0.2s ease-in-out',
-        background: isSelected ? 'rgba(0, 0, 0, 0.02)' : 'transparent'
-      }}
-    >
+    
       <Box 
         onClick={onClick}
         sx={{
           cursor: 'pointer',
-          display: 'flex',
+          display: 'flex', 
           width: '100%',
-          background: 'transparent',
-          // Only apply hover effect to non-selected items
-          '&:hover': isSelected 
-            ? {} // No hover effect for selected items
-            : { bgcolor: 'rgba(0, 0, 0, 0.02)' } // Only hover background for non-selected
+          '&:hover': {
+            bgcolor:'rgba(0, 0, 0, 0.02)'
+          }
         }}
       >
         <Box sx={{ 
@@ -101,8 +93,8 @@ export default function CompactResultCard({ result, isSelected, onClick }: Compa
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'flex-start', // Align to top
-          background: 'transparent',
-          color: 'grey.500'
+          color: 'grey.500',
+          background: 'transparent'
         }}>
           {imageUrl && !imageError ? (
             <Image
@@ -122,7 +114,7 @@ export default function CompactResultCard({ result, isSelected, onClick }: Compa
         <Box sx={{ 
           p: 2, 
           flex: 1,
-          background: 'transparent',
+          background: 'transparent'
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <Typography 
@@ -214,6 +206,6 @@ export default function CompactResultCard({ result, isSelected, onClick }: Compa
           </Box>
         </Box>
       </Box>
-    </Box>
+
   );
 } 

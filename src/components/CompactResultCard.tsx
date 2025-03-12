@@ -45,15 +45,13 @@ export default function CompactResultCard({ result, isSelected, onClick }: Compa
     : description;
     
   // Determine if result has image
-  // First check dataset_schema.includedInDataCatalog[].image
   let imageUrl = null;
   const [imageError, setImageError] = useState(false);
   
-  // Get the specific image URL (not just the site logo)
+  // Simply use the image URL if it exists
   if (result.dataset_schema?.includedInDataCatalog && !imageError) {
     for (const catalog of result.dataset_schema.includedInDataCatalog) {
       if (catalog.image) {
-        // Make sure we're getting the exact image specified, not just a generic site logo
         imageUrl = catalog.image;
         break;
       }
@@ -77,14 +75,9 @@ export default function CompactResultCard({ result, isSelected, onClick }: Compa
   return (
     <Box
       sx={{
-        boxShadow: isSelected ? '0 0 0 2px rgba(25, 118, 210, 0.3)' : 'none',
-        transition: 'all 0.2s ease-in-out',
-        '&:hover': {
-          boxShadow: isSelected 
-            ? '0 0 0 2px rgba(25, 118, 210, 0.3)' 
-            : '0 2px 8px rgba(0, 0, 0, 0.08)'
-        },
-        background: 'transparent'
+        boxShadow: 'none',
+        transition: 'background 0.2s ease-in-out',
+        background: isSelected ? 'rgba(0, 0, 0, 0.02)' : 'transparent'
       }}
     >
       <Box 
@@ -94,7 +87,10 @@ export default function CompactResultCard({ result, isSelected, onClick }: Compa
           display: 'flex',
           width: '100%',
           background: 'transparent',
-          '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.02)' },
+          // Only apply hover effect to non-selected items
+          '&:hover': isSelected 
+            ? {} // No hover effect for selected items
+            : { bgcolor: 'rgba(0, 0, 0, 0.02)' } // Only hover background for non-selected
         }}
       >
         <Box sx={{ 

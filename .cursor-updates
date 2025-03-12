@@ -19,3 +19,7 @@
 - Fixed result cards to completely remove all borders, including from the ButtonBase component
 - Simplified result card implementation by replacing Card with Box component for completely borderless design
 - Simplified result card styling to fix box shadow issue with minimal code changes
+- Completely removed all box shadows from result cards, using only background color for selection
+- Fixed result card background behavior so only selected item has background, and non-selected items only get background on hover
+- Fixed image handling to properly display dataset-specific images instead of site logos, especially for Catalogue of Mental Health URLs
+- Simplified image handling to just use the provided image URL directly with no unnecessary filtering

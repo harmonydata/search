@@ -9,6 +9,7 @@ import {
   TextField,
   Badge,
   Switch,
+  Button,
 } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
 import { fetchAggregateFilters, AggregateFilter } from "@/services/api";
@@ -276,6 +277,46 @@ export default function FilterPanel({
   
   // Track whether initial filters have been set
   const [initialFiltersSet, setInitialFiltersSet] = useState<boolean>(false);
+
+  // Function to reset all filters
+  const resetAllFilters = () => {
+    // Clear all selected filters
+    setSelectedFilters({});
+    
+    // Notify parent component
+    if (onSelectionChange) {
+      // Get all filter keys currently in use
+      const allFilterKeys = Object.keys(selectedFilters);
+      
+      // Clear each filter individually
+      allFilterKeys.forEach(key => {
+        // For special case filters like age_range that map to multiple API parameters
+        if (key === "sample_characteristics#age_range") {
+          onSelectionChange("age_min", []);
+          onSelectionChange("age_max", []);
+        } 
+        else if (key === "sample_characteristics#time_range") {
+          onSelectionChange("start_year", []);
+          onSelectionChange("end_year", []);
+        }
+        else if (key.includes("#") && numericFields.includes(key.split("#")[1])) {
+          // For numeric fields, clear both min and max
+          const filterId = key.split("#")[1];
+          onSelectionChange(`${filterId}_min`, []);
+          onSelectionChange(`${filterId}_max`, []);
+        }
+        else if (key.includes("#")) {
+          // For sub-filters, extract and clear the actual filter ID
+          const filterId = key.split("#")[1];
+          onSelectionChange(filterId, []);
+        } 
+        else {
+          // For top-level filters
+          onSelectionChange(key, []);
+        }
+      });
+    }
+  };
 
   React.useEffect(() => {
     // Only process and set filters if they haven't been set yet
@@ -754,35 +795,62 @@ export default function FilterPanel({
     }
   }
 
+  // Handle dropdown filter options - filter out compound sources and capitalize sources
+  const processFilterOptions = (filterId: string, options: string[]): string[] => {
+    if (filterId === "source") {
+      // Filter out compound sources (those with spaces) and uppercase the rest
+      return options
+        .filter(option => !option.includes(" "))
+        .map(option => option.toUpperCase());
+    }
+    return options;
+  };
+
   return (
     <Box>
-      {/* Top row: filter categories as chips with badge showing number of selections */}
-      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
-        {filters.map((filter) => (
-          <Badge
-            key={filter.id}
-            badgeContent={
-              filter.subFilters
-                ? // Sum selections for merged filter using keys like 'sample_characteristics#subFilterId'
-                  Object.keys(selectedFilters)
-                    .filter((key) => key.startsWith(filter.id + "#"))
-                    .reduce(
-                      (acc, key) => acc + (selectedFilters[key]?.length || 0),
-                      0
-                    )
-                : selectedFilters[filter.id]?.length || 0
-            }
-            color="primary"
+      {/* Top row: filter categories as chips with badge showing number of selections and reset button */}
+      <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", flex: 1 }}>
+          {filters.map((filter) => (
+            <Badge
+              key={filter.id}
+              badgeContent={
+                filter.subFilters
+                  ? // Sum selections for merged filter using keys like 'sample_characteristics#subFilterId'
+                    Object.keys(selectedFilters)
+                      .filter((key) => key.startsWith(filter.id + "#"))
+                      .reduce(
+                        (acc, key) => acc + (selectedFilters[key]?.length || 0),
+                        0
+                      )
+                  : selectedFilters[filter.id]?.length || 0
+              }
+              color="primary"
+            >
+              <Chip
+                label={formatLabel(filter.label)}
+                onClick={() => handleCategoryClick(filter.id)}
+                variant={filter.id === selectedCategory ? "filled" : "outlined"}
+                color={filter.id === selectedCategory ? "primary" : "default"}
+              />
+            </Badge>
+          ))}
+        </Box>
+        
+        {/* Only show reset button if there are active filters */}
+        {Object.keys(selectedFilters).length > 0 && (
+          <Button 
+            variant="outlined" 
+            color="secondary" 
+            size="small" 
+            onClick={resetAllFilters}
+            sx={{ ml: 2, whiteSpace: 'nowrap' }}
           >
-            <Chip
-              label={formatLabel(filter.label)}
-              onClick={() => handleCategoryClick(filter.id)}
-              variant={filter.id === selectedCategory ? "filled" : "outlined"}
-              color={filter.id === selectedCategory ? "primary" : "default"}
-            />
-          </Badge>
-        ))}
+            Reset Filters
+          </Button>
+        )}
       </Box>
+      
       {/* Second row: subordinate filter for the selected category */}
       {activeFilter && (
         <Box sx={{ mb: 2 }}>
@@ -803,6 +871,9 @@ export default function FilterPanel({
                 
                 // Format the filter label nicely
                 const displayLabel = formatLabel(sub.label || sub.id);
+                
+                // Process options (for sources, etc)
+                const processedOptions = processFilterOptions(sub.id, sub.options);
                 
                 // Handle different filter types
                 if (
@@ -831,19 +902,25 @@ export default function FilterPanel({
                 ) {
                   component = (
                     <NumericFilter
-                      filter={sub}
+                      filter={{
+                        ...sub,
+                        options: processedOptions
+                      }}
                       onChange={(selected) => {
                         handleFilterSelection(key, selected);
                       }}
                     />
                   );
-                } else if (sub.options.length > DROPDOWN_THRESHOLD) {
+                } else if (processedOptions.length > DROPDOWN_THRESHOLD) {
                   let mapping: Record<string, string> | undefined;
                   if (sub.id === "country_codes") mapping = countryMap;
                   else if (sub.id === "language_codes") mapping = languageMap;
                   component = (
                     <DropdownFilter
-                      filter={sub}
+                      filter={{
+                        ...sub,
+                        options: processedOptions
+                      }}
                       onChange={(selected) => {
                         handleFilterSelection(key, selected);
                       }}
@@ -856,7 +933,10 @@ export default function FilterPanel({
                   else if (sub.id === "language_codes") mapping = languageMap;
                   component = (
                     <ChipsFilter
-                      filter={sub}
+                      filter={{
+                        ...sub,
+                        options: processedOptions
+                      }}
                       onChange={(selected) => {
                         handleFilterSelection(key, selected);
                       }}
@@ -915,7 +995,10 @@ export default function FilterPanel({
                 {formatLabel(activeFilter.label)}
               </Typography>
               <DropdownFilter
-                filter={activeFilter}
+                filter={{
+                  ...activeFilter,
+                  options: processFilterOptions(activeFilter.id, activeFilter.options)
+                }}
                 onChange={(selected) =>
                   handleFilterSelection(activeFilter.id, selected)
                 }
@@ -934,7 +1017,10 @@ export default function FilterPanel({
                 {formatLabel(activeFilter.label)}
               </Typography>
               <ChipsFilter
-                filter={activeFilter}
+                filter={{
+                  ...activeFilter,
+                  options: processFilterOptions(activeFilter.id, activeFilter.options)
+                }}
                 onChange={(selected) =>
                   handleFilterSelection(activeFilter.id, selected)
                 }

@@ -10,3 +10,4 @@
 - Added time range slider combining start_year and end_year, improved label formatting, and fixed empty query API issue
 - Improved label formatting throughout the filter panel to consistently replace underscores with spaces
 - Updated numeric filter handling to use proper {field}_min and {field}_max parameter format for all numeric ranges
+- Added reset filters button and improved search result cards with better title wrapping, keywords as text, variable chips, and image support

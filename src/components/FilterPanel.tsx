@@ -34,6 +34,14 @@ const languageMap: Record<string, string> = {
   // add more as needed
 };
 
+// Helper function to format labels nicely (replace underscores with spaces and capitalize)
+const formatLabel = (label: string): string => {
+  return label
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
 // Threshold to decide when to use a dropdown multiselect
 const DROPDOWN_THRESHOLD = 10;
 
@@ -47,7 +55,8 @@ const numericFields = [
   'end_year',
   'num_variables',
   'num_sweeps',
-  'age_range'
+  'age_range',
+  'time_range'
 ];
 
 interface ExtendedAggregateFilter extends AggregateFilter {
@@ -84,7 +93,7 @@ const NumericFilter: React.FC<{
     } else if (filter.id === "num_sweeps" || filter.id.includes("sweeps")) {
       defaultMax = 50;
     } else if (filter.id === "start_year" || filter.id === "end_year" || 
-               filter.id.includes("year")) {
+               filter.id.includes("year") || filter.id === "time_range") {
       defaultMin = 1900;
       defaultMax = 2024;
     } else if (filter.id === "age_range" || filter.id.includes("age")) {
@@ -180,13 +189,20 @@ const DropdownFilter: React.FC<{
 }> = ({ filter, onChange, mapping }) => {
   const [value, setValue] = useState<string[]>([]);
 
+  // Format the options for display
+  const getOptionLabel = (option: string) => {
+    if (mapping && mapping[option]) {
+      return mapping[option];
+    }
+    // Format option label for better readability
+    return formatLabel(option);
+  };
+
   return (
     <Autocomplete
       multiple
       options={filter.options}
-      getOptionLabel={(option) =>
-        mapping ? mapping[option] || option : option
-      }
+      getOptionLabel={getOptionLabel}
       value={value}
       onChange={(event, newValue) => {
         setValue(newValue);
@@ -222,12 +238,20 @@ const ChipsFilter: React.FC<{
     onChange(newSelected);
   };
 
+  // Get formatted label for display
+  const getLabel = (option: string) => {
+    if (mapping && mapping[option]) {
+      return mapping[option];
+    }
+    return formatLabel(option);
+  };
+
   return (
     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
       {filter.options.map((option) => (
         <Chip
           key={option}
-          label={mapping ? mapping[option] || option : option}
+          label={getLabel(option)}
           color={selected.includes(option) ? "primary" : "default"}
           onClick={() => handleToggle(option)}
         />
@@ -267,10 +291,10 @@ export default function FilterPanel({
         "sample_size",
         "age_lower",
         "age_upper",
-        "num_variables",
-        "num_sweeps",
         "start_year",
-        "end_year"
+        "end_year",
+        "num_variables",
+        "num_sweeps"
       ];
       
       // Extract the filters that should be grouped under "Sample Characteristics"
@@ -278,13 +302,18 @@ export default function FilterPanel({
         characteristicsIds.includes(f.id)
       );
       
+      // Process filters to create both age_range and time_range combined filters
+      const updatedSubFilters = [...subFilters]; // Start with a copy of all subfilters
+      
       // Create a combined age range filter if both age_lower and age_upper exist
       const ageLowerFilter = subFilters.find(f => f.id === "age_lower");
       const ageUpperFilter = subFilters.find(f => f.id === "age_upper");
       
       if (ageLowerFilter && ageUpperFilter) {
-        // Remove individual age filters
-        const nonAgeSubFilters = subFilters.filter(f => f.id !== "age_lower" && f.id !== "age_upper");
+        // Remove individual age filters from the updated subfilters
+        const filteredSubFilters = updatedSubFilters.filter(f => 
+          f.id !== "age_lower" && f.id !== "age_upper"
+        );
         
         // Get numeric values from both filters
         const ageLowerValues = ageLowerFilter.options
@@ -309,33 +338,59 @@ export default function FilterPanel({
           ]
         };
         
-        // Add the combined filter to subFilters
-        const updatedSubFilters = [...nonAgeSubFilters, combinedAgeFilter];
-        
-        // Filter out the characteristics IDs from the main filter list
-        filtersCopy = filtersCopy.filter(
-          (f) => !characteristicsIds.includes(f.id)
-        );
-        
-        // Add the Sample Characteristics filter with subfilters
-        filtersCopy.push({
-          id: "sample_characteristics",
-          label: "Sample Characteristics",
-          options: [],
-          subFilters: updatedSubFilters,
-        } as ExtendedAggregateFilter);
-      } else if (subFilters.length > 0) {
-        // If we don't have both age filters, just add the regular subfilters
-        filtersCopy = filtersCopy.filter(
-          (f) => !characteristicsIds.includes(f.id)
-        );
-        filtersCopy.push({
-          id: "sample_characteristics",
-          label: "Sample Characteristics",
-          options: [],
-          subFilters,
-        } as ExtendedAggregateFilter);
+        // Add the combined filter to updated subfilters
+        updatedSubFilters.splice(updatedSubFilters.length, 0, combinedAgeFilter);
       }
+      
+      // Create a combined time range filter if both start_year and end_year exist
+      const startYearFilter = subFilters.find(f => f.id === "start_year");
+      const endYearFilter = subFilters.find(f => f.id === "end_year");
+      
+      if (startYearFilter && endYearFilter) {
+        // Remove individual year filters from the updated subfilters
+        const filteredSubFilters = updatedSubFilters.filter(f => 
+          f.id !== "start_year" && f.id !== "end_year"
+        );
+        
+        // Get numeric values from both filters
+        const startYearValues = startYearFilter.options
+          .map(o => Number(o))
+          .filter(n => !isNaN(n) && isFinite(n));
+          
+        const endYearValues = endYearFilter.options
+          .map(o => Number(o))
+          .filter(n => !isNaN(n) && isFinite(n));
+        
+        // Calculate the actual min and max for the combined range
+        const minYear = startYearValues.length > 0 ? Math.min(...startYearValues) : 1900;
+        const maxYear = endYearValues.length > 0 ? Math.max(...endYearValues) : 2024;
+        
+        // Create a new combined time range filter with proper min/max values
+        const combinedTimeFilter: AggregateFilter = {
+          id: "time_range",
+          label: "Time Coverage",
+          options: [
+            String(minYear),
+            String(maxYear)
+          ]
+        };
+        
+        // Add the combined filter to updated subfilters
+        updatedSubFilters.splice(updatedSubFilters.length, 0, combinedTimeFilter);
+      }
+      
+      // Filter out the characteristics IDs from the main filter list
+      filtersCopy = filtersCopy.filter(
+        (f) => !characteristicsIds.includes(f.id)
+      );
+      
+      // Add the Sample Characteristics filter with updated subfilters
+      filtersCopy.push({
+        id: "sample_characteristics",
+        label: "Sample Characteristics",
+        options: [],
+        subFilters: updatedSubFilters,
+      } as ExtendedAggregateFilter);
       
       setFilters(filtersCopy as ExtendedAggregateFilter[]);
       if (!selectedCategory && filtersCopy.length > 0) {
@@ -357,22 +412,29 @@ export default function FilterPanel({
             "sample_size",
             "age_lower",
             "age_upper",
-            "num_variables",
-            "num_sweeps",
             "start_year",
-            "end_year"
+            "end_year",
+            "num_variables",
+            "num_sweeps"
           ];
+          
+          // Extract the filters that should be grouped under "Sample Characteristics"
           const subFilters = filtersCopy.filter((f) =>
             characteristicsIds.includes(f.id)
           );
+          
+          // Process filters to create both age_range and time_range combined filters
+          const updatedSubFilters = [...subFilters]; // Start with a copy of all subfilters
           
           // Create a combined age range filter if both age_lower and age_upper exist
           const ageLowerFilter = subFilters.find(f => f.id === "age_lower");
           const ageUpperFilter = subFilters.find(f => f.id === "age_upper");
           
           if (ageLowerFilter && ageUpperFilter) {
-            // Remove individual age filters
-            const nonAgeSubFilters = subFilters.filter(f => f.id !== "age_lower" && f.id !== "age_upper");
+            // Remove individual age filters from the updated subfilters
+            const filteredSubFilters = updatedSubFilters.filter(f => 
+              f.id !== "age_lower" && f.id !== "age_upper"
+            );
             
             // Get numeric values from both filters
             const ageLowerValues = ageLowerFilter.options
@@ -397,29 +459,59 @@ export default function FilterPanel({
               ]
             };
             
-            // Add the combined filter to subFilters
-            const updatedSubFilters = [...nonAgeSubFilters, combinedAgeFilter];
-            
-            filtersCopy = filtersCopy.filter(
-              (f) => !characteristicsIds.includes(f.id)
-            );
-            filtersCopy.push({
-              id: "sample_characteristics",
-              label: "Sample Characteristics",
-              options: [],
-              subFilters: updatedSubFilters,
-            } as ExtendedAggregateFilter);
-          } else if (subFilters.length > 0) {
-            filtersCopy = filtersCopy.filter(
-              (f) => !characteristicsIds.includes(f.id)
-            );
-            filtersCopy.push({
-              id: "sample_characteristics",
-              label: "Sample Characteristics",
-              options: [],
-              subFilters,
-            } as ExtendedAggregateFilter);
+            // Add the combined filter to updated subfilters
+            updatedSubFilters.splice(filteredSubFilters.length, 0, combinedAgeFilter);
           }
+          
+          // Create a combined time range filter if both start_year and end_year exist
+          const startYearFilter = subFilters.find(f => f.id === "start_year");
+          const endYearFilter = subFilters.find(f => f.id === "end_year");
+          
+          if (startYearFilter && endYearFilter) {
+            // Remove individual year filters from the updated subfilters
+            const filteredSubFilters = updatedSubFilters.filter(f => 
+              f.id !== "start_year" && f.id !== "end_year"
+            );
+            
+            // Get numeric values from both filters
+            const startYearValues = startYearFilter.options
+              .map(o => Number(o))
+              .filter(n => !isNaN(n) && isFinite(n));
+              
+            const endYearValues = endYearFilter.options
+              .map(o => Number(o))
+              .filter(n => !isNaN(n) && isFinite(n));
+            
+            // Calculate the actual min and max for the combined range
+            const minYear = startYearValues.length > 0 ? Math.min(...startYearValues) : 1900;
+            const maxYear = endYearValues.length > 0 ? Math.max(...endYearValues) : 2024;
+            
+            // Create a new combined time range filter with proper min/max values
+            const combinedTimeFilter: AggregateFilter = {
+              id: "time_range",
+              label: "Time Coverage",
+              options: [
+                String(minYear),
+                String(maxYear)
+              ]
+            };
+            
+            // Add the combined filter to updated subfilters
+            updatedSubFilters.splice(filteredSubFilters.length, 0, combinedTimeFilter);
+          }
+          
+          // Filter out the characteristics IDs from the main filter list
+          filtersCopy = filtersCopy.filter(
+            (f) => !characteristicsIds.includes(f.id)
+          );
+          
+          // Add the Sample Characteristics filter with updated subfilters
+          filtersCopy.push({
+            id: "sample_characteristics",
+            label: "Sample Characteristics",
+            options: [],
+            subFilters: updatedSubFilters,
+          } as ExtendedAggregateFilter);
           
           setFilters(filtersCopy as ExtendedAggregateFilter[]);
           if (filtersCopy.length > 0 && !selectedCategory) {
@@ -438,68 +530,16 @@ export default function FilterPanel({
     // Only respond to changes in initialFiltersSet state
   }, [initialFiltersSet, selectedCategory]);
 
-  // Handle special case of age_range filter when user selects a range
+  // Handle special case of time_range filter when user selects a range
   const handleFilterSelection = (categoryId: string, selectedOptions: string[]) => {
-    // If this is the age_range filter, we need to set both age_min and age_max
-    // (API uses age_min/age_max for search but returns age_lower/age_upper in aggregations)
-    if (categoryId === "sample_characteristics#age_range") {
-      if (selectedOptions.length === 2) {
-        const [minAge, maxAge] = selectedOptions.map(Number);
-        
-        // Find the original age filter to check if this is the full range
-        const sampleCharacteristicsFilter = filters.find(f => f.id === "sample_characteristics");
-        const ageRangeFilter = sampleCharacteristicsFilter?.subFilters?.find(f => f.id === "age_range");
-        
-        if (ageRangeFilter) {
-          const fullRangeValues = ageRangeFilter.options
-            .map(o => Number(o))
-            .filter(n => !isNaN(n) && isFinite(n));
-          
-          const originalMin = fullRangeValues.length > 0 ? Math.min(...fullRangeValues) : 0;
-          const originalMax = fullRangeValues.length > 0 ? Math.max(...fullRangeValues) : 100;
-          
-          // Only set the filters if the user has actually filtered (not at full range)
-          const isFullRange = minAge <= originalMin + 0.1 && maxAge >= originalMax - 0.1;
-          
-          if (!isFullRange) {
-            // Set age_min and age_max for API (not age_lower and age_upper)
-            if (onSelectionChange) {
-              onSelectionChange("age_min", [String(minAge)]);
-              onSelectionChange("age_max", [String(maxAge)]);
-            }
-            
-            // Update local state
-            setSelectedFilters(prev => ({
-              ...prev,
-              "age_min": [String(minAge)],
-              "age_max": [String(maxAge)],
-              [categoryId]: selectedOptions
-            }));
-          } else {
-            // Clear the filters if at full range
-            if (onSelectionChange) {
-              onSelectionChange("age_min", []);
-              onSelectionChange("age_max", []);
-            }
-            
-            // Update local state - remove the filters
-            setSelectedFilters(prev => {
-              const newState = { ...prev };
-              delete newState["age_min"];
-              delete newState["age_max"];
-              return {
-                ...newState,
-                [categoryId]: selectedOptions
-              };
-            });
-          }
-        }
-      }
-    } else if (categoryId.includes("#") && categoryId.split("#")[1] && numericFields.includes(categoryId.split("#")[1])) {
-      // For other numeric fields, check if they're at their full range
+    // Handle numeric range filters with min/max parameters
+    if (categoryId.includes("#") && categoryId.split("#")[1]) {
       const [parentId, filterId] = categoryId.split("#");
       
-      if (selectedOptions.length === 2) {
+      // Check if this is a numeric field that should use min/max parameters
+      const isNumericField = numericFields.includes(filterId);
+      
+      if (isNumericField && selectedOptions.length === 2) {
         const [minValue, maxValue] = selectedOptions.map(Number);
         
         // Find the original filter to check if this is the full range
@@ -514,39 +554,137 @@ export default function FilterPanel({
           const originalMin = fullRangeValues.length > 0 ? Math.min(...fullRangeValues) : 0;
           const originalMax = fullRangeValues.length > 0 ? Math.max(...fullRangeValues) : 100;
           
-          // Only set the filter if the user has actually filtered (not at full range)
+          // Only set the filters if the user has actually filtered (not at full range)
           const isFullRange = minValue <= originalMin + 0.1 && maxValue >= originalMax - 0.1;
           
           if (!isFullRange) {
-            // Handle regular filter selection
-            setSelectedFilters(prev => ({
-              ...prev,
-              [filterId]: selectedOptions,
-              [categoryId]: selectedOptions
-            }));
-            
-            if (onSelectionChange) {
-              onSelectionChange(filterId, selectedOptions);
+            // Handle special cases
+            if (filterId === "age_range") {
+              // Age range is a special case that maps to age_min and age_max parameters
+              if (onSelectionChange) {
+                onSelectionChange("age_min", [String(minValue)]);
+                onSelectionChange("age_max", [String(maxValue)]);
+              }
+              
+              // Update local state
+              setSelectedFilters(prev => ({
+                ...prev,
+                "age_min": [String(minValue)],
+                "age_max": [String(maxValue)],
+                [categoryId]: selectedOptions
+              }));
+            } 
+            else if (filterId === "time_range") {
+              // Time range maps to start_year and end_year
+              if (onSelectionChange) {
+                onSelectionChange("start_year", [String(minValue)]);
+                onSelectionChange("end_year", [String(maxValue)]);
+              }
+              
+              // Update local state
+              setSelectedFilters(prev => ({
+                ...prev,
+                "start_year": [String(minValue)],
+                "end_year": [String(maxValue)],
+                [categoryId]: selectedOptions
+              }));
+            }
+            else {
+              // For all other numeric fields, use {field}_min and {field}_max pattern
+              const minParamName = `${filterId}_min`;
+              const maxParamName = `${filterId}_max`;
+              
+              if (onSelectionChange) {
+                onSelectionChange(minParamName, [String(minValue)]);
+                onSelectionChange(maxParamName, [String(maxValue)]);
+              }
+              
+              // Update local state
+              setSelectedFilters(prev => ({
+                ...prev,
+                [minParamName]: [String(minValue)],
+                [maxParamName]: [String(maxValue)],
+                [categoryId]: selectedOptions
+              }));
             }
           } else {
-            // Clear the filter if at full range
-            setSelectedFilters(prev => {
-              const newState = { ...prev };
-              delete newState[filterId];
-              return {
-                ...newState,
-                [categoryId]: selectedOptions
-              };
-            });
-            
-            if (onSelectionChange) {
-              onSelectionChange(filterId, []);
+            // Clear the filters if at full range
+            if (filterId === "age_range") {
+              if (onSelectionChange) {
+                onSelectionChange("age_min", []);
+                onSelectionChange("age_max", []);
+              }
+              
+              // Update local state
+              setSelectedFilters(prev => {
+                const newState = { ...prev };
+                delete newState["age_min"];
+                delete newState["age_max"];
+                return {
+                  ...newState,
+                  [categoryId]: selectedOptions
+                };
+              });
+            }
+            else if (filterId === "time_range") {
+              if (onSelectionChange) {
+                onSelectionChange("start_year", []);
+                onSelectionChange("end_year", []);
+              }
+              
+              // Update local state
+              setSelectedFilters(prev => {
+                const newState = { ...prev };
+                delete newState["start_year"];
+                delete newState["end_year"];
+                return {
+                  ...newState,
+                  [categoryId]: selectedOptions
+                };
+              });
+            } 
+            else {
+              // For all other numeric fields
+              const minParamName = `${filterId}_min`;
+              const maxParamName = `${filterId}_max`;
+              
+              if (onSelectionChange) {
+                onSelectionChange(minParamName, []);
+                onSelectionChange(maxParamName, []);
+              }
+              
+              // Update local state
+              setSelectedFilters(prev => {
+                const newState = { ...prev };
+                delete newState[minParamName];
+                delete newState[maxParamName];
+                return {
+                  ...newState,
+                  [categoryId]: selectedOptions
+                };
+              });
             }
           }
+          return; // Exit after handling the numeric field
         }
       }
+    }
+    
+    // Handle regular filters that aren't numeric ranges
+    if (categoryId.includes("#")) {
+      const [parentId, filterId] = categoryId.split("#");
+      
+      // If this isn't a numeric field or special case, just pass the values directly
+      setSelectedFilters(prev => ({
+        ...prev,
+        [categoryId]: selectedOptions
+      }));
+      
+      if (onSelectionChange) {
+        onSelectionChange(filterId, selectedOptions);
+      }
     } else {
-      // Handle regular filter selection
+      // For top-level filters (not within a category)
       setSelectedFilters(prev => ({
         ...prev,
         [categoryId]: selectedOptions
@@ -574,7 +712,8 @@ export default function FilterPanel({
       'start_year',
       'end_year',
       'num_variables',
-      'num_sweeps'
+      'num_sweeps',
+      'time_range'
     ];
     
     if (numericFields.includes(activeFilter.id)) {
@@ -636,7 +775,7 @@ export default function FilterPanel({
             color="primary"
           >
             <Chip
-              label={filter.label}
+              label={formatLabel(filter.label)}
               onClick={() => handleCategoryClick(filter.id)}
               variant={filter.id === selectedCategory ? "filled" : "outlined"}
               color={filter.id === selectedCategory ? "primary" : "default"}
@@ -662,6 +801,9 @@ export default function FilterPanel({
                 const currentSelection = selectedFilters[key] || [];
                 let component = null;
                 
+                // Format the filter label nicely
+                const displayLabel = formatLabel(sub.label || sub.id);
+                
                 // Handle different filter types
                 if (
                   sub.options.length === 2 &&
@@ -684,6 +826,7 @@ export default function FilterPanel({
                   sub.id === "duration_years" ||
                   sub.id === "sample_size" ||
                   sub.id === "age_range" ||
+                  sub.id === "time_range" ||
                   numericFields.includes(sub.id)
                 ) {
                   component = (
@@ -731,7 +874,7 @@ export default function FilterPanel({
                     }}
                   >
                     <Typography variant="subtitle2" gutterBottom>
-                      {sub.label}
+                      {displayLabel}
                     </Typography>
                     {component}
                   </Box>
@@ -743,6 +886,9 @@ export default function FilterPanel({
             activeFilter.options.includes("1") ? (
             // Non-merged binary filter rendered as a toggle switch
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ minWidth: 150 }}>
+                {formatLabel(activeFilter.label)}
+              </Typography>
               <Switch
                 checked={selectedFilters[activeFilter.id]?.[0] === "1"}
                 onChange={(e) => {
@@ -752,40 +898,55 @@ export default function FilterPanel({
               />
             </Box>
           ) : numericFields.includes(activeFilter.id) ? (
-            <NumericFilter
-              filter={activeFilter}
-              onChange={(selected) => {
-                handleFilterSelection(activeFilter.id, selected);
-              }}
-            />
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                {formatLabel(activeFilter.label)}
+              </Typography>
+              <NumericFilter
+                filter={activeFilter}
+                onChange={(selected) => {
+                  handleFilterSelection(activeFilter.id, selected);
+                }}
+              />
+            </Box>
           ) : activeFilter.options.length > DROPDOWN_THRESHOLD ? (
-            <DropdownFilter
-              filter={activeFilter}
-              onChange={(selected) => {
-                handleFilterSelection(activeFilter.id, selected);
-              }}
-              mapping={
-                activeFilter.id === "country_codes"
-                  ? countryMap
-                  : activeFilter.id === "language_codes"
-                  ? languageMap
-                  : undefined
-              }
-            />
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                {formatLabel(activeFilter.label)}
+              </Typography>
+              <DropdownFilter
+                filter={activeFilter}
+                onChange={(selected) =>
+                  handleFilterSelection(activeFilter.id, selected)
+                }
+                mapping={
+                  activeFilter.id === "country_codes"
+                    ? countryMap
+                    : activeFilter.id === "language_codes"
+                    ? languageMap
+                    : undefined
+                }
+              />
+            </Box>
           ) : (
-            <ChipsFilter
-              filter={activeFilter}
-              onChange={(selected) => {
-                handleFilterSelection(activeFilter.id, selected);
-              }}
-              mapping={
-                activeFilter.id === "country_codes"
-                  ? countryMap
-                  : activeFilter.id === "language_codes"
-                  ? languageMap
-                  : undefined
-              }
-            />
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                {formatLabel(activeFilter.label)}
+              </Typography>
+              <ChipsFilter
+                filter={activeFilter}
+                onChange={(selected) =>
+                  handleFilterSelection(activeFilter.id, selected)
+                }
+                mapping={
+                  activeFilter.id === "country_codes"
+                    ? countryMap
+                    : activeFilter.id === "language_codes"
+                    ? languageMap
+                    : undefined
+                }
+              />
+            </Box>
           )}
         </Box>
       )}

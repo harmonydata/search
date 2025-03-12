@@ -7,3 +7,6 @@
 - Updated search results layout with compact cards and implemented result selection to show details in the right panel
 - Removed cosine similarity chip from result cards and implemented search debouncing
 - Fixed filter panel bug where filters disappeared when clicked by properly managing filter state
+- Added time range slider combining start_year and end_year, improved label formatting, and fixed empty query API issue
+- Improved label formatting throughout the filter panel to consistently replace underscores with spaces
+- Updated numeric filter handling to use proper {field}_min and {field}_max parameter format for all numeric ranges

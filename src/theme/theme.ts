@@ -129,7 +129,7 @@ const theme = createTheme({
           borderRadius: 20,
           height: 40,
           "& .MuiChip-label": {
-            padding: "10px 24px 10px 16px",
+            padding: "10px 16px 10px 16px",
             fontWeight: 500,
           },
         },

@@ -112,7 +112,12 @@ export default function ResourceCard({ resource }: ResourceCardProps) {
   
   const studyDesign = resource.extra_data?.study_design || resource.study_design || [];
   
-  const keywords = resource.dataset_schema?.keywords || resource.topics || [];
+  const unfilteredKeywords = resource.dataset_schema?.keywords || resource.topics || [];
+  
+  // Filter out malformed keywords/topics that contain HTML fragments
+  const keywords = unfilteredKeywords.filter(
+    (keyword: any) => typeof keyword === 'string' && !keyword.includes('<a title=') && !keyword.startsWith('<')
+  );
 
   const isDataset = (resource.dataset_schema?.["@type"] === "Dataset" || 
                      resource.resource_type?.toLowerCase() === "dataset");

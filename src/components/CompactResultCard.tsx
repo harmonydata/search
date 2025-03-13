@@ -27,9 +27,14 @@ export default function CompactResultCard({ result, isSelected, onClick }: Compa
   const description = result.dataset_schema?.description || result.description || '';
   
   // Get keywords from either dataset_schema.keywords or result fields
-  const keywords: string[] = result.dataset_schema?.keywords || 
+  const unfilteredKeywords: string[] = result.dataset_schema?.keywords || 
                            (result as any).topics || 
                            [];
+  
+  // Filter out malformed keywords/topics that contain HTML fragments
+  const keywords: string[] = unfilteredKeywords.filter(
+    (keyword: any) => typeof keyword === 'string' && !keyword.includes('<a title=') && !keyword.startsWith('<')
+  );
   
   // Get the variables count for the chip display
   const variablesCount = result.dataset_schema?.variableMeasured?.length || 0;
@@ -48,14 +53,11 @@ export default function CompactResultCard({ result, isSelected, onClick }: Compa
   let imageUrl = null;
   const [imageError, setImageError] = useState(false);
   
-  // Simply use the image URL if it exists
-  if (result.dataset_schema?.includedInDataCatalog && !imageError) {
-    for (const catalog of result.dataset_schema.includedInDataCatalog) {
-      if (catalog.image) {
-        imageUrl = catalog.image;
-        break;
-      }
-    }
+  // Use the image directly from the result object if it exists
+  if ((result as any).dataset_schema?.image && !imageError) {
+    imageUrl = (result as any).dataset_schema.image;
+  } else if ((result as any).thumbnail && !imageError) {
+    imageUrl = (result as any).thumbnail;
   }
   
   // Fallback image based on resource type

@@ -25,3 +25,8 @@
 - Simplified image handling to just use the provided image URL directly with no unnecessary filtering
 - Fixed result card hover effect to apply background color only on hover and for selected items
 - Applied minimalist approach to result card styling to ensure background color only appears on hover or for selected items
+- Fixed image handling in result cards to use the image directly from the result object instead of catalogues
+- Added filtering for malformed HTML keywords in search results and study details to prevent UI issues.
+- Updated build verification to use TypeScript check instead of full build to avoid breaking dev server.
+- Implemented responsive layout with drawer for study details on smaller screens and fixed scrolling issues.
+- Enhanced study details panel with sticky positioning that stays visible while scrolling through search results.

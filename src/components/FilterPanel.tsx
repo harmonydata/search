@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -12,42 +12,16 @@ import {
   Button,
 } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
+import { FilterAltOff } from "@mui/icons-material";
 import { fetchAggregateFilters, AggregateFilter } from "@/services/api";
 import FancySlider from "@/components/FancySlider";
+import { countryCodes } from "@/config/constants";
 
-interface FilterPanelProps {
-  filtersData?: AggregateFilter[];
-  onSelectionChange?: (categoryId: string, selectedOptions: string[]) => void;
-}
-
-// Mapping for country and language codes
-const countryMap: Record<string, string> = {
-  GB: "United Kingdom",
-  US: "United States",
-  CA: "Canada",
-  // add more as needed
-};
-
-const languageMap: Record<string, string> = {
-  en: "English",
-  es: "Spanish",
-  fr: "French",
-  // add more as needed
-};
-
-// Helper function to format labels nicely (replace underscores with spaces and capitalize)
-const formatLabel = (label: string): string => {
-  return label
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-};
-
-// Threshold to decide when to use a dropdown multiselect
-const DROPDOWN_THRESHOLD = 10;
+// Constants - consolidated at the top level
+const DROPDOWN_THRESHOLD = 10; // Threshold to decide when to use a dropdown multiselect
 
 // List of numeric fields that should use range sliders
-const numericFields = [
+const NUMERIC_FIELDS = [
   'duration_years',
   'sample_size',
   'age_lower',
@@ -60,9 +34,61 @@ const numericFields = [
   'time_range'
 ];
 
+// Fields that should be grouped under sample characteristics
+const CHARACTERISTICS_IDS = [
+  "genetic_data",
+  "study_design",
+  "duration_years",
+  "sample_size",
+  "num_variables",
+  "num_sweeps"
+];
+
+// Fields that should be hidden from the top level filters
+const HIDDEN_FILTERS = [
+  "age_lower",
+  "age_upper",
+  "start_year",
+  "end_year",
+];
+
+// Mapping for country and language codes
+// Create a map from countryCodes array
+const countryMap: Record<string, string> = {};
+// Initialize country map from imported countryCodes
+countryCodes.forEach(country => {
+  countryMap[country.code] = `${country.flag} ${country.name}`;
+});
+
+// Add special case for UK (non-standard code that should map to GB)
+const gbCountry = countryCodes.find(country => country.code === 'GB');
+if (gbCountry) {
+  countryMap['UK'] = `${gbCountry.flag} ${gbCountry.name}`;
+}
+
+const languageMap: Record<string, string> = {
+  en: "English",
+  es: "Spanish",
+  fr: "French",
+  // add more as needed
+};
+
+interface FilterPanelProps {
+  filtersData?: AggregateFilter[];
+  onSelectionChange?: (categoryId: string, selectedOptions: string[]) => void;
+}
+
 interface ExtendedAggregateFilter extends AggregateFilter {
   subFilters?: AggregateFilter[];
 }
+
+// Helper function to format labels nicely (replace underscores with spaces and capitalize)
+const formatLabel = (label: string): string => {
+  return label
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
 
 // Numeric filter component using a range slider
 const NumericFilter: React.FC<{
@@ -244,16 +270,69 @@ const DropdownFilter: React.FC<{
     return formatLabel(option);
   };
 
+  // Filter duplicate options and sort them for country codes
+  const filteredOptions = useMemo(() => {
+    // Start with filtering out UK when GB is present (they represent the same country)
+    let options = filter.id === "country_codes" 
+      ? filter.options.filter(option => !(option === "UK" && filter.options.includes("GB")))
+      : filter.options;
+    
+    // Sort by country name if this is a country_codes filter
+    if (filter.id === "country_codes" && mapping) {
+      options = [...options].sort((a, b) => {
+        // Get country names from mapping or use code as fallback
+        const nameA = mapping[a] ? mapping[a].split(' ').slice(1).join(' ') : a;
+        const nameB = mapping[b] ? mapping[b].split(' ').slice(1).join(' ') : b;
+        return nameA.localeCompare(nameB);
+      });
+    }
+    
+    return options;
+  }, [filter.options, filter.id, mapping]);
+
+  // Deduplicate display values (for GB/UK special case)
+  const displayValue = useMemo(() => {
+    if (filter.id === "country_codes" && value.includes("GB") && value.includes("UK")) {
+      // Remove UK from display values when GB is already selected
+      return value.filter(code => code !== "UK");
+    }
+    return value;
+  }, [filter.id, value]);
+
+  // Handle special case for GB/UK when changing selection
+  const handleChange = (event: React.SyntheticEvent, newValue: string[]) => {
+    setValue(newValue);
+    
+    // Special handling for GB/UK
+    if (filter.id === "country_codes") {
+      let modifiedSelection = [...newValue];
+      
+      // Check if GB was just added (is in newValue but wasn't in value)
+      if (newValue.includes("GB") && !value.includes("GB")) {
+        // Also add UK if it exists in the original options
+        if (filter.options.includes("UK") && !modifiedSelection.includes("UK")) {
+          modifiedSelection.push("UK");
+        }
+      } 
+      // Check if GB was just removed (was in value but isn't in newValue)
+      else if (value.includes("GB") && !newValue.includes("GB")) {
+        // Also remove UK if it exists in the selection
+        modifiedSelection = modifiedSelection.filter(code => code !== "UK");
+      }
+      
+      onChange(modifiedSelection);
+    } else {
+      onChange(newValue);
+    }
+  };
+
   return (
     <Autocomplete
       multiple
-      options={filter.options}
+      options={filteredOptions}
       getOptionLabel={getOptionLabel}
-      value={value}
-      onChange={(event, newValue) => {
-        setValue(newValue);
-        onChange(newValue);
-      }}
+      value={displayValue}
+      onChange={handleChange}
       renderInput={(params) => (
         <TextField
           {...params}
@@ -279,12 +358,44 @@ const ChipsFilter: React.FC<{
     setSelected(initialSelected);
   }, [initialSelected]);
 
+  // Filter duplicate options and sort them for country codes
+  const filteredOptions = useMemo(() => {
+    // Start with filtering out UK when GB is present (they represent the same country)
+    let options = filter.id === "country_codes" 
+      ? filter.options.filter(option => !(option === "UK" && filter.options.includes("GB")))
+      : filter.options;
+    
+    // Sort by country name if this is a country_codes filter
+    if (filter.id === "country_codes" && mapping) {
+      options = [...options].sort((a, b) => {
+        // Get country names from mapping or use code as fallback
+        const nameA = mapping[a] ? mapping[a].split(' ').slice(1).join(' ') : a;
+        const nameB = mapping[b] ? mapping[b].split(' ').slice(1).join(' ') : b;
+        return nameA.localeCompare(nameB);
+      });
+    }
+    
+    return options;
+  }, [filter.options, filter.id, mapping]);
+
   const handleToggle = (option: string) => {
     let newSelected: string[];
     if (selected.includes(option)) {
       newSelected = selected.filter((item) => item !== option);
+      
+      // If removing GB, also remove UK
+      if (option === "GB" && filter.id === "country_codes") {
+        newSelected = newSelected.filter(item => item !== "UK");
+      }
     } else {
       newSelected = [...selected, option];
+      
+      // If adding GB, also add UK if it exists in options
+      if (option === "GB" && filter.id === "country_codes" && filter.options.includes("UK")) {
+        if (!newSelected.includes("UK")) {
+          newSelected.push("UK");
+        }
+      }
     }
     setSelected(newSelected);
     onChange(newSelected);
@@ -300,7 +411,7 @@ const ChipsFilter: React.FC<{
 
   return (
     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-      {filter.options.map((option) => (
+      {filteredOptions.map((option) => (
         <Chip
           key={option}
           label={getLabel(option)}
@@ -350,7 +461,7 @@ export default function FilterPanel({
           onSelectionChange("start_year", []);
           onSelectionChange("end_year", []);
         }
-        else if (key.includes("#") && numericFields.includes(key.split("#")[1])) {
+        else if (key.includes("#") && NUMERIC_FIELDS.includes(key.split("#")[1])) {
           // For numeric fields, clear both min and max
           const filterId = key.split("#")[1];
           onSelectionChange(`${filterId}_min`, []);
@@ -369,44 +480,27 @@ export default function FilterPanel({
     }
   };
 
+  // Process data once when filters are loaded
   React.useEffect(() => {
     // Only process and set filters if they haven't been set yet
     // or if filtersData has changed AND we haven't set any filters yet
     if (!initialFiltersSet && filtersData && filtersData.length > 0) {
-      let filtersCopy = [...filtersData];
-      
-      // List of filter IDs that should be grouped under "Sample Characteristics"
-      const characteristicsIds = [
-        "genetic_data",
-        "study_design",
-        "duration_years",
-        "sample_size",
-        "age_lower",
-        "age_upper",
-        "start_year",
-        "end_year",
-        "num_variables",
-        "num_sweeps"
-      ];
+      // First, filter out hidden filters
+      let filtersCopy = [...filtersData].filter(f => !HIDDEN_FILTERS.includes(f.id));
       
       // Extract the filters that should be grouped under "Sample Characteristics"
-      const subFilters = filtersCopy.filter((f) =>
-        characteristicsIds.includes(f.id)
-      );
+      const subFilters = filtersCopy.filter(f => CHARACTERISTICS_IDS.includes(f.id));
       
       // Process filters to create both age_range and time_range combined filters
       const updatedSubFilters = [...subFilters]; // Start with a copy of all subfilters
       
-      // Create a combined age range filter if both age_lower and age_upper exist
-      const ageLowerFilter = subFilters.find(f => f.id === "age_lower");
-      const ageUpperFilter = subFilters.find(f => f.id === "age_upper");
+      // Get the age_lower and age_upper filters from the original filtersData (not filtersCopy)
+      // since we've already filtered them out from filtersCopy
+      const ageLowerFilter = filtersData.find(f => f.id === "age_lower");
+      const ageUpperFilter = filtersData.find(f => f.id === "age_upper");
       
+      // Create a combined age range filter if both age_lower and age_upper exist
       if (ageLowerFilter && ageUpperFilter) {
-        // Remove individual age filters from the updated subfilters
-        const filteredSubFilters = updatedSubFilters.filter(f => 
-          f.id !== "age_lower" && f.id !== "age_upper"
-        );
-        
         // Get numeric values from both filters
         const ageLowerValues = ageLowerFilter.options
           .map(o => Number(o))
@@ -431,19 +525,15 @@ export default function FilterPanel({
         };
         
         // Add the combined filter to updated subfilters
-        updatedSubFilters.splice(updatedSubFilters.length, 0, combinedAgeFilter);
+        updatedSubFilters.push(combinedAgeFilter);
       }
       
-      // Create a combined time range filter if both start_year and end_year exist
-      const startYearFilter = subFilters.find(f => f.id === "start_year");
-      const endYearFilter = subFilters.find(f => f.id === "end_year");
+      // Get the start_year and end_year filters from the original filtersData
+      const startYearFilter = filtersData.find(f => f.id === "start_year");
+      const endYearFilter = filtersData.find(f => f.id === "end_year");
       
+      // Create a combined time range filter if both start_year and end_year exist
       if (startYearFilter && endYearFilter) {
-        // Remove individual year filters from the updated subfilters
-        const filteredSubFilters = updatedSubFilters.filter(f => 
-          f.id !== "start_year" && f.id !== "end_year"
-        );
-        
         // Get numeric values from both filters
         const startYearValues = startYearFilter.options
           .map(o => Number(o))
@@ -468,13 +558,12 @@ export default function FilterPanel({
         };
         
         // Add the combined filter to updated subfilters
-        updatedSubFilters.splice(updatedSubFilters.length, 0, combinedTimeFilter);
+        updatedSubFilters.push(combinedTimeFilter);
       }
       
       // Filter out the characteristics IDs from the main filter list
-      filtersCopy = filtersCopy.filter(
-        (f) => !characteristicsIds.includes(f.id)
-      );
+      // We need to do this again to make sure all CHARACTERISTICS_IDS are removed
+      filtersCopy = filtersCopy.filter(f => !CHARACTERISTICS_IDS.includes(f.id));
       
       // Add the Sample Characteristics filter with updated subfilters
       filtersCopy.push({
@@ -496,38 +585,21 @@ export default function FilterPanel({
       // If filtersData prop is not provided and we haven't set filters yet, fetch from API
       fetchAggregateFilters()
         .then((data) => {
-          let filtersCopy = [...data];
-          const characteristicsIds = [
-            "genetic_data",
-            "study_design",
-            "duration_years",
-            "sample_size",
-            "age_lower",
-            "age_upper",
-            "start_year",
-            "end_year",
-            "num_variables",
-            "num_sweeps"
-          ];
+          // First, filter out hidden filters
+          let filtersCopy = data.filter(f => !HIDDEN_FILTERS.includes(f.id));
           
           // Extract the filters that should be grouped under "Sample Characteristics"
-          const subFilters = filtersCopy.filter((f) =>
-            characteristicsIds.includes(f.id)
-          );
+          const subFilters = filtersCopy.filter(f => CHARACTERISTICS_IDS.includes(f.id));
           
           // Process filters to create both age_range and time_range combined filters
           const updatedSubFilters = [...subFilters]; // Start with a copy of all subfilters
           
-          // Create a combined age range filter if both age_lower and age_upper exist
-          const ageLowerFilter = subFilters.find(f => f.id === "age_lower");
-          const ageUpperFilter = subFilters.find(f => f.id === "age_upper");
+          // Get the age_lower and age_upper filters from the original data
+          const ageLowerFilter = data.find(f => f.id === "age_lower");
+          const ageUpperFilter = data.find(f => f.id === "age_upper");
           
+          // Create a combined age range filter if both age_lower and age_upper exist
           if (ageLowerFilter && ageUpperFilter) {
-            // Remove individual age filters from the updated subfilters
-            const filteredSubFilters = updatedSubFilters.filter(f => 
-              f.id !== "age_lower" && f.id !== "age_upper"
-            );
-            
             // Get numeric values from both filters
             const ageLowerValues = ageLowerFilter.options
               .map(o => Number(o))
@@ -552,19 +624,15 @@ export default function FilterPanel({
             };
             
             // Add the combined filter to updated subfilters
-            updatedSubFilters.splice(filteredSubFilters.length, 0, combinedAgeFilter);
+            updatedSubFilters.push(combinedAgeFilter);
           }
           
-          // Create a combined time range filter if both start_year and end_year exist
-          const startYearFilter = subFilters.find(f => f.id === "start_year");
-          const endYearFilter = subFilters.find(f => f.id === "end_year");
+          // Get the start_year and end_year filters from the original data
+          const startYearFilter = data.find(f => f.id === "start_year");
+          const endYearFilter = data.find(f => f.id === "end_year");
           
+          // Create a combined time range filter if both start_year and end_year exist
           if (startYearFilter && endYearFilter) {
-            // Remove individual year filters from the updated subfilters
-            const filteredSubFilters = updatedSubFilters.filter(f => 
-              f.id !== "start_year" && f.id !== "end_year"
-            );
-            
             // Get numeric values from both filters
             const startYearValues = startYearFilter.options
               .map(o => Number(o))
@@ -589,13 +657,12 @@ export default function FilterPanel({
             };
             
             // Add the combined filter to updated subfilters
-            updatedSubFilters.splice(filteredSubFilters.length, 0, combinedTimeFilter);
+            updatedSubFilters.push(combinedTimeFilter);
           }
           
           // Filter out the characteristics IDs from the main filter list
-          filtersCopy = filtersCopy.filter(
-            (f) => !characteristicsIds.includes(f.id)
-          );
+          // We need to do this again to make sure all CHARACTERISTICS_IDS are removed
+          filtersCopy = filtersCopy.filter(f => !CHARACTERISTICS_IDS.includes(f.id));
           
           // Add the Sample Characteristics filter with updated subfilters
           filtersCopy.push({
@@ -629,7 +696,7 @@ export default function FilterPanel({
       const [parentId, filterId] = categoryId.split("#");
       
       // Check if this is a numeric field that should use min/max parameters
-      const isNumericField = numericFields.includes(filterId);
+      const isNumericField = NUMERIC_FIELDS.includes(filterId);
       
       if (isNumericField && selectedOptions.length === 2) {
         const [minValue, maxValue] = selectedOptions.map(Number);
@@ -793,72 +860,11 @@ export default function FilterPanel({
   };
 
   const activeFilter = filters.find((filter) => filter.id === selectedCategory);
-  let subordinateElement = null;
-  if (activeFilter) {
-    // Define the numeric fields that should use the range slider
-    const numericFields = [
-      'duration_years',
-      'sample_size',
-      'age_lower',
-      'age_upper',
-      'start_year',
-      'end_year',
-      'num_variables',
-      'num_sweeps',
-      'time_range'
-    ];
-    
-    if (numericFields.includes(activeFilter.id)) {
-      subordinateElement = (
-        <NumericFilter
-          filter={activeFilter}
-          onChange={(selected) =>
-            handleFilterSelection(activeFilter.id, selected)
-          }
-          initialSelected={selectedFilters[activeFilter.id] || []}
-        />
-      );
-    } else if (activeFilter.options.length > DROPDOWN_THRESHOLD) {
-      let mapping: Record<string, string> | undefined;
-      if (activeFilter.id === "country_codes") mapping = countryMap;
-      else if (activeFilter.id === "language_codes") mapping = languageMap;
-      subordinateElement = (
-        <DropdownFilter
-          filter={activeFilter}
-          onChange={(selected) =>
-            handleFilterSelection(activeFilter.id, selected)
-          }
-          mapping={mapping}
-          initialSelected={selectedFilters[activeFilter.id] || []}
-        />
-      );
-    } else {
-      let mapping: Record<string, string> | undefined;
-      if (activeFilter.id === "country_codes") mapping = countryMap;
-      else if (activeFilter.id === "language_codes") mapping = languageMap;
-      subordinateElement = (
-        <ChipsFilter
-          filter={activeFilter}
-          onChange={(selected) =>
-            handleFilterSelection(activeFilter.id, selected)
-          }
-          mapping={mapping}
-          initialSelected={selectedFilters[activeFilter.id] || []}
-        />
-      );
-    }
-  }
 
-  // Handle dropdown filter options - filter out compound sources and capitalize sources
-  const processFilterOptions = (filterId: string, options: string[]): string[] => {
-    if (filterId === "source") {
-      // Filter out compound sources (those with spaces) and uppercase the rest
-      return options
-        .filter(option => !option.includes(" "))
-        .map(option => option.toUpperCase());
-    }
-    return options;
-  };
+  // Process the active filter options if it exists
+  const processedOptions = activeFilter?.id === "source" 
+    ? activeFilter.options.filter(option => !option.includes(" ")) 
+    : activeFilter?.options;
 
   return (
     <Box>
@@ -893,14 +899,19 @@ export default function FilterPanel({
         
         {/* Only show reset button if there are active filters */}
         {Object.keys(selectedFilters).length > 0 && (
-          <Button 
-            variant="outlined" 
-            color="secondary" 
-            size="small" 
+          <Button
             onClick={resetAllFilters}
-            sx={{ ml: 2, whiteSpace: 'nowrap' }}
+            variant="contained"
+            color="secondary"
+            sx={{
+              minWidth: 0,
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              p: 0,
+            }}
           >
-            Reset Filters
+            <FilterAltOff />
           </Button>
         )}
       </Box>
@@ -926,9 +937,6 @@ export default function FilterPanel({
                 // Format the filter label nicely
                 const displayLabel = formatLabel(sub.label || sub.id);
                 
-                // Process options (for sources, etc)
-                const processedOptions = processFilterOptions(sub.id, sub.options);
-                
                 // Handle different filter types
                 if (
                   sub.options.length === 2 &&
@@ -947,35 +955,23 @@ export default function FilterPanel({
                       />
                     </Box>
                   );
-                } else if (
-                  sub.id === "duration_years" ||
-                  sub.id === "sample_size" ||
-                  sub.id === "age_range" ||
-                  sub.id === "time_range" ||
-                  numericFields.includes(sub.id)
-                ) {
+                } else if (NUMERIC_FIELDS.includes(sub.id)) {
                   component = (
                     <NumericFilter
-                      filter={{
-                        ...sub,
-                        options: processedOptions
-                      }}
+                      filter={sub}
                       onChange={(selected) => {
                         handleFilterSelection(key, selected);
                       }}
                       initialSelected={selectedFilters[key] || []}
                     />
                   );
-                } else if (processedOptions.length > DROPDOWN_THRESHOLD) {
+                } else if (sub.options && sub.options.length > DROPDOWN_THRESHOLD) {
                   let mapping: Record<string, string> | undefined;
                   if (sub.id === "country_codes") mapping = countryMap;
                   else if (sub.id === "language_codes") mapping = languageMap;
                   component = (
                     <DropdownFilter
-                      filter={{
-                        ...sub,
-                        options: processedOptions
-                      }}
+                      filter={sub}
                       onChange={(selected) => {
                         handleFilterSelection(key, selected);
                       }}
@@ -989,10 +985,7 @@ export default function FilterPanel({
                   else if (sub.id === "language_codes") mapping = languageMap;
                   component = (
                     <ChipsFilter
-                      filter={{
-                        ...sub,
-                        options: processedOptions
-                      }}
+                      filter={sub}
                       onChange={(selected) => {
                         handleFilterSelection(key, selected);
                       }}
@@ -1034,7 +1027,7 @@ export default function FilterPanel({
                 }}
               />
             </Box>
-          ) : numericFields.includes(activeFilter.id) ? (
+          ) : NUMERIC_FIELDS.includes(activeFilter.id) ? (
             <Box>
               <Typography variant="subtitle2" gutterBottom>
                 {formatLabel(activeFilter.label)}
@@ -1047,7 +1040,7 @@ export default function FilterPanel({
                 initialSelected={selectedFilters[activeFilter.id] || []}
               />
             </Box>
-          ) : activeFilter.options.length > DROPDOWN_THRESHOLD ? (
+          ) : processedOptions && processedOptions.length > DROPDOWN_THRESHOLD ? (
             <Box>
               <Typography variant="subtitle2" gutterBottom>
                 {formatLabel(activeFilter.label)}
@@ -1055,7 +1048,7 @@ export default function FilterPanel({
               <DropdownFilter
                 filter={{
                   ...activeFilter,
-                  options: processFilterOptions(activeFilter.id, activeFilter.options)
+                  options: processedOptions
                 }}
                 onChange={(selected) =>
                   handleFilterSelection(activeFilter.id, selected)
@@ -1078,7 +1071,7 @@ export default function FilterPanel({
               <ChipsFilter
                 filter={{
                   ...activeFilter,
-                  options: processFilterOptions(activeFilter.id, activeFilter.options)
+                  options: processedOptions || []
                 }}
                 onChange={(selected) =>
                   handleFilterSelection(activeFilter.id, selected)

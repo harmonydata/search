@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Box, Container, TextField, Button, Typography, Pagination } from "@mui/material";
-import { ChevronDown } from "lucide-react";
+import { Box, Container, TextField, Button, Typography, Pagination, Drawer, IconButton, useMediaQuery, useTheme } from "@mui/material";
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
+import CloseIcon from '@mui/icons-material/Close';
 import Image from "next/image";
 import SearchResults from "@/components/SearchResults";
 import FilterPanel from "@/components/FilterPanel";
@@ -77,6 +79,8 @@ const sampleStudyDetail = {
 
 // Create a new component for the search functionality
 function DiscoverPageContent() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg')); // 1200px breakpoint
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -90,6 +94,7 @@ function DiscoverPageContent() {
   // const [currentPage, setCurrentPage] = useState(1);
   const [showDebug, setShowDebug] = useState(false);
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const resultsPerPage = 20; // Page size for the API
   
   const searchParams = useSearchParams();
@@ -155,6 +160,15 @@ function DiscoverPageContent() {
   const handleSelectResult = useCallback((result: SearchResult) => {
     console.log('Selected result:', result);
     setSelectedResult(result);
+    // Open drawer on mobile when a result is selected
+    if (isMobile) {
+      setDrawerOpen(true);
+    }
+  }, [isMobile]);
+
+  // Function to close the drawer
+  const handleCloseDrawer = useCallback(() => {
+    setDrawerOpen(false);
   }, []);
 
   // Toggle debug panel
@@ -520,9 +534,14 @@ function DiscoverPageContent() {
     const ageAtRecruitment = ageLower !== undefined ? `${ageLower} years` : "Not specified";
     
     // Topics and instruments
-    const topics = result.dataset_schema?.keywords || 
+    const unfilteredTopics = result.dataset_schema?.keywords || 
                   (result as any).topics || 
                   [];
+    
+    // Filter out malformed keywords/topics that contain HTML fragments
+    const topics = unfilteredTopics.filter(
+      (topic: any) => typeof topic === 'string' && !topic.includes('<a title=') && !topic.startsWith('<')
+    );
     
     const instruments = (result as any).instruments || [];
     
@@ -555,6 +574,19 @@ function DiscoverPageContent() {
       itemLevelMetadata,
     };
   }, []);
+
+  // Define the StudyDetailContent component to avoid repetition
+  const StudyDetailContent = () => (
+    selectedResult ? (
+      <StudyDetail study={mapResultToStudyDetail(selectedResult)} />
+    ) : (
+      <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+        <Typography color="text.secondary">
+          Select a dataset to view details
+        </Typography>
+      </Box>
+    )
+  );
 
   return (
     <Box sx={{ py: 4 }}>
@@ -607,10 +639,7 @@ function DiscoverPageContent() {
                 p: 0,
               }}
             >
-              <ChevronDown
-                size={14}
-                style={{ fill: "#004735", stroke: "none" }}
-              />
+              <ArrowDropDownIcon />
             </Button>
             <Typography
               sx={{ color: "#191B22", fontWeight: 500, whiteSpace: "nowrap" }}
@@ -697,10 +726,21 @@ function DiscoverPageContent() {
           </Box>
         )}
 
-        {/* Main Content Area */}
-        <Box sx={{ display: "flex", gap: 4 }}>
-          {/* Search Results Panel */}
-          <Box sx={{ width: "50%", minWidth: 0 }}>
+        {/* Main Content Area - Responsive Layout */}
+        <Box 
+          sx={{ 
+            display: "flex", 
+            gap: 4,
+            flexDirection: isMobile ? "column" : "row" 
+          }}
+        >
+          {/* Search Results Panel - Full width on mobile */}
+          <Box 
+            sx={{ 
+              width: isMobile ? "100%" : "50%", 
+              minWidth: 0 
+            }}
+          >
             {loading ? (
               <Typography>Loading search results...</Typography>
             ) : (
@@ -712,24 +752,6 @@ function DiscoverPageContent() {
                   selectedResultId={selectedResult?.id}
                 />
                 
-                {/* Server-side pagination controls - commented out for now */}
-                {/*
-                {totalPages > 1 && (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 2 }}>
-                    <Pagination
-                      count={totalPages}
-                      page={currentPage}
-                      onChange={(_, page) => handlePageChange(page)}
-                      color="primary"
-                      showFirstButton
-                      showLastButton
-                    />
-                    <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                      {totalHits} total results
-                    </Typography>
-                  </Box>
-                )}
-                */}
                 {/* Simple results count info */}
                 {totalHits > 0 && (
                   <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 2 }}>
@@ -742,29 +764,58 @@ function DiscoverPageContent() {
             )}
           </Box>
 
-          {/* Study Detail Panel */}
-          <Box
-            sx={{
-              width: "50%",
-              bgcolor: "background.paper",
-              borderLeft: "1px solid",
-              borderColor: "grey.200",
-              height: "calc(100vh - 200px)",
-              position: "sticky",
-              top: 24,
-            }}
-          >
-            {selectedResult ? (
-              <StudyDetail study={mapResultToStudyDetail(selectedResult)} />
-            ) : (
-              <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                <Typography color="text.secondary">
-                  Select a dataset to view details
-                </Typography>
-              </Box>
-            )}
-          </Box>
+          {/* Study Detail Panel - Only shown on desktop */}
+          {!isMobile && (
+            <Box
+              sx={{
+                width: "50%",
+                bgcolor: "background.paper",
+                borderLeft: "1px solid",
+                borderColor: "grey.200",
+                height: "auto", // Remove fixed height
+                position: "sticky",
+                top: 24, // Distance from top of viewport
+                maxHeight: "calc(100vh - 48px)", // Full viewport height minus margins
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <StudyDetailContent />
+            </Box>
+          )}
         </Box>
+
+        {/* Mobile Drawer for Study Details */}
+        <Drawer
+          anchor="right"
+          open={isMobile && drawerOpen}
+          onClose={handleCloseDrawer}
+          sx={{
+            '& .MuiDrawer-paper': { 
+              width: { xs: '100%', sm: '80%', md: '60%' }, 
+              maxWidth: '600px',
+              p: 0,
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column'
+            },
+          }}
+        >
+          <Box sx={{ position: 'sticky', top: 0, zIndex: 10, bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'grey.200', p: 1 }}>
+            <IconButton 
+              onClick={handleCloseDrawer}
+              sx={{ position: 'absolute', top: 8, right: 8 }}
+            >
+              <CloseIcon />
+            </IconButton>
+            <Typography variant="h6" sx={{ py: 1, pl: 1, pr: 6 }}>
+              Study Details
+            </Typography>
+          </Box>
+          <Box sx={{ p: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <StudyDetailContent />
+          </Box>
+        </Drawer>
       </Container>
     </Box>
   );

@@ -32,62 +32,111 @@ interface StudyDetailProps {
 }
 
 export default function StudyDetail({ study }: StudyDetailProps) {
+  // Filter out malformed keywords/topics that contain HTML fragments
+  const filteredTopics = study.topics.filter(
+    (topic: any) => typeof topic === 'string' && !topic.includes('<a title=') && !topic.startsWith('<')
+  );
+
   return (
-    <Box sx={{ height: "100%", overflow: "auto", p: 3 }}>
-      <Typography variant="h5" gutterBottom fontWeight={500}>
-        {study.title}
-      </Typography>
-
-      <Typography color="text.secondary" sx={{ mb: 4 }}>
-        {study.description}
-      </Typography>
-
-      <Typography variant="subtitle2" gutterBottom>
-        Data Owner:
-      </Typography>
-      <Box sx={{ display: "flex", alignItems: "center", mb: 4, gap: 2 }}>
-        <Box sx={{ p: 2, bgcolor: "grey.50", borderRadius: 1 }}>
-          <Typography>{study.dataOwner.name}</Typography>
-        </Box>
-        <Image
-          src={study.dataOwner.logo}
-          alt={study.dataOwner.name}
-          width={80}
-          height={40}
-          style={{ objectFit: "contain" }}
-          unoptimized={true}
-        />
+    <Box sx={{ 
+      p: 3,
+      width: '100%',
+      height: '100%',
+      overflowY: 'auto',
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          mb: 4,
+        }}
+      >
+        <Typography variant="h4" gutterBottom>
+          {study.title}
+        </Typography>
+        <Typography variant="body1">{study.description}</Typography>
       </Box>
 
-      <Box sx={{ display: "grid", gap: 2, mb: 4 }}>
-        <Box>
-          <Typography variant="subtitle2" gutterBottom>
-            Geographic Coverage:
-          </Typography>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 3,
+          mb: 4,
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography variant="subtitle2">Data Owner:</Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Typography>{study.dataOwner.name}</Typography>
+            <Image
+              src={study.dataOwner.logo}
+              alt={study.dataOwner.name}
+              width={80}
+              height={40}
+              style={{ objectFit: "contain" }}
+              unoptimized={true}
+            />
+          </Box>
+        </Box>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography variant="subtitle2">Geographic Coverage:</Typography>
           <Typography>{study.geographicCoverage}</Typography>
         </Box>
-        <Box>
-          <Typography variant="subtitle2" gutterBottom>
-            Start Date:
-          </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography variant="subtitle2">Study Start Date:</Typography>
           <Typography>{study.startDate}</Typography>
         </Box>
-        <Box>
-          <Typography variant="subtitle2" gutterBottom>
-            Sample size at recruitment:
-          </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography variant="subtitle2">Sample Size at Recruitment:</Typography>
           <Typography>{study.sampleSizeAtRecruitment}</Typography>
         </Box>
-        <Box>
-          <Typography variant="subtitle2" gutterBottom>
-            Sample size at most recent sweep:
-          </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography variant="subtitle2">Sample Size at Last Sweep:</Typography>
           <Typography>{study.sampleSizeAtMostRecentSweep}</Typography>
         </Box>
-        <Box>
-          <Typography variant="subtitle2" gutterBottom>
-            Age at Recruitment:
-          </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography variant="subtitle2">Age at recruitment:</Typography>
           <Typography>{study.ageAtRecruitment}</Typography>
         </Box>
       </Box>
@@ -96,7 +145,7 @@ export default function StudyDetail({ study }: StudyDetailProps) {
         Topics found within study:
       </Typography>
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 4 }}>
-        {study.topics.map((topic) => (
+        {filteredTopics.map((topic) => (
           <SquareChip key={topic} chipVariant="secondary">
             {topic}
           </SquareChip>

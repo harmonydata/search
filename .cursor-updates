@@ -30,3 +30,14 @@
 - Updated build verification to use TypeScript check instead of full build to avoid breaking dev server.
 - Implemented responsive layout with drawer for study details on smaller screens and fixed scrolling issues.
 - Enhanced study details panel with sticky positioning that stays visible while scrolling through search results.
+- Updated StudyDetail component to show temporal coverage, sample size, age coverage, study design and resource type from correct API fields.
+- Replaced separate Data Access and Item Level Metadata sections with a single horizontally scrollable Data Catalogs view with clickable links to external resources.
+- Improved Data Catalog cards with rounded corners and side-by-side layout for logo and text to match design requirements.
+- Created a reusable DataCatalogCard component with proper styling featuring a white logo section and slight background color for the text area.
+- Improved DataCatalogCard with fixed width, logo moved to right side, and fixed scroll behavior in StudyDetail component.
+- Created OrganizationCard component for publishers and funders with optional logo and URL.
+- Enhanced StudyDetail with study image display, publisher card, horizontally scrollable funders section, and improved drawer title.
+- Improved UI: fixed cards to only show image section when logo exists, truncated long names, moved study image inline with title, and added image to drawer header.
+- Enhanced UX by hiding empty sections in StudyDetail, removed redundant data owner section, and improved data catalog URLs to link directly to studies instead of general catalog pages.
+- Improved OrganizationCard and DataCatalogCard components to allow multi-line text wrapping with proper ellipsis truncation after 3 lines rather than single-line truncation.
+- Added interactive variables section to StudyDetail to show variables from dataset in collapsible dropdown, highlighting search-matched variables at the top and displaying all variables (up to 1000) below.

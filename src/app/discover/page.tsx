@@ -508,30 +508,61 @@ function DiscoverPageContent() {
     const title = result.dataset_schema?.name || result.title || "Untitled Dataset";
     const description = result.dataset_schema?.description || result.description || "";
     
-    // Extract or use default values for other fields
-    const dataOwner = {
-      name: result.dataset_schema?.publisher?.[0]?.name || 
-            result.dataset_schema?.creator?.[0]?.name || 
-            (result as any).institution || 
-            "Unknown Source",
-      logo: "/logos/cls.png", // Default logo if none available
-    };
+    // Extract image - using type assertion to handle possible undefined
+    const image = (result.dataset_schema as any)?.image || (result as any).image || undefined;
+    
+    // Extract publisher with type safety
+    let publisher: { name: string; url?: string; logo?: string } | undefined = undefined;
+    if (result.dataset_schema?.publisher?.[0]?.name) {
+      publisher = {
+        name: result.dataset_schema.publisher[0].name,
+        url: (result.dataset_schema.publisher[0] as any)?.url,
+        logo: (result.dataset_schema.publisher[0] as any)?.logo,
+      };
+    }
+    
+    // Extract funders with type safety
+    let funders: Array<{ name: string; url?: string; logo?: string }> | undefined = undefined;
+    if (result.dataset_schema?.funder && Array.isArray(result.dataset_schema.funder)) {
+      funders = result.dataset_schema.funder.map(funder => ({
+        name: funder.name || "Funding Organization",
+        url: (funder as any)?.url,
+        logo: (funder as any)?.logo ,
+      }));
+    }
     
     // Geographic coverage
     const geographicCoverage = (result as any).geographic_coverage || 
                               (result.extra_data?.country_codes?.join(", ") || 
                                (result as any).country_codes?.join(", ")) || 
-                              "Not specified";
+                              undefined;
     
-    // Get start date and other metadata
-    const startDate = (result as any).start_year?.toString() || "Not specified";
-    const sampleSizeAtRecruitment = (result as any).sample_size?.toString() || "Not specified";
-    const sampleSizeAtMostRecentSweep = "Not available"; // This data isn't in the API
+    // Temporal coverage (from dataset_schema or start/end years)
+    const temporalCoverage = result.dataset_schema?.temporalCoverage || 
+                          ((result as any).start_year && 
+                           `${(result as any).start_year}${(result as any).end_year ? `..${(result as any).end_year}` : ''}`);
     
-    // Age information
+    // Sample size
+    const sampleSize = (result as any).sample_size?.toString() || 
+                    ((result.dataset_schema as any)?.size?.toString()) || 
+                    undefined;
+    
+    // Age coverage
     const ageLower = result.extra_data?.age_lower || (result as any).age_lower;
     const ageUpper = result.extra_data?.age_upper || (result as any).age_upper;
-    const ageAtRecruitment = ageLower !== undefined ? `${ageLower} years` : "Not specified";
+    const ageCoverage = (ageLower !== undefined && ageUpper !== undefined) 
+                      ? `${ageLower} - ${ageUpper} years` 
+                      : (ageLower !== undefined 
+                         ? `${ageLower}+ years`
+                         : (ageUpper !== undefined 
+                            ? `0 - ${ageUpper} years`
+                            : undefined));
+    
+    // Study design
+    const studyDesign = result.extra_data?.study_design || (result as any).study_design || [];
+    
+    // Resource type
+    const resourceType = (result as any).resource_type || result.dataset_schema?.["@type"] || undefined;
     
     // Topics and instruments
     const unfilteredTopics = result.dataset_schema?.keywords || 
@@ -545,40 +576,80 @@ function DiscoverPageContent() {
     
     const instruments = (result as any).instruments || [];
     
-    // Data access
-    const dataAccess = {
-      service: result.dataset_schema?.includedInDataCatalog?.[0]?.name || "Data service not specified",
-      logo: "/logos/ukds.png", // Default logo
-    };
+    // Extract variables that matched the search query
+    const matchedVariables = result.variables_which_matched || [];
     
-    // Item level metadata - this is just a placeholder as we don't have this data
-    const itemLevelMetadata = [
-      {
-        name: "View Details",
-        logo: "/logos/closer.png",
-      }
-    ];
+    // Extract all variables from dataset schema
+    const allVariables = result.dataset_schema?.variableMeasured || [];
+    
+    // Data catalogs from includedInDataCatalog
+    let dataCatalogs: Array<{ name: string; url?: string; logo?: string }> | undefined;
+    
+    if (result.dataset_schema?.includedInDataCatalog && result.dataset_schema.includedInDataCatalog.length > 0) {
+      // Get dataset URLs if available
+      const datasetUrls = result.dataset_schema.url || [];
+      
+      dataCatalogs = result.dataset_schema.includedInDataCatalog.map(catalog => {
+        let catalogUrl = catalog.url;
+        
+        // Check if there's a more specific URL in the dataset's URL array that matches this catalog
+        if (Array.isArray(datasetUrls) && catalogUrl) {
+          try {
+            // Extract the catalog domain
+            const catalogDomain = new URL(catalogUrl).hostname;
+            
+            // Find a URL in datasetUrls that has the same domain
+            const matchingUrl = datasetUrls.find(urlStr => {
+              try {
+                const urlDomain = new URL(urlStr).hostname;
+                return urlDomain === catalogDomain;
+              } catch (e) {
+                return false;
+              }
+            });
+            
+            // If found a matching URL, use that instead
+            if (matchingUrl) {
+              catalogUrl = matchingUrl;
+            }
+          } catch (e) {
+            // If URL parsing fails, just use the original catalog URL
+            console.warn("Failed to parse catalog URL", e);
+          }
+        }
+        
+        return {
+          name: catalog.name || 'Data Catalog',
+          url: catalogUrl || undefined,
+          logo: catalog.image, // Fallback to a default logo
+        };
+      });
+    }
     
     return {
       title,
       description,
-      dataOwner,
+      image,
+      publisher,
+      funders,
       geographicCoverage,
-      startDate,
-      sampleSizeAtRecruitment,
-      sampleSizeAtMostRecentSweep,
-      ageAtRecruitment,
+      temporalCoverage,
+      sampleSize,
+      ageCoverage,
+      studyDesign,
+      resourceType,
       topics,
       instruments,
-      dataAccess,
-      itemLevelMetadata,
+      dataCatalogs,
+      matchedVariables,
+      allVariables,
     };
   }, []);
 
   // Define the StudyDetailContent component to avoid repetition
-  const StudyDetailContent = () => (
+  const StudyDetailContent = ({ isDrawerView = false }) => (
     selectedResult ? (
-      <StudyDetail study={mapResultToStudyDetail(selectedResult)} />
+      <StudyDetail study={mapResultToStudyDetail(selectedResult)} isDrawerView={isDrawerView} />
     ) : (
       <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
         <Typography color="text.secondary">
@@ -808,12 +879,38 @@ function DiscoverPageContent() {
             >
               <CloseIcon />
             </IconButton>
-            <Typography variant="h6" sx={{ py: 1, pl: 1, pr: 6 }}>
-              Study Details
-            </Typography>
+            <Box sx={{ py: 1, pl: 1, pr: 6, display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="h6" sx={{ flex: 1 }}>
+                {selectedResult ? selectedResult.title || selectedResult.dataset_schema?.name || "Study Details" : "Study Details"}
+              </Typography>
+              {selectedResult && (
+                (selectedResult.dataset_schema && (selectedResult.dataset_schema as any).image) || 
+                ((selectedResult as any).image) 
+              ) && (
+                <Box
+                  sx={{
+                    width: 50,
+                    height: 50,
+                    position: "relative",
+                    borderRadius: "4px",
+                    overflow: "hidden",
+                    flexShrink: 0
+                  }}
+                >
+                  <Image
+                    src={(selectedResult.dataset_schema && (selectedResult.dataset_schema as any).image) || 
+                         (selectedResult as any).image}
+                    alt={selectedResult.title || "Study image"}
+                    fill
+                    style={{ objectFit: "cover" }}
+                    unoptimized={true}
+                  />
+                </Box>
+              )}
+            </Box>
           </Box>
           <Box sx={{ p: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
-            <StudyDetailContent />
+            <StudyDetailContent isDrawerView={true} />
           </Box>
         </Drawer>
       </Container>

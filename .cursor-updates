@@ -36,8 +36,22 @@
 - Created a reusable DataCatalogCard component with proper styling featuring a white logo section and slight background color for the text area.
 - Improved DataCatalogCard with fixed width, logo moved to right side, and fixed scroll behavior in StudyDetail component.
 - Created OrganizationCard component for publishers and funders with optional logo and URL.
-- Enhanced StudyDetail with study image display, publisher card, horizontally scrollable funders section, and improved drawer title.
-- Improved UI: fixed cards to only show image section when logo exists, truncated long names, moved study image inline with title, and added image to drawer header.
-- Enhanced UX by hiding empty sections in StudyDetail, removed redundant data owner section, and improved data catalog URLs to link directly to studies instead of general catalog pages.
-- Improved OrganizationCard and DataCatalogCard components to allow multi-line text wrapping with proper ellipsis truncation after 3 lines rather than single-line truncation.
-- Added interactive variables section to StudyDetail to show variables from dataset in collapsible dropdown, highlighting search-matched variables at the top and displaying all variables (up to 1000) below.
+- Enhanced StudyDetail with study image display, publisher card, and horizontally scrollable funders section.
+- Improved UI: cards only show image section when logo exists; truncated long names; moved study image inline with title; added image to drawer header.
+- Enhanced UX by hiding empty sections in StudyDetail, removing data owner section, and only displaying sections with content.
+- Improved data catalog URLs to link directly to studies when dataset URL is available with matching domain.
+- Added extensive organization logo mapping for UK and international research bodies.
+- Enhanced logo resolution utility with support for acronym detection and partial name matching.
+- Added debugging info to help troubleshoot organization logo rendering issues.
+- Improved handling of funders data, particularly handling space-delimited abbreviation lists from Catalogue of Mental Health, treating each abbreviation as a separate funder with its own card.
+- Added specialized heuristics to detect when strings appear to contain multiple abbreviations rather than a single organization name.
+- Added support for a wide range of UK and international research funder abbreviations.
+- Fixed responsive layout issue by replacing flexbox with CSS Grid to ensure consistent 50-50 column split on desktop view regardless of content or selection state.
+- Added LinkPreviewCard component to display rich Open Graph previews for URLs, with support for both standard and compact layouts.
+- Created TextWithLinkPreviews utility component that automatically detects URLs in text and renders them as LinkPreviewCard components.
+- Implemented OpenGraph metadata API endpoint to fetch and parse metadata from external URLs.
+- Enhanced StudyDetail component with automatic link detection in description text and a collapsible "Related Links & Papers" section that displays rich link previews for URLs from dataset identifiers and other sources.
+- Added extraction of URLs from dataset identifiers, DOIs, and other URL fields, ensuring no duplication with data catalog links.
+- Enhanced the OpenGraph metadata API to properly handle redirects for DOI links and other redirecting URLs, ensuring link previews work correctly for academic citations.
+- Added client-side throttling and caching in LinkPreviewCard to deduplicate concurrent requests to the same URL, along with server-side caching in the OpenGraph API, preventing excessive requests to external websites.
+- Implemented performance optimizations including lazy loading of link previews with IntersectionObserver, memo-ization of StudyDetail mapping, and deferred rendering of additional links until their container section is expanded.

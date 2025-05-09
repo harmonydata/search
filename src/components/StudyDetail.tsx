@@ -1,12 +1,14 @@
 "use client";
 
-import { Box, Typography, Card, Collapse } from "@mui/material";
+import { Box, Typography, Collapse } from "@mui/material";
 import Image from "next/image";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { useState } from "react";
+import { useState, memo } from "react";
 import SquareChip from "@/components/SquareChip";
 import DataCatalogCard from "@/components/DataCatalogCard";
 import OrganizationCard from "@/components/OrganizationCard";
+import TextWithLinkPreviews from "@/components/TextWithLinkPreviews";
+import LinkPreviewCard from "@/components/LinkPreviewCard";
 
 interface StudyDetailProps {
   study: {
@@ -49,13 +51,16 @@ interface StudyDetailProps {
       name: string;
       description?: string;
     }>;
+    additionalLinks?: string[];
   };
   isDrawerView?: boolean;
 }
 
-export default function StudyDetail({ study, isDrawerView = false }: StudyDetailProps) {
+const StudyDetailComponent = ({ study, isDrawerView = false }: StudyDetailProps) => {
   const [variablesExpanded, setVariablesExpanded] = useState(false);
   const [aiSummaryExpanded, setAiSummaryExpanded] = useState(false);
+  const [additionalLinksExpanded, setAdditionalLinksExpanded] = useState(false);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
 
   // Filter out malformed keywords/topics that contain HTML fragments
   const filteredTopics = study.topics.filter(
@@ -81,6 +86,7 @@ export default function StudyDetail({ study, isDrawerView = false }: StudyDetail
   const hasInstruments = study.instruments && study.instruments.length > 0;
   const hasVariables = (study.matchedVariables && study.matchedVariables.length > 0) || 
                        (study.allVariables && study.allVariables.length > 0);
+  const hasAdditionalLinks = study.additionalLinks && study.additionalLinks.length > 0;
   
   return (
     <Box sx={{ 
@@ -135,9 +141,35 @@ export default function StudyDetail({ study, isDrawerView = false }: StudyDetail
       )}
       
       {study.description && (
-        <Typography variant="body1" sx={{ mb: 4 }}>
-          {study.description}
-        </Typography>
+        <Box sx={{ mb: 4 }}>
+          <Collapse in={descriptionExpanded} collapsedSize="130px"> {/* ~5 lines at default font size */}
+            <TextWithLinkPreviews 
+              text={study.description} 
+              paragraphProps={{ 
+                variant: "body1",
+                sx: { mb: 2 }
+              }}
+              compact
+            />
+          </Collapse>
+          {study.description.length > 300 && (
+            <Box 
+              onClick={() => setDescriptionExpanded(!descriptionExpanded)}
+              sx={{ 
+                display: 'flex',
+                alignItems: 'center',
+                color: 'primary.main',
+                cursor: 'pointer',
+                mt: 1
+              }}
+            >
+              <Typography variant="body2" color="primary" sx={{ fontWeight: 500, mr: 1 }}>
+                {descriptionExpanded ? 'Show Less' : 'Show More'}
+              </Typography>
+              {descriptionExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </Box>
+          )}
+        </Box>
       )}
 
       <Box
@@ -255,7 +287,7 @@ export default function StudyDetail({ study, isDrawerView = false }: StudyDetail
       {study.funders && study.funders.length > 0 && (
         <Box sx={{ mb: 4, flexShrink: 0 }}>
           <Typography variant="subtitle2" gutterBottom>
-            Study Funders:
+            Funders:
           </Typography>
           <Box 
             sx={{ 
@@ -281,33 +313,6 @@ export default function StudyDetail({ study, isDrawerView = false }: StudyDetail
               />
             ))}
           </Box>
-        </Box>
-      )}
-
-      {/* Topics section - only shown if topics exist */}
-      {hasTopics && (
-        <>
-          <Typography variant="subtitle2" gutterBottom>
-            Topics found within study:
-          </Typography>
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 4 }}>
-            {filteredTopics.map((topic) => (
-              <SquareChip key={topic} chipVariant="secondary">
-                {topic}
-              </SquareChip>
-            ))}
-          </Box>
-        </>
-      )}
-
-      {/* Instruments section - only shown if instruments exist */}
-      {hasInstruments && (
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 4 }}>
-          {study.instruments.map((instrument) => (
-            <SquareChip key={instrument} chipVariant="primary">
-              {instrument}
-            </SquareChip>
-          ))}
         </Box>
       )}
 
@@ -339,6 +344,88 @@ export default function StudyDetail({ study, isDrawerView = false }: StudyDetail
                 url={catalog.url}
                 logo={catalog.logo}
               />
+            ))}
+          </Box>
+        </Box>
+      )}
+
+      {/* Additional Links section - only shown if links exist */}
+      {hasAdditionalLinks && (
+        <Box sx={{ mb: 4, flexShrink: 0 }}>
+          <SquareChip
+            fullWidth
+            chipVariant="secondary"
+            endIcon={
+              additionalLinksExpanded ? (
+                <ChevronUp
+                  size={16}
+                  style={{ fill: "#004735", stroke: "none" }}
+                />
+              ) : (
+                <ChevronDown
+                  size={16}
+                  style={{ fill: "#004735", stroke: "none" }}
+                />
+              )
+            }
+            sx={{ justifyContent: "space-between", py: 2, height: "auto", mb: 2 }}
+            onClick={() => setAdditionalLinksExpanded(!additionalLinksExpanded)}
+          >
+            Related Links & Papers
+          </SquareChip>
+          <Collapse in={additionalLinksExpanded}>
+            {/* Only render link previews when section is expanded */}
+            {additionalLinksExpanded && (
+              <Box 
+                sx={{ 
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                  mb: 2
+                }}
+              >
+                {study.additionalLinks?.map((link, index) => (
+                  <LinkPreviewCard
+                    key={`link-${index}`}
+                    url={link}
+                  />
+                ))}
+              </Box>
+            )}
+          </Collapse>
+        </Box>
+      )}
+
+      {/* Topics section - only shown if topics exist */}
+      {hasTopics && (
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Topics:
+          </Typography>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+            {filteredTopics.map((topic, index) => (
+              <SquareChip key={`topic-${index}`}>
+                {topic}
+              </SquareChip>
+            ))}
+          </Box>
+        </Box>
+      )}
+
+      {/* Instruments section - only shown if instruments exist */}
+      {hasInstruments && (
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Instruments:
+          </Typography>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+            {study.instruments.map((instrument, index) => (
+              <SquareChip
+                key={`instrument-${index}`}
+                chipVariant="secondary"
+              >
+                {instrument}
+              </SquareChip>
             ))}
           </Box>
         </Box>
@@ -450,4 +537,6 @@ export default function StudyDetail({ study, isDrawerView = false }: StudyDetail
       </Box>
     </Box>
   );
-}
+};
+
+export default memo(StudyDetailComponent);

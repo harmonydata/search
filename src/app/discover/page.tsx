@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Box, Container, TextField, Button, Typography, Pagination, Drawer, IconButton, useMediaQuery, useTheme } from "@mui/material";
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import CloseIcon from '@mui/icons-material/Close';
+import CloudOffIcon from '@mui/icons-material/CloudOff';
 import Image from "next/image";
 import SearchResults from "@/components/SearchResults";
 import FilterPanel from "@/components/FilterPanel";
@@ -12,6 +13,7 @@ import StudyDetail from "@/components/StudyDetail";
 import {
   fetchSearchResults,
   fetchAggregateFilters,
+  fetchResultByUuid,
   SearchResponse,
   SearchResult,
   AggregateFilter,
@@ -19,63 +21,6 @@ import {
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
-// Sample study detail remains static for now
-const sampleStudyDetail = {
-  title: "1958 National Child Development Study (NCDS)",
-  description:
-    "The 1958 National Child Development Study (NCDS) is a multidisciplinary national longitudinal birth cohort study following the lives of over 17,000 people born in 1958. The study aims to improve understanding of the factors affecting human development over the whole lifespan. Follows histories of health, wealth, education, family and employment from early life with linked biomedical and examination performance data integrated into the study.",
-  dataOwner: {
-    name: "Centre for Longitudinal Studies",
-    logo: "/logos/cls.png",
-  },
-  geographicCoverage: "England, Scotland, Wales",
-  startDate: "1958",
-  sampleSizeAtRecruitment: "17,000+",
-  sampleSizeAtMostRecentSweep: "9,337",
-  ageAtRecruitment: "Birth",
-  topics: [
-    "Depression",
-    "Anxiety",
-    "Obesity",
-    "ADHD",
-    "Smoking",
-    "Autism",
-    "Poverty",
-    "Nutrition",
-    "Benefits",
-    "Dyslexia",
-    "Speech",
-    "Literacy",
-    "Behaviour",
-  ],
-  instruments: [
-    "GAD-7",
-    "Rutter Parent",
-    "BSAG",
-    "Rutter Teacher",
-    "Malaise Inventory",
-    "CAGE",
-    "GHQ-12",
-  ],
-  dataAccess: {
-    service: "UK Data Service",
-    logo: "/logos/ukds.png",
-  },
-  itemLevelMetadata: [
-    {
-      name: "Catalogue for Mental Health Measures",
-      logo: "/logos/cmhm.png",
-    },
-    {
-      name: "Closer",
-      logo: "/logos/closer.png",
-    },
-    {
-      name: "UK LLC",
-      logo: "/logos/uk-llc.png",
-    },
-  ],
-};
 
 // Create a new component for the search functionality
 function DiscoverPageContent() {
@@ -90,11 +35,11 @@ function DiscoverPageContent() {
   >({});
   const [loading, setLoading] = useState(false);
   const [totalHits, setTotalHits] = useState(0);
-  // Commenting out pagination state for now
-  // const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const [showDebug, setShowDebug] = useState(false);
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [apiOffline, setApiOffline] = useState(false);
   const resultsPerPage = 20; // Page size for the API
   
   const searchParams = useSearchParams();
@@ -122,6 +67,7 @@ function DiscoverPageContent() {
       // @ts-ignore - Adding debug properties to window
       window.__debugState = {
         // currentPage,
+        currentPage,
         totalHits,
         resultsPerPage,
         searchQuery,
@@ -129,16 +75,18 @@ function DiscoverPageContent() {
         selectedFilters,
         filters,
         results,
-        selectedResult
+        selectedResult,
+        apiOffline
       };
       
       console.log('Current state stored in window.__debugState');
       console.log('Current state:', {
         pagination: { 
           // currentPage, 
+          currentPage,
           totalHits, 
           resultsPerPage, 
-          // totalPages: Math.ceil(totalHits / resultsPerPage) 
+          totalPages: Math.ceil(totalHits / resultsPerPage)
         },
         searchQuery,
         debouncedSearchQuery,
@@ -146,14 +94,16 @@ function DiscoverPageContent() {
         filterCount: filters.length,
         resultCount: results.length,
         selectedResult: selectedResult ? {
-          id: selectedResult.id,
-          title: selectedResult.title || selectedResult.dataset_schema?.name
-        } : null
+          id: selectedResult.extra_data?.uuid,
+          title: selectedResult.dataset_schema?.name
+        } : null,
+        apiOffline
       });
     }
   }, [
     // currentPage, 
-    totalHits, resultsPerPage, searchQuery, debouncedSearchQuery, selectedFilters, filters, results, selectedResult
+    currentPage,
+    totalHits, resultsPerPage, searchQuery, debouncedSearchQuery, selectedFilters, filters, results, selectedResult, apiOffline
   ]);
 
   // Handle result selection
@@ -202,12 +152,28 @@ function DiscoverPageContent() {
     async function fetchInitialAggregations() {
       try {
         console.log("Fetching initial aggregations...");
-        const aggregateData = await fetchAggregateFilters();
+        setLoading(true);
+        setApiOffline(false);
+        
+        // Create a promise that rejects after a timeout
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('API request timed out')), 5000); // 5 seconds timeout
+        });
+        
+        // Race the actual API call against the timeout
+        const aggregateData = await Promise.race([
+          fetchAggregateFilters(),
+          timeoutPromise
+        ]);
+        
         const processedFilters = processAggregations(aggregateData);
         setFilters(processedFilters);
         console.log("Initial aggregations set:", processedFilters.length, "filters");
+        setLoading(false);
       } catch (error) {
         console.error("Failed to fetch initial aggregations:", error);
+        setApiOffline(true);
+        setLoading(false);
       }
     }
     
@@ -220,7 +186,7 @@ function DiscoverPageContent() {
       setSelectedResult(results[0]);
     } else if (results.length > 0 && selectedResult) {
       // If current selection is no longer in results, select the first result
-      const stillExists = results.some(result => result.id === selectedResult.id);
+      const stillExists = results.some(result => result.extra_data?.uuid === selectedResult.extra_data?.uuid);
       if (!stillExists) {
         setSelectedResult(results[0]);
       }
@@ -229,16 +195,465 @@ function DiscoverPageContent() {
     }
   }, [results, selectedResult]);
 
-  // Handle page change - commented out for now
-  /*
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
-    // This will trigger the search effect with the new page
+  // Convert SearchResult to StudyDetail format
+  // This needs to be defined *before* studyDetailForDisplay which uses it
+  const mapResultToStudyDetail = useCallback(async (result: SearchResult) => {
+    const isVariableResult = result.extra_data?.resource_type?.includes('variable');
+    const hasAncestors = Array.isArray(result.ancestors) && result.ancestors.length > 0;
+    const displayResult = (isVariableResult && hasAncestors && result.ancestors?.[0]) || result;
+    const needsLookup = displayResult.extra_data?.number_of_variables && !displayResult.dataset_schema?.variableMeasured?.length;
+
+    if (needsLookup) {
+      const fullyPopulatedResult = await fetchResultByUuid(displayResult.extra_data?.uuid || '');
+      if(isVariableResult) {
+        const varibleResult = {
+          uuid: result.extra_data?.uuid,
+          name: result.extra_data?.name || 'Unnamed Variable',
+          description: result.extra_data?.description
+        }
+        fullyPopulatedResult.variables_which_matched = [
+           varibleResult
+        ];
+      }
+      return mapResultToStudyDetail(fullyPopulatedResult);
+    }
+    // Extract data from result
+    const title = displayResult.dataset_schema?.name || "Untitled Dataset";
+    const description = displayResult.dataset_schema?.description || "";
+    
+    // Extract image - using type assertion to handle possible undefined
+    const image = (displayResult.dataset_schema as any)?.image || (displayResult as any).image || undefined;
+    
+    // Extract publisher with type safety
+    let publisher: { name: string; url?: string; logo?: string } | undefined = undefined;
+    if (displayResult.dataset_schema?.publisher?.[0]?.name) {
+      publisher = {
+        name: displayResult.dataset_schema.publisher[0].name,
+        url: (displayResult.dataset_schema.publisher[0] as any)?.url,
+        logo: (displayResult.dataset_schema.publisher[0] as any)?.logo,
+      };
+    }
+    
+    // Extract funders with type safety - handling both array and space-delimited string formats
+    let funders: Array<{ name: string; url?: string; logo?: string }> | undefined = undefined;
+    
+    // Check if this is from the Catalogue of Mental Health
+    const isFromCMHM = displayResult.dataset_schema?.includedInDataCatalog?.some(
+      catalog => catalog.name?.includes("Mental Health") || catalog.name?.includes("CMHM")
+    );
+    
+    // Additional check for catalogues that might have similar funder formats
+    const hasMentalHealthTopics = (displayResult as any).topics?.some((topic: string) => 
+      topic.toLowerCase().includes("mental health") || 
+      topic.toLowerCase().includes("psychiatry") || 
+      topic.toLowerCase().includes("psychology")
+    );
+    
+    // console.log("Is from CMHM:", isFromCMHM, "Has mental health topics:", hasMentalHealthTopics);
+    
+    // Helper function to detect if a string appears to be a space-delimited list of abbreviations
+    const isAbbreviationList = (str: string): boolean => {
+      // If it has spaces and no commas or semicolons, it might be a list
+      if (!str.includes(' ') || /[,.;]/.test(str)) return false;
+      
+      // Split by spaces and check if parts look like abbreviations
+      const parts = str.split(' ').map(p => p.trim()).filter(p => p.length > 0);
+      
+      // Is each part likely to be an abbreviation?
+      // Check if most parts are short (<=8 chars) or contain uppercase characters
+      const abbreviationCount = parts.filter(part => 
+        part.length <= 8 || 
+        part.toUpperCase() === part || 
+        /[A-Z]{2,}/.test(part)
+      ).length;
+      
+      // If most parts (>60%) look like abbreviations, consider it an abbreviation list
+      return abbreviationCount / parts.length > 0.6;
+    };
+    
+    // First check if we have funders as an array in dataset_schema
+    if (displayResult.dataset_schema?.funder && Array.isArray(displayResult.dataset_schema.funder) && displayResult.dataset_schema.funder.length > 0) {
+      // console.log("Processing funders from dataset_schema.funder array:", displayResult.dataset_schema.funder);
+      funders = displayResult.dataset_schema.funder.map(funder => ({
+        name: funder.name || "Funding Organization",
+        url: (funder as any)?.url,
+        logo: (funder as any)?.logo,
+      }));
+    } 
+    // Then check for funders as a property in the result or extra_data
+    else if ((displayResult as any).funders || (displayResult.extra_data as any)?.funders) {
+      const resultFunders = (displayResult as any).funders || (displayResult.extra_data as any)?.funders;
+      // console.log("Processing funders from result.funders or extra_data.funders:", resultFunders);
+      
+      if (Array.isArray(resultFunders)) {
+        // Handle array of funders
+        funders = resultFunders.map(funder => {
+          if (typeof funder === 'string') {
+            return { name: funder };
+          } else if (typeof funder === 'object' && funder !== null) {
+            return {
+              name: funder.name || "Funding Organization",
+              url: funder.url,
+              logo: funder.logo,
+            };
+          }
+          return { name: String(funder) };
+        });
+      } else if (typeof resultFunders === 'string') {
+        // Handle string of funders (potentially space-delimited)
+        if (resultFunders.trim()) {
+          // For Catalogue of Mental Health or strings that look like abbreviation lists, 
+          // split by spaces and treat each part as a separate funder
+          if ((isFromCMHM || hasMentalHealthTopics || isAbbreviationList(resultFunders)) && 
+              resultFunders.includes(' ')) {
+            // console.log("Processing potential abbreviation list:", resultFunders);
+            // Split the space-delimited list into individual abbreviations
+            const funderAbbreviations = resultFunders.split(' ')
+              .map(part => part.trim())
+              .filter(part => part.length > 0);
+            
+            // console.log("Split into abbreviations:", funderAbbreviations);
+            
+            // Create a separate funder entry for each abbreviation
+            funders = funderAbbreviations.map(abbr => ({ 
+              name: abbr
+            }));
+          }
+          // For other sources, check if it's a space-delimited list without punctuation
+          else if (resultFunders.includes(' ') && !/[,.;]/.test(resultFunders)) {
+            const funderNames = resultFunders.split(' ').filter(part => part.trim().length > 0);
+            funders = funderNames.map(name => ({ name }));
+          } else {
+            // Just use the string as a single funder name
+            funders = [{ name: resultFunders }];
+          }
+        }
+      }
+    }
+    
+    // Try more checks for CMHM-specific funders if we still don't have any
+    if ((!funders || funders.length === 0) || (isFromCMHM || hasMentalHealthTopics)) {
+      // Check various fields that might contain funder information
+      const possibleFunderFields = [
+        (displayResult as any).cmhm_funders,
+        (displayResult.extra_data as any)?.cmhm_funders,
+        (displayResult as any).funding_bodies,
+        (displayResult.extra_data as any)?.funding_bodies,
+        (displayResult as any).funding,
+        (displayResult.extra_data as any)?.funding,
+        (displayResult as any).funder,
+        (displayResult.extra_data as any)?.funder
+      ];
+      
+      // Find the first non-empty field
+      const additionalFunders = possibleFunderFields.find(field => field !== undefined && field !== null);
+      
+      if (additionalFunders) {
+        // console.log("Found additional funders in alternative field:", additionalFunders);
+        
+        let newFunders: Array<{ name: string; url?: string; logo?: string }> = [];
+        
+        if (typeof additionalFunders === 'string' && additionalFunders.trim()) {
+          // If it looks like an abbreviation list, split it
+          if (isAbbreviationList(additionalFunders)) {
+            const funderAbbreviations = additionalFunders.split(' ')
+              .map(part => part.trim())
+              .filter(part => part.length > 0);
+            
+            newFunders = funderAbbreviations.map(abbr => ({ name: abbr }));
+          } else {
+            // Just use the string as a single funder name
+            newFunders = [{ name: additionalFunders }];
+          }
+        } else if (Array.isArray(additionalFunders)) {
+          newFunders = additionalFunders.map(funder => 
+            typeof funder === 'string' ? { name: funder } : { 
+              name: funder.name || String(funder),
+              url: funder.url,
+              logo: funder.logo
+            }
+          );
+        }
+        
+        // If we already had funders, merge with new ones, otherwise use new ones
+        if (funders && funders.length > 0) {
+          // console.log("Merging with existing funders");
+          // Merge but avoid duplicates
+          const existingNames = new Set(funders.map(f => f.name));
+          const uniqueNewFunders = newFunders.filter(f => !existingNames.has(f.name));
+          funders = [...funders, ...uniqueNewFunders];
+        } else {
+          funders = newFunders;
+        }
+      }
+    }
+    
+    // Handle special case for raw funder string when we couldn't parse it previously
+    if ((!funders || funders.length === 1) && funders?.[0]?.name && isAbbreviationList(funders[0].name)) {
+      // console.log("Re-processing single funder that looks like an abbreviation list:", funders[0].name);
+      
+      const funderAbbreviations = funders[0].name.split(' ')
+        .map(part => part.trim())
+        .filter(part => part.length > 0);
+      
+      funders = funderAbbreviations.map(abbr => ({ name: abbr }));
+    }
+    
+    // Geographic coverage
+    const geographicCoverage = (displayResult as any).geographic_coverage || 
+                              (displayResult.extra_data?.country_codes?.join(", ") || 
+                               (displayResult as any).country_codes?.join(", ")) || 
+                              undefined;
+    
+    // Temporal coverage (from dataset_schema or start/end years)
+    const temporalCoverage = displayResult.dataset_schema?.temporalCoverage || 
+                          ((displayResult as any).start_year && 
+                           `${(displayResult as any).start_year}${(displayResult as any).end_year ? `..${(displayResult as any).end_year}` : ''}`);
+    
+    // Sample size
+    const sampleSize = (displayResult as any).sample_size?.toString() || 
+                    ((displayResult.dataset_schema as any)?.size?.toString()) || 
+                    undefined;
+    
+    // Age coverage
+    const ageLower = displayResult.extra_data?.age_lower || (displayResult as any).age_lower;
+    const ageUpper = displayResult.extra_data?.age_upper || (displayResult as any).age_upper;
+    const ageCoverage = (ageLower !== undefined && ageUpper !== undefined) 
+                      ? `${ageLower} - ${ageUpper} years` 
+                      : (ageLower !== undefined 
+                         ? `${ageLower}+ years`
+                         : (ageUpper !== undefined 
+                            ? `0 - ${ageUpper} years`
+                            : undefined));
+    
+    // Study design
+    const studyDesign = displayResult.extra_data?.study_design || (displayResult as any).study_design || [];
+    
+    // Resource type
+    const resourceType = displayResult.extra_data?.resource_type || displayResult.dataset_schema?.["@type"] || undefined;
+    
+    // Topics and instruments
+    const unfilteredTopics = displayResult.dataset_schema?.keywords || 
+                  (displayResult as any).topics || 
+                  [];
+    
+    // Filter out malformed keywords/topics that contain HTML fragments
+    const topics = unfilteredTopics.filter(
+      (topic: any) => typeof topic === 'string' && !topic.includes('<a title=') && !topic.startsWith('<')
+    );
+    
+    const instruments = (displayResult as any).instruments || [];
+    
+    // Extract variables that matched the search query
+    const matchedVariables = displayResult.variables_which_matched || [];
+    
+    // Extract all variables from dataset schema
+    const allVariables = displayResult.dataset_schema?.variableMeasured || [];
+    
+    // Data catalogs from includedInDataCatalog
+    let dataCatalogs: Array<{ name: string; url?: string; logo?: string }> | undefined;
+    
+    // Keep track of all URLs that are already linked via dataCatalogs
+    const usedUrls = new Set<string>();
+    
+    if (displayResult.dataset_schema?.includedInDataCatalog && displayResult.dataset_schema.includedInDataCatalog.length > 0) {
+      // Get dataset URLs if available
+      const datasetUrls = displayResult.dataset_schema.url || [];
+      
+      dataCatalogs = displayResult.dataset_schema.includedInDataCatalog.map(catalog => {
+        let catalogUrl = catalog.url;
+        
+        // Check if there's a more specific URL in the dataset's URL array that matches this catalog
+        if (Array.isArray(datasetUrls) && catalogUrl) {
+          try {
+            // Extract the catalog domain
+            const catalogDomain = new URL(catalogUrl).hostname;
+            
+            // Find a URL in datasetUrls that has the same domain
+            const matchingUrl = datasetUrls.find(urlStr => {
+              try {
+                const urlDomain = new URL(urlStr).hostname;
+                return urlDomain === catalogDomain;
+              } catch (e) {
+                return false;
+              }
+            });
+            
+            // If found a matching URL, use that instead
+            if (matchingUrl) {
+              catalogUrl = matchingUrl;
+            }
+          } catch (e) {
+            // If URL parsing fails, just use the original catalog URL
+            console.warn("Failed to parse catalog URL", e);
+          }
+        }
+        
+        // Add to used URLs set
+        if (catalogUrl) {
+          usedUrls.add(catalogUrl);
+        }
+        
+        return {
+          name: catalog.name || 'Data Catalog',
+          url: catalogUrl || undefined,
+          logo: catalog.image, // Fallback to a default logo
+        };
+      });
+    }
+    
+    // Extract additional URLs from identifiers and url fields that aren't already covered by data catalogs
+    let additionalLinks: string[] = [];
+    
+    // Process identifiers (URLs to papers, DOIs, etc.)
+    if (displayResult.dataset_schema?.identifier && Array.isArray(displayResult.dataset_schema.identifier)) {
+      // Filter valid URLs and DOIs
+      const validUrls = displayResult.dataset_schema.identifier.filter(id => {
+        // Check if it's a URL
+        if (id.startsWith('http://') || id.startsWith('https://')) {
+          return true;
+        }
+        // Check if it's a DOI
+        if (id.startsWith('10.') && id.includes('/')) {
+          return true;
+        }
+        return false;
+      }).map(id => {
+        // Convert DOIs to URLs if needed
+        if (id.startsWith('10.') && id.includes('/')) {
+          return `https://doi.org/${id}`;
+        }
+        return id;
+      });
+      
+      // Filter out URLs that are already in dataCatalogs
+      additionalLinks = [...additionalLinks, ...validUrls.filter(url => !usedUrls.has(url))];
+    }
+    
+    // Process direct URL field
+    if (displayResult.dataset_schema?.url && Array.isArray(displayResult.dataset_schema.url)) {
+      // Filter out URLs that are already in dataCatalogs
+      const newUrls = displayResult.dataset_schema.url.filter(url => !usedUrls.has(url));
+      additionalLinks = [...additionalLinks, ...newUrls];
+    }
+    
+    // Add any other potential URL fields
+    const otherUrlFields = [
+      (displayResult as any).url,
+      (displayResult as any).original_source_url,
+      (displayResult as any).doi?.startsWith('10.') ? `https://doi.org/${(displayResult as any).doi}` : null
+    ].filter(Boolean) as string[];
+    
+    // Add these URLs if they're not already included
+    otherUrlFields.forEach(url => {
+      if (url && !usedUrls.has(url) && !additionalLinks.includes(url)) {
+        additionalLinks.push(url);
+      }
+    });
+    
+    // Ensure we have unique URLs
+    additionalLinks = Array.from(new Set(additionalLinks));
+    
+    // console.log("Additional links found:", additionalLinks);
+    
+    return {
+      title,
+      description,
+      image,
+      publisher,
+      funders,
+      geographicCoverage,
+      temporalCoverage,
+      sampleSize,
+      ageCoverage,
+      studyDesign,
+      resourceType,
+      topics,
+      instruments,
+      dataCatalogs,
+      matchedVariables,
+      allVariables,
+      additionalLinks,
+    };
+  }, []);
+
+  // Memoize the detailed study data derived from the selected result
+  const studyDetailForDisplay = useMemo(() => {
+    if (!selectedResult) return null;
+    // We'll handle the async call in the component that uses this
+    return mapResultToStudyDetail(selectedResult);
+  }, [selectedResult, mapResultToStudyDetail]);
+
+  // Update the StudyDetail component to handle the async result
+  interface StudyDetailData {
+    title: string;
+    description: string;
+    image?: string;
+    dataOwner?: { name: string; logo: string; };
+    publisher?: { name: string; url?: string; logo?: string; };
+    funders?: Array<{ name: string; url?: string; logo?: string; }>;
+    geographicCoverage?: string;
+    temporalCoverage?: string;
+    sampleSize?: string;
+    ageCoverage?: string;
+    studyDesign?: string[];
+    resourceType?: string;
+    topics: string[];
+    instruments: string[];
+    dataCatalogs?: Array<{ name: string; url?: string; logo?: string; }>;
+    matchedVariables?: Array<{ name: string; description?: string; }>;
+    allVariables?: Array<{ name: string; description?: string; }>;
+    additionalLinks?: string[];
+  }
+
+  const [studyDetail, setStudyDetail] = useState<StudyDetailData | null>(null);
+
+  useEffect(() => {
+    if (studyDetailForDisplay) {
+      studyDetailForDisplay.then(result => {
+        if (result) {
+          setStudyDetail(result);
+        }
+      });
+    } else {
+      setStudyDetail(null);
+    }
+  }, [studyDetailForDisplay]);
+
+  // Re-enabled page change handler
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setCurrentPage(value);
+    // This will trigger the search effect with the new page via the useEffect hook below
   };
-  */
+
+  // Effect to trigger search when query, filters, or page changes
+  useEffect(() => {
+    // Reset to page 1 if query or filters change, but not if only page changes
+    const isQueryOrFilterChange = debouncedSearchQuery !== searchQueryRef.current || JSON.stringify(selectedFilters) !== filtersRef.current;
+    if (isQueryOrFilterChange && currentPage !== 1) {
+      setCurrentPage(1);
+      // Store the current query and filters for the next comparison
+      searchQueryRef.current = debouncedSearchQuery;
+      filtersRef.current = JSON.stringify(selectedFilters);
+      // Don't perform search yet, wait for the state update cycle with page 1
+      return; 
+    }
+    
+    // Store the current query and filters for the next comparison *after* potential reset check
+    searchQueryRef.current = debouncedSearchQuery;
+    filtersRef.current = JSON.stringify(selectedFilters);
+
+    performSearch();
+    // Dependency array includes query, filters, and page
+  }, [debouncedSearchQuery, selectedFilters, currentPage]); // Added currentPage back
+
+  // Refs to track previous query and filters for page reset logic
+  const searchQueryRef = useRef(debouncedSearchQuery);
+  const filtersRef = useRef(JSON.stringify(selectedFilters));
 
   async function performSearch() {
     setLoading(true);
+    setApiOffline(false);
     try {
       // Create a copy of the filters to send to the API
       const combinedFilters = { ...selectedFilters };
@@ -263,12 +678,22 @@ function DiscoverPageContent() {
       console.log('Results per page:', resultsPerPage);
       // console.log('Page:', currentPage, 'Results per page:', resultsPerPage);
       
-      const res: SearchResponse = await fetchSearchResults(
-        debouncedSearchQuery,
-        combinedFilters,
-        // currentPage,
-        resultsPerPage
-      );
+      // Create a promise that rejects after a timeout
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('API request timed out')), 5000); // 1.5 seconds timeout
+      });
+      
+      // Race the actual API call against the timeout
+      const res: SearchResponse = await Promise.race([
+        fetchSearchResults(
+          debouncedSearchQuery,
+          combinedFilters,
+          // currentPage,
+          currentPage,
+          resultsPerPage
+        ),
+        timeoutPromise
+      ]);
       
       // Log the response in a way that keeps it in the console
       console.log('Response received:', {
@@ -277,9 +702,9 @@ function DiscoverPageContent() {
         resultCount: res.results?.length || 0,
         // Use specific result properties that won't be too verbose
         results: res.results?.map(r => ({
-          id: r.id, 
-          title: r.title || r.dataset_schema?.name, 
-          type: r.resource_type || r.dataset_schema?.["@type"],
+          id: r.extra_data?.uuid, 
+          title: r.dataset_schema?.name, 
+          type: r.extra_data?.resource_type || r.dataset_schema?.["@type"],
           similarity: r.cosine_similarity
         })),
         timestamp: new Date().toISOString()
@@ -296,6 +721,7 @@ function DiscoverPageContent() {
       // This ensures filters remain stable and consistent during search
     } catch (error) {
       console.error("Search failed:", error);
+      setApiOffline(true);
     } finally {
       setLoading(false);
     }
@@ -494,170 +920,14 @@ function DiscoverPageContent() {
   // Search only when debounced search query or selected filters change
   // This prevents excessive API calls during typing
   useEffect(() => {
-    performSearch();
+    if (!apiOffline) {
+      performSearch();
+    }
   }, [debouncedSearchQuery, selectedFilters, resourceTypeFilter 
     // , currentPage
   ]);
 
-  // Calculate total pages for pagination display - commenting out for now
-  // const totalPages = Math.ceil(totalHits / resultsPerPage);
-
-  // Convert SearchResult to StudyDetail format
-  const mapResultToStudyDetail = useCallback((result: SearchResult) => {
-    // Extract data from result
-    const title = result.dataset_schema?.name || result.title || "Untitled Dataset";
-    const description = result.dataset_schema?.description || result.description || "";
-    
-    // Extract image - using type assertion to handle possible undefined
-    const image = (result.dataset_schema as any)?.image || (result as any).image || undefined;
-    
-    // Extract publisher with type safety
-    let publisher: { name: string; url?: string; logo?: string } | undefined = undefined;
-    if (result.dataset_schema?.publisher?.[0]?.name) {
-      publisher = {
-        name: result.dataset_schema.publisher[0].name,
-        url: (result.dataset_schema.publisher[0] as any)?.url,
-        logo: (result.dataset_schema.publisher[0] as any)?.logo,
-      };
-    }
-    
-    // Extract funders with type safety
-    let funders: Array<{ name: string; url?: string; logo?: string }> | undefined = undefined;
-    if (result.dataset_schema?.funder && Array.isArray(result.dataset_schema.funder)) {
-      funders = result.dataset_schema.funder.map(funder => ({
-        name: funder.name || "Funding Organization",
-        url: (funder as any)?.url,
-        logo: (funder as any)?.logo ,
-      }));
-    }
-    
-    // Geographic coverage
-    const geographicCoverage = (result as any).geographic_coverage || 
-                              (result.extra_data?.country_codes?.join(", ") || 
-                               (result as any).country_codes?.join(", ")) || 
-                              undefined;
-    
-    // Temporal coverage (from dataset_schema or start/end years)
-    const temporalCoverage = result.dataset_schema?.temporalCoverage || 
-                          ((result as any).start_year && 
-                           `${(result as any).start_year}${(result as any).end_year ? `..${(result as any).end_year}` : ''}`);
-    
-    // Sample size
-    const sampleSize = (result as any).sample_size?.toString() || 
-                    ((result.dataset_schema as any)?.size?.toString()) || 
-                    undefined;
-    
-    // Age coverage
-    const ageLower = result.extra_data?.age_lower || (result as any).age_lower;
-    const ageUpper = result.extra_data?.age_upper || (result as any).age_upper;
-    const ageCoverage = (ageLower !== undefined && ageUpper !== undefined) 
-                      ? `${ageLower} - ${ageUpper} years` 
-                      : (ageLower !== undefined 
-                         ? `${ageLower}+ years`
-                         : (ageUpper !== undefined 
-                            ? `0 - ${ageUpper} years`
-                            : undefined));
-    
-    // Study design
-    const studyDesign = result.extra_data?.study_design || (result as any).study_design || [];
-    
-    // Resource type
-    const resourceType = (result as any).resource_type || result.dataset_schema?.["@type"] || undefined;
-    
-    // Topics and instruments
-    const unfilteredTopics = result.dataset_schema?.keywords || 
-                  (result as any).topics || 
-                  [];
-    
-    // Filter out malformed keywords/topics that contain HTML fragments
-    const topics = unfilteredTopics.filter(
-      (topic: any) => typeof topic === 'string' && !topic.includes('<a title=') && !topic.startsWith('<')
-    );
-    
-    const instruments = (result as any).instruments || [];
-    
-    // Extract variables that matched the search query
-    const matchedVariables = result.variables_which_matched || [];
-    
-    // Extract all variables from dataset schema
-    const allVariables = result.dataset_schema?.variableMeasured || [];
-    
-    // Data catalogs from includedInDataCatalog
-    let dataCatalogs: Array<{ name: string; url?: string; logo?: string }> | undefined;
-    
-    if (result.dataset_schema?.includedInDataCatalog && result.dataset_schema.includedInDataCatalog.length > 0) {
-      // Get dataset URLs if available
-      const datasetUrls = result.dataset_schema.url || [];
-      
-      dataCatalogs = result.dataset_schema.includedInDataCatalog.map(catalog => {
-        let catalogUrl = catalog.url;
-        
-        // Check if there's a more specific URL in the dataset's URL array that matches this catalog
-        if (Array.isArray(datasetUrls) && catalogUrl) {
-          try {
-            // Extract the catalog domain
-            const catalogDomain = new URL(catalogUrl).hostname;
-            
-            // Find a URL in datasetUrls that has the same domain
-            const matchingUrl = datasetUrls.find(urlStr => {
-              try {
-                const urlDomain = new URL(urlStr).hostname;
-                return urlDomain === catalogDomain;
-              } catch (e) {
-                return false;
-              }
-            });
-            
-            // If found a matching URL, use that instead
-            if (matchingUrl) {
-              catalogUrl = matchingUrl;
-            }
-          } catch (e) {
-            // If URL parsing fails, just use the original catalog URL
-            console.warn("Failed to parse catalog URL", e);
-          }
-        }
-        
-        return {
-          name: catalog.name || 'Data Catalog',
-          url: catalogUrl || undefined,
-          logo: catalog.image, // Fallback to a default logo
-        };
-      });
-    }
-    
-    return {
-      title,
-      description,
-      image,
-      publisher,
-      funders,
-      geographicCoverage,
-      temporalCoverage,
-      sampleSize,
-      ageCoverage,
-      studyDesign,
-      resourceType,
-      topics,
-      instruments,
-      dataCatalogs,
-      matchedVariables,
-      allVariables,
-    };
-  }, []);
-
-  // Define the StudyDetailContent component to avoid repetition
-  const StudyDetailContent = ({ isDrawerView = false }) => (
-    selectedResult ? (
-      <StudyDetail study={mapResultToStudyDetail(selectedResult)} isDrawerView={isDrawerView} />
-    ) : (
-      <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography color="text.secondary">
-          Select a dataset to view details
-        </Typography>
-      </Box>
-    )
-  );
+  const totalPages = Math.ceil(totalHits / resultsPerPage);
 
   return (
     <Box sx={{ py: 4 }}>
@@ -800,31 +1070,74 @@ function DiscoverPageContent() {
         {/* Main Content Area - Responsive Layout */}
         <Box 
           sx={{ 
-            display: "flex", 
+            display: isMobile ? "block" : "grid",
+            gridTemplateColumns: "1fr 1fr", // Exactly 50-50 split using grid
             gap: 4,
-            flexDirection: isMobile ? "column" : "row" 
+            width: "100%"
           }}
         >
           {/* Search Results Panel - Full width on mobile */}
           <Box 
             sx={{ 
-              width: isMobile ? "100%" : "50%", 
-              minWidth: 0 
+              width: "100%", // Always 100% of its grid cell
+              minWidth: 0,
+              overflowX: "hidden" // Prevent any content from breaking out
             }}
           >
             {loading ? (
               <Typography>Loading search results...</Typography>
+            ) : apiOffline ? (
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                textAlign: 'center',
+                py: 8,
+                px: 4
+              }}>
+                <CloudOffIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="h5" color="text.secondary" gutterBottom>
+                  The discovery API is currently offline
+                </Typography>
+                <Typography color="text.secondary">
+                  Please try again soon. We apologize for the inconvenience.
+                </Typography>
+                <Button 
+                  variant="contained" 
+                  sx={{ mt: 4 }}
+                  onClick={() => {
+                    setApiOffline(false);
+                    // Call the function that will retry fetching aggregations
+                    // This will trigger the useEffect that contains fetchInitialAggregations
+                    performSearch();
+                  }}
+                >
+                  Retry Connection
+                </Button>
+              </Box>
             ) : (
               <>
+                {/* Pagination Controls - Top */}
+                {totalPages > 1 && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                    <Pagination 
+                      count={totalPages} 
+                      page={currentPage} 
+                      onChange={handlePageChange} 
+                      color="primary" 
+                    />
+                  </Box>
+                )}
                 <SearchResults
                   results={results}
                   resourceTypeFilter={resourceTypeFilter}
                   onSelectResult={handleSelectResult}
-                  selectedResultId={selectedResult?.id}
+                  selectedResultId={selectedResult?.extra_data?.uuid}
                 />
                 
-                {/* Simple results count info */}
-                {totalHits > 0 && (
+                {/* Simple results count info - Condition updated */}
+                {results.length > 0 && totalHits > 0 && (
                   <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 2 }}>
                     <Typography variant="body2" color="text.secondary">
                       {totalHits} total results (showing up to {resultsPerPage})
@@ -833,25 +1146,69 @@ function DiscoverPageContent() {
                 )}
               </>
             )}
+            {/* Pagination Controls - Bottom (Moved here) */}
+            {totalPages > 1 && !loading && !apiOffline && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                <Pagination 
+                  count={totalPages} 
+                  page={currentPage} 
+                  onChange={handlePageChange} 
+                  color="primary" 
+                />
+              </Box>
+            )}
           </Box>
 
           {/* Study Detail Panel - Only shown on desktop */}
           {!isMobile && (
             <Box
               sx={{
-                width: "50%",
+                width: "100%", // Always 100% of its grid cell
                 bgcolor: "background.paper",
                 borderLeft: "1px solid",
                 borderColor: "grey.200",
-                height: "auto", // Remove fixed height
+                height: "auto",
                 position: "sticky",
-                top: 24, // Distance from top of viewport
-                maxHeight: "calc(100vh - 48px)", // Full viewport height minus margins
+                top: 24,
+                maxHeight: "calc(100vh - 48px)",
                 display: "flex",
                 flexDirection: "column",
+                overflowX: "hidden" // Prevent any content from breaking out
               }}
             >
-              <StudyDetailContent />
+              {apiOffline ? (
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  p: 4,
+                  height: '100%'
+                }}>
+                  <CloudOffIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    API Offline
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Study details unavailable
+                  </Typography>
+                </Box>
+              ) : (
+                // Conditionally render StudyDetail or placeholder
+                studyDetail ? (
+                  <StudyDetail 
+                    study={studyDetail}
+                    isDrawerView={false}
+                  />
+                ) : (
+                  <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+                    <Typography color="text.secondary">
+                      Select a dataset to view details
+                    </Typography>
+                  </Box>
+                )
+              )}
             </Box>
           )}
         </Box>
@@ -881,7 +1238,7 @@ function DiscoverPageContent() {
             </IconButton>
             <Box sx={{ py: 1, pl: 1, pr: 6, display: 'flex', alignItems: 'center', gap: 2 }}>
               <Typography variant="h6" sx={{ flex: 1 }}>
-                {selectedResult ? selectedResult.title || selectedResult.dataset_schema?.name || "Study Details" : "Study Details"}
+                {selectedResult ? selectedResult.dataset_schema?.name || "Study Details" : "Study Details"}
               </Typography>
               {selectedResult && (
                 (selectedResult.dataset_schema && (selectedResult.dataset_schema as any).image) || 
@@ -900,7 +1257,7 @@ function DiscoverPageContent() {
                   <Image
                     src={(selectedResult.dataset_schema && (selectedResult.dataset_schema as any).image) || 
                          (selectedResult as any).image}
-                    alt={selectedResult.title || "Study image"}
+                    alt={selectedResult.dataset_schema?.name || "Study image"}
                     fill
                     style={{ objectFit: "cover" }}
                     unoptimized={true}
@@ -910,7 +1267,19 @@ function DiscoverPageContent() {
             </Box>
           </Box>
           <Box sx={{ p: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
-            <StudyDetailContent isDrawerView={true} />
+            {/* Conditionally render StudyDetail or placeholder in drawer */}
+            {studyDetail ? (
+              <StudyDetail 
+                study={studyDetail}
+                isDrawerView={true}
+              />
+            ) : (
+              <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+                <Typography color="text.secondary">
+                  Select a dataset to view details
+                </Typography>
+              </Box>
+            )}
           </Box>
         </Drawer>
       </Container>

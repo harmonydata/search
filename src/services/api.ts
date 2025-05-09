@@ -8,17 +8,6 @@ export interface AggregateFilter {
 }
 
 export interface SearchResult {
-  id?: string;
-  title?: string;
-  resource_type?: string;
-  keywords?: string[];
-  description?: string;
-  hasVariables?: boolean;
-  hasCohortsAvailable?: boolean;
-  hasFreeAccess?: boolean;
-  study_variable_relationship?: {
-    parent: string;
-  };
   // New fields from the Weaviate API
   dataset_schema?: {
     "@context"?: string;
@@ -52,17 +41,24 @@ export interface SearchResult {
     }[];
     temporalCoverage?: string;
   };
-  extra_data?: {
+  extra_data: {
+    description?: string;
+    name?: string;
+    resource_type?: string;
     country_codes?: string[];
     study_design?: string[];
     age_upper?: number;
     age_lower?: number;
     uuid?: string;
+    number_of_variables?: number;
   };
   distance?: number;
   cosine_similarity?: number;
+  hasFreeAccess?: boolean;
+  hasCohortsAvailable?: boolean;
   score?: number;
   match_type?: string[];
+  ancestors?: SearchResult[];
   variables_which_matched?: {
     name: string;
     description?: string;
@@ -131,20 +127,29 @@ export async function fetchAggregateFilters(): Promise<AggregateFilter[]> {
 export async function fetchSearchResults(
   query: string,
   filters?: Record<string, string[]>,
-  // page: number = 1,
-  resultsPerPage: number = 20
+  page: number = 1,
+  resultsPerPage: number = 10
 ): Promise<SearchResponse> {
   const params = new URLSearchParams();
+
 
   // Set query parameter - never send an empty query to avoid 500 errors
   // If query is empty, use "*" as a wildcard
   const safeQuery = !query || query.trim() === "" ? "*" : query.trim();
+  
+  // force keyword search if query is a single word or a wildcard 
+  if(!(safeQuery === "*" || safeQuery.split(" ").length > 1)) {
+    params.set("query_type", "keyword");
+  } else {
+    params.set("query_type", "hybrid");
+  }
+
   params.append("query", safeQuery);
 
   // Add limit parameter (no offset for now)
-  // const offset = (page - 1) * resultsPerPage;
+  const offset = (page - 1) * resultsPerPage;
   params.set("num_results", resultsPerPage.toString());
-  // params.set("offset", offset.toString());
+  params.set("offset", offset.toString());
 
   // Group numeric range params for better logging
   const numericRangeParams: Record<string, {min?: string, max?: string}> = {};
@@ -180,7 +185,7 @@ export async function fetchSearchResults(
     }
   }
 
-  const url = `${API_BASE}/discover/search?${params.toString()}`;
+  const url = `${API_BASE}/discover2/search?${params.toString()}`;
   console.log("Search URL:", url);
   
   // Log numeric range parameters for debugging
@@ -218,4 +223,24 @@ export async function fetchSearchResults(
     aggregations: data.aggregations || {},
     num_hits: data.num_hits,
   } as SearchResponse;
+}
+
+export async function fetchResultByUuid(uuid: string): Promise<SearchResult> {
+  const url = `${API_BASE}/discover2/lookup?uuid=${uuid}`;
+  const response = await fetch(url);
+  
+  if (!response.ok) {
+    console.error('Failed to fetch result by UUID:', response.statusText);
+    throw new Error(`Failed to fetch result by UUID: ${response.statusText}`);
+  }
+  
+  const data = await response.json();
+  
+  // Store the response in window for debugging
+  if (typeof window !== 'undefined') {
+    // @ts-ignore - Adding debug property to window
+    window.__lastLookupResponse = data;
+  }
+  
+  return data.results[0];
 }

@@ -1,14 +1,7 @@
 "use client";
 
-import { Box, Stack, Typography, Chip, Card, CardContent, CardActionArea } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
 import { SearchResult } from "@/services/api";
-import { ResourceData } from "@/components/ResourceCard";
-import DatasetCard from "@/components/DatasetCard";
-import VariableCard from "@/components/VariableCard";
-import StudyCard from "@/components/StudyCard";
-import SourceCard from "@/components/SourceCard";
-import { Info } from "lucide-react";
-import { useState } from "react";
 import CompactResultCard from "@/components/CompactResultCard";
 
 interface SearchResultsProps {
@@ -28,9 +21,9 @@ export default function SearchResults({
   let filteredResults =
     resourceTypeFilter && resourceTypeFilter.length > 0
       ? results.filter((result) =>
-          result.resource_type && resourceTypeFilter
+          result.extra_data?.resource_type && resourceTypeFilter
             .map((type) => type.trim().toLowerCase())
-            .includes(result.resource_type.trim().toLowerCase())
+            .includes(result.extra_data?.resource_type.trim().toLowerCase())
         )
       : results;
 
@@ -77,11 +70,11 @@ export default function SearchResults({
       <Stack spacing={1.5} sx={{ mb: 4 }}>
         {sortedResults.map((result, index) => {
           // Determine if this result is selected
-          const isSelected = selectedResultId === result.id;
+          const isSelected = selectedResultId === result.extra_data?.uuid;
           
           return (
             <CompactResultCard 
-              key={result.id || `result-${index}`}
+              key={result.extra_data?.uuid || `result-${index}`}
               result={result}
               isSelected={isSelected}
               onClick={() => handleSelectResult(result)}

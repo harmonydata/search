@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, Box, Typography, Skeleton, CardContent } from '@mui/material';
 import Image from 'next/image';
 import { ExternalLink } from 'lucide-react';
+import { fetchOgData } from '@/services/api';
 
 // Global request throttling mechanism
 // Keep track of URLs that are currently being fetched
@@ -64,19 +65,8 @@ export default function LinkPreviewCard({ url, compact = false, maxHeight = 250 
         if (!requestPromise) {
           // Create a new request if none exists
           console.log(`Fetching OpenGraph data for ${url}`);
-          const apiUrl = `/api/og?url=${encodeURIComponent(url)}`;
-          
-          requestPromise = fetch(apiUrl)
-            .then(response => {
-              if (!response.ok) {
-                throw new Error(`Failed to fetch Open Graph data: ${response.statusText}`);
-              }
-              return response.json();
-            })
+          requestPromise = fetchOgData(url)
             .then(data => {
-              if (data.error) {
-                throw new Error(data.error);
-              }
               // Cache the result
               resultCache.set(cacheKey, { data, timestamp: Date.now() });
               return data;

@@ -1,8 +1,11 @@
 module.exports = {
+  // Only enable static export when NEXT_STATIC_EXPORT is true
+  output: process.env.NEXT_STATIC_EXPORT ? 'export' : undefined,
   eslint: {
     ignoreDuringBuilds: true,
   },
   images: {
+    unoptimized: process.env.NEXT_STATIC_EXPORT ? true : false,
     remotePatterns: [
       {
         protocol: 'https',
@@ -46,4 +49,7 @@ module.exports = {
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
+  // Skip server-side routes during static export
+  skipTrailingSlashRedirect: true,
+  skipMiddlewareUrlNormalize: true,
 }; 

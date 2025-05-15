@@ -6,7 +6,10 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "export": "next build && next export",
+    "static": "NEXT_STATIC_EXPORT=true next build",
+    "serve": "serve out"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",
@@ -23,6 +26,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-toastify": "^11.0.3",
+    "serve": "^14.2.1",
     "vercel": "^41.2.0"
   },
   "devDependencies": {

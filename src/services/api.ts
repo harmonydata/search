@@ -185,7 +185,7 @@ export async function fetchSearchResults(
     }
   }
 
-  const url = `${API_BASE}/discover2/search?${params.toString()}`;
+  const url = `${API_BASE}/discover/search?${params.toString()}`;
   console.log("Search URL:", url);
   
   // Log numeric range parameters for debugging
@@ -226,7 +226,7 @@ export async function fetchSearchResults(
 }
 
 export async function fetchResultByUuid(uuid: string): Promise<SearchResult> {
-  const url = `${API_BASE}/discover2/lookup?uuid=${uuid}`;
+  const url = `${API_BASE}/discover/lookup?uuid=${uuid}`;
   const response = await fetch(url);
   
   if (!response.ok) {
@@ -243,4 +243,12 @@ export async function fetchResultByUuid(uuid: string): Promise<SearchResult> {
   }
   
   return data.results[0];
+}
+
+export async function fetchOgData(url: string): Promise<any> {
+  const response = await fetch(`https://harmonydiscoverynodefunctionapp1.azurewebsites.net/api/ogData?url=${encodeURIComponent(url)}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch OpenGraph data');
+  }
+  return response.json();
 }

@@ -157,7 +157,7 @@ function DiscoverPageContent() {
         
         // Create a promise that rejects after a timeout
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('API request timed out')), 5000); // 5 seconds timeout
+          setTimeout(() => reject(new Error('API request timed out')), 60000); // 60 seconds timeout
         });
         
         // Race the actual API call against the timeout
@@ -680,7 +680,7 @@ function DiscoverPageContent() {
       
       // Create a promise that rejects after a timeout
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('API request timed out')), 5000); // 1.5 seconds timeout
+        setTimeout(() => reject(new Error('API request timed out')), 60000); // 60 seconds timeout
       });
       
       // Race the actual API call against the timeout

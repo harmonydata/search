@@ -9,7 +9,7 @@
     "lint": "next lint",
     "export": "next build && next export",
     "static": "NEXT_STATIC_EXPORT=true next build",
-    "build:github-pages": "GITHUB_PAGES_DEPLOYMENT=true next build",
+    "build:github-pages": "GITHUB_PAGES_DEPLOYMENT=true NEXT_STATIC_EXPORT=true next build",
     "serve": "serve out"
   },
   "dependencies": {

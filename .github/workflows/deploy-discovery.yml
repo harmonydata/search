@@ -1,6 +1,9 @@
 # Deploy Search app to GitHub Pages
 name: Deploy Search to GitHub Pages
 
+env:
+  CI: false
+
 on:
   push:
     branches: ["main"]
@@ -28,7 +31,7 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Build for GitHub Pages deployment
-        run: npm run build:github-pages
+        run: npm run static
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4

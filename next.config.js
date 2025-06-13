@@ -14,17 +14,14 @@ module.exports = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Exclude API routes during static export
+  // Exclude API routes and Azure Functions during static export
   webpack: (config, { isServer }) => {
     if (isGitHubPagesDeployment && isServer) {
-      // Exclude API routes during static builds
-      config.plugins = config.plugins || [];
-      config.plugins.push(
-        new (require("webpack").IgnorePlugin)({
-          resourceRegExp: /^\.\/api/,
-          contextRegExp: /src\/app$/,
-        })
-      );
+      // Exclude Azure Functions and API routes from the build
+      config.module.rules.push({
+        test: /\.(ts|tsx|js|jsx)$/,
+        exclude: [/azure-functions/, /api/],
+      });
     }
     return config;
   },

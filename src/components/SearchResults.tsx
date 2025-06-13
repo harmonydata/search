@@ -9,6 +9,7 @@ interface SearchResultsProps {
   resourceTypeFilter?: string[];
   onSelectResult?: (result: SearchResult) => void;
   selectedResultId?: string;
+  onFindSimilar?: (result: SearchResult) => void;
 }
 
 export default function SearchResults({
@@ -16,31 +17,25 @@ export default function SearchResults({
   resourceTypeFilter,
   onSelectResult,
   selectedResultId,
+  onFindSimilar,
 }: SearchResultsProps) {
   // Filter results based on resourceTypeFilter if provided, using case-insensitive comparison
-  let filteredResults =
+  const filteredResults =
     resourceTypeFilter && resourceTypeFilter.length > 0
-      ? results.filter((result) =>
-          result.extra_data?.resource_type && resourceTypeFilter
-            .map((type) => type.trim().toLowerCase())
-            .includes(result.extra_data?.resource_type.trim().toLowerCase())
+      ? results.filter(
+          (result) =>
+            result.extra_data?.resource_type &&
+            resourceTypeFilter
+              .map((type) => type.trim().toLowerCase())
+              .includes(result.extra_data?.resource_type.trim().toLowerCase())
         )
       : results;
 
-  // Sort filtered results by cosine_similarity (highest similarity on top), 
-  // falling back to score if cosine_similarity is not available
-  const sortedResults = filteredResults.sort((a, b) => {
-    const similarityA = a.cosine_similarity || a.score || 0;
-    const similarityB = b.cosine_similarity || b.score || 0;
-    return similarityB - similarityA;
-  });
-
-  // Debug log to inspect filtering and sorting
+  // Debug log to inspect filtering (removed sorting as API returns results in correct order)
   console.log("SearchResults debug:", {
     resourceTypeFilter,
     originalResults: results,
     filteredResults,
-    sortedResults
   });
 
   const handleSelectResult = (result: SearchResult) => {
@@ -49,7 +44,7 @@ export default function SearchResults({
     }
   };
 
-  if (!sortedResults.length) {
+  if (!filteredResults.length) {
     return (
       <Box sx={{ textAlign: "center", py: 8 }}>
         <Typography color="text.secondary">
@@ -61,23 +56,18 @@ export default function SearchResults({
 
   return (
     <Box>
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="subtitle1">
-          {sortedResults.length} results
-        </Typography>
-      </Box>
-
       <Stack spacing={1.5} sx={{ mb: 4 }}>
-        {sortedResults.map((result, index) => {
+        {filteredResults.map((result, index) => {
           // Determine if this result is selected
           const isSelected = selectedResultId === result.extra_data?.uuid;
-          
+
           return (
-            <CompactResultCard 
+            <CompactResultCard
               key={result.extra_data?.uuid || `result-${index}`}
               result={result}
               isSelected={isSelected}
               onClick={() => handleSelectResult(result)}
+              onFindSimilar={onFindSimilar}
             />
           );
         })}

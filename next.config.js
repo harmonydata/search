@@ -1,55 +1,80 @@
+// Only apply base path when explicitly building for GitHub Pages deployment
+const isGitHubPagesDeployment = process.env.GITHUB_PAGES_DEPLOYMENT === "true";
+
 module.exports = {
-  // Only enable static export when NEXT_STATIC_EXPORT is true
-  output: process.env.NEXT_STATIC_EXPORT ? 'export' : undefined,
+  // Only enable static export when NEXT_STATIC_EXPORT is true OR when building for GitHub Pages
+  output:
+    process.env.NEXT_STATIC_EXPORT || isGitHubPagesDeployment
+      ? "export"
+      : undefined,
+  basePath: isGitHubPagesDeployment ? "/search" : "",
+  assetPrefix: isGitHubPagesDeployment ? "/search" : "",
+  trailingSlash: isGitHubPagesDeployment,
+  reactStrictMode: false,
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Exclude API routes during static export
+  webpack: (config, { isServer }) => {
+    if (isGitHubPagesDeployment && isServer) {
+      // Exclude API routes during static builds
+      config.plugins = config.plugins || [];
+      config.plugins.push(
+        new (require("webpack").IgnorePlugin)({
+          resourceRegExp: /^\.\/api/,
+          contextRegExp: /src\/app$/,
+        })
+      );
+    }
+    return config;
+  },
   images: {
-    unoptimized: process.env.NEXT_STATIC_EXPORT ? true : false,
+    unoptimized:
+      process.env.NEXT_STATIC_EXPORT || isGitHubPagesDeployment ? true : false,
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: '**.ac.uk',
+        protocol: "https",
+        hostname: "**.ac.uk",
       },
       {
-        protocol: 'http',
-        hostname: '**.ac.uk',
+        protocol: "http",
+        hostname: "**.ac.uk",
       },
       {
-        protocol: 'https',
-        hostname: '**.edu',
+        protocol: "https",
+        hostname: "**.edu",
       },
       {
-        protocol: 'https',
-        hostname: '**.org',
+        protocol: "https",
+        hostname: "**.org",
       },
       {
-        protocol: 'https',
-        hostname: '**.gov',
+        protocol: "https",
+        hostname: "**.gov",
       },
       {
-        protocol: 'https',
-        hostname: '**.org.uk',
+        protocol: "https",
+        hostname: "**.org.uk",
       },
       {
-        protocol: 'https',
-        hostname: '**.nhs.uk',
+        protocol: "https",
+        hostname: "**.nhs.uk",
       },
       {
-        protocol: 'https',
-        hostname: 'cataloguementalhealth.ac.uk',
+        protocol: "https",
+        hostname: "cataloguementalhealth.ac.uk",
       },
       {
-        protocol: 'https',
-        hostname: 'www.cataloguementalhealth.ac.uk',
-      }
+        protocol: "https",
+        hostname: "www.cataloguementalhealth.ac.uk",
+      },
     ],
     // Allow data URLs for client-side rendering fallbacks
     dangerouslyAllowSVG: true,
-    contentDispositionType: 'attachment',
+    contentDispositionType: "attachment",
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   // Skip server-side routes during static export
   skipTrailingSlashRedirect: true,
   skipMiddlewareUrlNormalize: true,
-}; 
+};

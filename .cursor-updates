@@ -9,7 +9,7 @@
 - Fixed filter panel bug where filters disappeared when clicked by properly managing filter state
 - Added time range slider combining start_year and end_year, improved label formatting, and fixed empty query API issue
 - Improved label formatting throughout the filter panel to consistently replace underscores with spaces
-- Updated numeric filter handling to use proper {field}_min and {field}_max parameter format for all numeric ranges
+- Updated numeric filter handling to use proper {field}\_min and {field}\_max parameter format for all numeric ranges
 - Added reset filters button and improved search result cards with better title wrapping, keywords as text, variable chips, and image support
 - Fixed image loading error by adding cataloguementalhealth.ac.uk to allowed domains in next.config.js
 - Enhanced image handling by adding more domains to next.config.js and implementing error handling for dynamic image loading
@@ -55,3 +55,12 @@
 - Enhanced the OpenGraph metadata API to properly handle redirects for DOI links and other redirecting URLs, ensuring link previews work correctly for academic citations.
 - Added client-side throttling and caching in LinkPreviewCard to deduplicate concurrent requests to the same URL, along with server-side caching in the OpenGraph API, preventing excessive requests to external websites.
 - Implemented performance optimizations including lazy loading of link previews with IntersectionObserver, memo-ization of StudyDetail mapping, and deferred rendering of additional links until their container section is expanded.
+- Fixed infinite scroll results count reset: properly clears results immediately when any search parameter changes, ensuring accurate result counts.
+- Fixed search trigger issue where typing new search terms wouldn't show results until advanced options were changed, by restructuring effect logic and ref updates.
+- Fixed offset issue where changing hybrid weight would use new weight but old offset/page, now properly resets to page 1 for all search parameter changes.
+- Fixed duplicate results issue in infinite scroll by adding deduplication logic and using prevResults.length instead of closure variable results.length.
+- Fixed infinite scroll scroll position reset by moving setHasMoreResults outside of setResults state updater to prevent multiple re-renders.
+- Removed client-side sorting in SearchResults component that was causing infinite scroll to reset scroll position, relying on API-provided result order instead.
+- Fixed loadMore race condition where duplicate API calls were causing results to be cleared, simplified to only update currentPage and let effect handle API call.
+- Added debouncing to hybrid weight slider to prevent multiple searches when dragging (300ms delay), using debouncedHybridWeight in all API calls.
+- Separated search parameter changes from page changes: only search parameters (query, filters, config) reset results and go to page 1, page changes for infinite scroll append results without clearing.

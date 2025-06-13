@@ -8,12 +8,18 @@ import {
   ListItemIcon,
   ListItemText,
 } from "@mui/material";
-import { Home, Search, ArrowLeftRight, Download } from "lucide-react";
+import {
+  Home,
+  Search,
+  ArrowLeftRight,
+  Download,
+  BarChart2,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navigationItems = [
-  { text: "Home", icon: Home, href: "/" },
+  { text: "Explore", icon: BarChart2, href: "/explore" },
   { text: "Discover", icon: Search, href: "/discover" },
   { text: "Compare", icon: ArrowLeftRight, href: "/compare" },
   { text: "Saves", icon: Download, href: "/saves" },
@@ -36,48 +42,48 @@ export default function Sidebar() {
         bgcolor: "background.paper",
       }}
     >
-      <List>
-        {navigationItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
+      {/* Logo */}
+      <Box sx={{ p: 1, pt: 3, display: "flex", justifyContent: "center" }}>
+        <Link href="/explore">
+          <Box
+            component="img"
+            src="/harmony.png"
+            alt="Harmony Logo"
+            sx={{ width: 48, height: 48, objectFit: "contain" }}
+          />
+        </Link>
+      </Box>
 
-          return (
-            <ListItem key={item.text} disablePadding>
-              <ListItemButton
-                component={Link}
-                href={item.href}
+      {/* Navigation Items */}
+      <List sx={{ mt: 2 }}>
+        {navigationItems.map((item) => (
+          <ListItem key={item.text} disablePadding>
+            <ListItemButton
+              component={Link}
+              href={item.href}
+              selected={pathname === item.href}
+              sx={{
+                minHeight: 48,
+                justifyContent: "center",
+                px: 2.5,
+                "&.Mui-selected": {
+                  bgcolor: "action.selected",
+                },
+              }}
+            >
+              <ListItemIcon
                 sx={{
-                  minHeight: 48,
+                  minWidth: 0,
+                  mr: "auto",
                   justifyContent: "center",
-                  px: 2.5,
-                  ...(isActive && {
-                    bgcolor: "grey.50",
-                    "&:hover": {
-                      bgcolor: "grey.100",
-                    },
-                  }),
+                  color: pathname === item.href ? "primary.main" : "inherit",
                 }}
               >
-                <ListItemIcon
-                  sx={{
-                    minWidth: 0,
-                    mr: 0,
-                    justifyContent: "center",
-                    color: isActive ? "primary.main" : "grey.600",
-                  }}
-                >
-                  <Icon size={24} />
-                </ListItemIcon>
-                <ListItemText
-                  primary={item.text}
-                  sx={{
-                    display: "none",
-                  }}
-                />
-              </ListItemButton>
-            </ListItem>
-          );
-        })}
+                <item.icon size={24} />
+              </ListItemIcon>
+            </ListItemButton>
+          </ListItem>
+        ))}
       </List>
     </Box>
   );

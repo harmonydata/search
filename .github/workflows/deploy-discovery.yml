@@ -1,0 +1,61 @@
+# Deploy Search app to GitHub Pages
+name: Deploy Search to GitHub Pages
+
+env:
+  CI: false
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    types: closed
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18.x"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for GitHub Pages deployment
+        run: npm run build:github-pages
+
+      - name: Checkout harmonydata.github.io repository
+        uses: actions/checkout@v4
+        with:
+          repository: harmonydata/harmonydata.github.io
+          path: harmony-repo
+          token: ${{ secrets.HARMONY_DEPLOY_TOKEN }}
+          ref: gh-pages
+
+      - name: Copy search build to search folder
+        run: |
+          # Remove existing search folder if it exists
+          rm -rf harmony-repo/search
+          # Create search folder and copy our build
+          mkdir -p harmony-repo/search
+          cp -r out/* harmony-repo/search/
+
+      - name: Commit and push to harmonydata.github.io
+        run: |
+          cd harmony-repo
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "Deploy Search app to search folder" || exit 0
+          git push

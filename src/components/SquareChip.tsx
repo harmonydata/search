@@ -9,7 +9,8 @@ interface SquareChipProps extends Omit<ButtonProps, "color"> {
 
 const SquareChip = styled(Button, {
   shouldForwardProp: (prop) => prop !== "chipVariant",
-})<SquareChipProps>(({ theme, chipVariant = "primary" }) => ({
+})<SquareChipProps>(({ theme, chipVariant = "primary", onClick=()=>{}}) => ({
+  onClick: onClick,
   borderRadius: 8,
   textTransform: "none",
   padding: "0 16px",

@@ -9,6 +9,7 @@
     "lint": "next lint",
     "export": "next build && next export",
     "static": "NEXT_STATIC_EXPORT=true next build",
+    "build:github-pages": "GITHUB_PAGES_DEPLOYMENT=true next build",
     "serve": "serve out"
   },
   "dependencies": {
@@ -18,6 +19,8 @@
     "@mui/icons-material": "^6.4.5",
     "@mui/material": "^6.4.5",
     "@mui/material-nextjs": "^6.4.3",
+    "@mui/x-data-grid": "^8.3.1",
+    "@uiw/react-json-view": "^2.0.0-alpha.32",
     "cheerio": "^1.0.0",
     "firebase": "^11.3.1",
     "framer-motion": "^12.4.7",
@@ -25,7 +28,10 @@
     "next": "15.1.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-infinite-scroll-component": "^6.1.0",
     "react-toastify": "^11.0.3",
+    "react-wordcloud": "^1.2.7",
+    "recharts": "^2.15.3",
     "serve": "^14.2.1",
     "vercel": "^41.2.0"
   },

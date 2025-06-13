@@ -1,7 +1,13 @@
 import type { NextConfig } from "next";
 
+// Only apply base path when explicitly building for GitHub Pages deployment
+const isGitHubPagesDeployment = process.env.GITHUB_PAGES_DEPLOYMENT === "true";
+
 const nextConfig: NextConfig = {
-  output: 'export',
+  output: "export",
+  basePath: isGitHubPagesDeployment ? "/search" : "",
+  assetPrefix: isGitHubPagesDeployment ? "/search" : "",
+  trailingSlash: isGitHubPagesDeployment,
   images: {
     unoptimized: true,
   },

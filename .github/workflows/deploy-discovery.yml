@@ -1,9 +1,6 @@
 # Deploy Search app to GitHub Pages
 name: Deploy Search to GitHub Pages
 
-env:
-  CI: false
-
 on:
   push:
     branches: ["main"]

@@ -14,9 +14,9 @@ module.exports = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Exclude API routes and Azure Functions during static export
-  webpack: (config, { isServer }) => {
-    if (isGitHubPagesDeployment && isServer) {
+  // Exclude API routes and Azure Functions during static export or serving
+  webpack: (config) => {
+    if (process.env.NEXT_STATIC_EXPORT || isGitHubPagesDeployment) {
       // Exclude Azure Functions and API routes from the build
       config.module.rules.push({
         test: /\.(ts|tsx|js|jsx)$/,

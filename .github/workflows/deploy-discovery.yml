@@ -20,8 +20,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -35,27 +33,9 @@ jobs:
       - name: Build for GitHub Pages deployment
         run: npm run build:github-pages
 
-      - name: Checkout harmonydata.github.io repository
-        uses: actions/checkout@v4
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          repository: harmonydata/harmonydata.github.io
-          path: harmony-repo
-          token: ${{ secrets.HARMONY_DEPLOY_TOKEN }}
-          ref: gh-pages
-
-      - name: Copy search build to search folder
-        run: |
-          # Remove existing search folder if it exists
-          rm -rf harmony-repo/search
-          # Create search folder and copy our build
-          mkdir -p harmony-repo/search
-          cp -r out/* harmony-repo/search/
-
-      - name: Commit and push to harmonydata.github.io
-        run: |
-          cd harmony-repo
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add .
-          git commit -m "Deploy Search app to search folder" || exit 0
-          git push
+          folder: out
+          branch: gh-pages
+          clean: true

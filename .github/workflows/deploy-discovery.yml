@@ -33,14 +33,17 @@ jobs:
       - name: Build for GitHub Pages deployment
         run: npm run build:github-pages
 
-      - name: Add .nojekyll files
+      - name: Create .nojekyll file
+        run: touch out/.nojekyll
+
+      - name: Copy index.txt to <route>.txt for each route
         run: |
-          touch out/.nojekyll
-          touch out/_next/.nojekyll
-          touch out/_next/static/.nojekyll
-          touch out/_next/static/chunks/.nojekyll
-          touch out/_next/static/chunks/app/.nojekyll
-          find out/_next -type d -name "_*" -exec touch {}/.nojekyll \;
+          for dir in out/*/; do
+            name=$(basename "$dir")
+            if [ -f "out/$name/index.txt" ]; then
+              cp "out/$name/index.txt" "out/$name.txt"
+            fi
+          done
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4

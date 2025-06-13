@@ -19,8 +19,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navigationItems = [
+  { text: "Search", icon: Search, href: "/" },
   { text: "Explore", icon: BarChart2, href: "/explore" },
-  { text: "Discover", icon: Search, href: "/discover" },
   { text: "Compare", icon: ArrowLeftRight, href: "/compare" },
   { text: "Saves", icon: Download, href: "/saves" },
 ];

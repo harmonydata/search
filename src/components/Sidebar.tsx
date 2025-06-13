@@ -13,8 +13,8 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 const navigationItems = [
+  { text: "Search", icon: "/search/icons/discover.svg", href: "/" },
   { text: "Explore", icon: "/search/icons/explore.svg", href: "/explore" },
-  { text: "Discover", icon: "/search/icons/discover.svg", href: "/discover" },
   { text: "Compare", icon: "/search/icons/compare.svg", href: "/compare" },
   { text: "Saves", icon: "/search/icons/saves.svg", href: "/saves" },
 ];

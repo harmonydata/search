@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import DiscoverPageContent from "./discover/page";
 
 export default function Home() {
-  redirect("/explore");
+  return <DiscoverPageContent />;
 }

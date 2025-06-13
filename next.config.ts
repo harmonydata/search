@@ -16,6 +16,16 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Add rewrites for development to handle /search prefix
+  async rewrites() {
+    if (isGitHubPagesDeployment) return [];
+    return [
+      {
+        source: "/search/:path*",
+        destination: "/:path*",
+      },
+    ];
+  },
   images: {
     unoptimized:
       process.env.NEXT_STATIC_EXPORT || isGitHubPagesDeployment ? true : false,

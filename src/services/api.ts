@@ -320,12 +320,14 @@ export async function fetchAggregateData(
   const queryParams = new URLSearchParams();
   Object.entries(filters).forEach(([key, values]) => {
     if (values.length > 0) {
-      queryParams.append(key, values.join(","));
+      values.forEach((value) => {
+        queryParams.append(key, value);
+      });
     }
   });
 
   const response = await fetch(
-    `https://harmonydiscoveryapiweaviate.fastdatascience.com/discover/aggregate?${queryParams.toString()}`,
+    `${API_BASE}/discover/aggregate?${queryParams.toString()}`,
     {
       headers: {
         accept: "application/json",
@@ -346,12 +348,14 @@ export async function fetchNumericValues(
   const queryParams = new URLSearchParams();
   Object.entries(filters).forEach(([key, values]) => {
     if (values.length > 0) {
-      queryParams.append(key, values.join(","));
+      values.forEach((value) => {
+        queryParams.append(key, value);
+      });
     }
   });
 
   const response = await fetch(
-    `https://harmonydiscoveryapiweaviate.fastdatascience.com/discover/get_numeric_values?${queryParams.toString()}`,
+    `${API_BASE}/discover/get_numeric_values?${queryParams.toString()}`,
     {
       headers: {
         accept: "application/json",
@@ -372,12 +376,14 @@ export async function fetchWordCloud(
   const queryParams = new URLSearchParams();
   Object.entries(filters).forEach(([key, values]) => {
     if (values.length > 0) {
-      queryParams.append(key, values.join(","));
+      values.forEach((value) => {
+        queryParams.append(key, value);
+      });
     }
   });
 
   const response = await fetch(
-    `https://harmonydiscoveryapiweaviate.fastdatascience.com/discover/get_word_cloud?${queryParams.toString()}`,
+    `${API_BASE}/discover/get_word_cloud?${queryParams.toString()}`,
     {
       headers: {
         accept: "application/json",

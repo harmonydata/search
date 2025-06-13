@@ -13,10 +13,10 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 const navigationItems = [
-  { text: "Home", icon: "/icons/home.svg", href: "/" },
-  { text: "Discover", icon: "/icons/discover.svg", href: "/discover" },
-  { text: "Compare", icon: "/icons/compare.svg", href: "/compare" },
-  { text: "Saves", icon: "/icons/saves.svg", href: "/saves" },
+  { text: "Explore", icon: "/search/icons/explore.svg", href: "/explore" },
+  { text: "Discover", icon: "/search/icons/discover.svg", href: "/discover" },
+  { text: "Compare", icon: "/search/icons/compare.svg", href: "/compare" },
+  { text: "Saves", icon: "/search/icons/saves.svg", href: "/saves" },
 ];
 
 export default function Sidebar() {
@@ -40,7 +40,7 @@ export default function Sidebar() {
       {/* Logo */}
       <Box sx={{ p: 1, pt: 3, display: "flex", justifyContent: "center" }}>
         <Image
-          src="/harmony.png"
+          src="/search/harmony.png"
           alt="Harmony Logo"
           width={64}
           height={64}

@@ -39,3 +39,6 @@ jobs:
           folder: out
           branch: gh-pages
           clean: true
+          clean-exclude: |
+            _next/static
+            _next/data

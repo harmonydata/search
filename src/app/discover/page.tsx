@@ -1510,7 +1510,7 @@ function DiscoverPageContent() {
                         </Typography>
                       )}
                       <Image
-                        src="/icons/discover.svg"
+                        src="/search/icons/discover.svg"
                         alt="Search"
                         width={20}
                         height={20}

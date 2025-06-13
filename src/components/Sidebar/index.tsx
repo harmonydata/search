@@ -47,7 +47,7 @@ export default function Sidebar() {
         <Link href="/explore">
           <Box
             component="img"
-            src="/harmony.png"
+            src="/search/harmony.png"
             alt="Harmony Logo"
             sx={{ width: 48, height: 48, objectFit: "contain" }}
           />

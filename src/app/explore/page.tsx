@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Container,
@@ -34,6 +34,7 @@ import {
   AggregateFilter,
 } from "@/services/api";
 import FilterPanel from "@/components/FilterPanel";
+import { useDebounce } from "@/lib/hooks/useDebounce";
 
 // Word cloud options
 const wordCloudOptions = {
@@ -64,9 +65,10 @@ interface AggregateData {
 }
 
 interface NumericDataPoint {
-  values: number[];
+  values: (number | string)[];
   frequencies: number[];
-  formatXAxis?: (value: number) => string;
+  labels: string[];
+  formatXAxis?: (value: number | string) => string;
 }
 
 interface ProcessedNumericData {
@@ -79,9 +81,9 @@ const dateKeys = ["start_year", "end_year", "sample_size"];
 const calculateFrequencyCounts = (
   rawValues: number[],
   fieldName: string
-): { values: number[]; frequencies: number[] } => {
+): { values: (number | string)[]; frequencies: number[]; labels: string[] } => {
   // For non-date fields, add 0 to rawValues if not present
-  const isDateField = dateKeys.includes(fieldName);
+  const isSampleSize = fieldName === "sample_size";
   let processedValues = [...rawValues];
 
   // Filter out invalid values (null, undefined, NaN)
@@ -90,14 +92,30 @@ const calculateFrequencyCounts = (
   );
 
   if (validValues.length === 0) {
-    return { values: [], frequencies: [] };
+    return { values: [], frequencies: [], labels: [] };
+  }
+
+  // Logarithmic binning for sample_size
+  if (isSampleSize) {
+    const binEdges = [1000, 10000, 100000, 1000000, 10000000];
+    const binLabels = ["<1k", "<10k", "<100k", "<1m", "<10m"];
+    const bins = new Array(binLabels.length).fill(0);
+    validValues.forEach((value) => {
+      for (let i = 0; i < binEdges.length; i++) {
+        if (value > (i == 0 ? 0 : binEdges[i - 1]) && value <= binEdges[i]) {
+          bins[i]++;
+          break;
+        }
+      }
+    });
+    return { values: binEdges, frequencies: bins, labels: binLabels };
   }
 
   // Find min and max for binning
   const min = Math.min(...validValues);
   const max = Math.max(...validValues);
 
-  let values: number[] = [];
+  let values: (number | string)[] = [];
   let frequencies: number[] = [];
 
   if (fieldName.includes("year")) {
@@ -127,8 +145,6 @@ const calculateFrequencyCounts = (
     let numBins = 10; // default
     if (fieldName.includes("age")) {
       numBins = 6; // 6 bins for age (roughly 10-year ranges)
-    } else if (fieldName.includes("sample_size")) {
-      numBins = 8; // 8 bins for sample size
     } else if (fieldName.includes("duration")) {
       numBins = 5; // 5 bins for duration
     }
@@ -156,16 +172,17 @@ const calculateFrequencyCounts = (
     frequencies = bins;
   }
 
-  return { values, frequencies };
+  return { values, frequencies, labels: [] };
 };
 
 // Function to format x-axis values based on field type
-const formatXAxisValue = (value: number, fieldName: string): string => {
+const formatXAxisValue = (
+  value: number | string,
+  fieldName: string
+): string => {
+  if (typeof value === "string") return value;
   if (fieldName.includes("year")) {
     return value.toString();
-  } else if (fieldName.includes("sample_size")) {
-    // Round to nearest thousand for sample sizes
-    return `${Math.round(value / 1000)}k`;
   } else if (fieldName.includes("num_")) {
     // Round all numeric fields to whole numbers
     return Math.round(value).toString();
@@ -178,7 +195,20 @@ const formatXAxisValue = (value: number, fieldName: string): string => {
   return Math.round(value).toString();
 };
 
-export default function ExplorePage() {
+// Transform word cloud data from API format to react-wordcloud format
+const transformWordCloudData = (data: Record<string, number>) => {
+  return Object.entries(data).map(([text, value]) => ({
+    text,
+    value: value * 100, // Scale up values for better visualization
+  }));
+};
+
+// Separate component for data fetching and visualization
+const DataVisualization = ({
+  filters,
+}: {
+  filters: Record<string, string[]>;
+}) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [aggregateData, setAggregateData] = useState<AggregateResponse | null>(
@@ -188,88 +218,51 @@ export default function ExplorePage() {
   const [wordCloudData, setWordCloudData] = useState<
     Array<{ text: string; value: number }>
   >([]);
-  const [filters, setFilters] = useState<Record<string, string[]>>({});
-  const [filterOptions, setFilterOptions] = useState<AggregateFilter[]>([]);
 
-  // Fetch filter options
-  useEffect(() => {
-    const fetchFilters = async () => {
-      try {
-        const filters = await fetchAggregateFilters();
-        setFilterOptions(filters);
-      } catch (err) {
-        console.error("Error fetching filters:", err);
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch filters"
-        );
-      }
-    };
-    fetchFilters();
-  }, []);
-
-  // Transform word cloud data from API format to react-wordcloud format
-  const transformWordCloudData = (data: Record<string, number>) => {
-    console.log("Raw word cloud data:", data);
-    const transformed = Object.entries(data).map(([text, value]) => ({
-      text,
-      value: value * 100, // Scale up values for better visualization
-    }));
-    console.log("Transformed word cloud data:", transformed);
-    return transformed;
-  };
-
-  // Transform numeric data for the histogram
-  const transformNumericData = (data: NumericValuesResponse) => {
-    if (!data || Object.keys(data).length === 0) return [];
-    const firstKey = Object.keys(data)[0];
-    const numericData = data[firstKey];
-    if (!numericData || !numericData.values || !numericData.frequencies)
-      return [];
-    return numericData.values.map((value: number, index: number) => ({
-      value,
-      frequency: numericData.frequencies[index],
-    }));
-  };
-
-  // Fetch all data
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [aggregateData, numericData, wordCloudResponse] =
-          await Promise.all([
-            fetchAggregateData(filters),
-            fetchNumericValues(filters),
-            fetchWordCloud(filters),
-          ]);
-        console.log("Word cloud API response:", wordCloudResponse);
-        console.log("Raw numeric data from API:", numericData);
+        // Fetch aggregate and numeric data first
+        const [aggregateData, numericData] = await Promise.all([
+          fetchAggregateData(filters),
+          fetchNumericValues(filters),
+        ]);
 
         // Process numeric data to calculate frequency counts
         const processedNumericData: ProcessedNumericData = {};
         if (numericData.aggregations) {
           Object.entries(numericData.aggregations).forEach(([key, values]) => {
             if (Array.isArray(values)) {
-              // Calculate frequency counts from raw values
-              const { values: uniqueValues, frequencies } =
-                calculateFrequencyCounts(values, key);
+              const {
+                values: uniqueValues,
+                frequencies,
+                labels,
+              } = calculateFrequencyCounts(values, key);
               processedNumericData[key] = {
                 values: uniqueValues,
                 frequencies,
-                formatXAxis: (value: number) => formatXAxisValue(value, key),
+                labels,
+                formatXAxis: (value: number | string) =>
+                  formatXAxisValue(value, key),
               };
-            } else {
-              console.warn(`Skipping invalid numeric data for ${key}:`, values);
             }
           });
         }
-        console.log("Processed numeric data:", processedNumericData);
 
         setAggregateData(aggregateData);
         setNumericData(processedNumericData);
-        setWordCloudData(
-          transformWordCloudData(wordCloudResponse.aggregations)
-        );
+
+        // Try to fetch word cloud data separately
+        try {
+          const wordCloudResponse = await fetchWordCloud(filters);
+          setWordCloudData(
+            transformWordCloudData(wordCloudResponse.aggregations)
+          );
+        } catch (wordCloudError) {
+          console.warn("Word cloud data fetch failed:", wordCloudError);
+          setWordCloudData([]); // Set empty array to indicate no word cloud data
+        }
       } catch (err) {
         console.error("Error fetching data:", err);
         setError(err instanceof Error ? err.message : "Failed to fetch data");
@@ -280,14 +273,6 @@ export default function ExplorePage() {
 
     fetchData();
   }, [filters]);
-
-  // Handle filter changes
-  const handleFilterChange = (key: string, values: string[]) => {
-    setFilters((prev) => ({
-      ...prev,
-      [key]: values,
-    }));
-  };
 
   if (loading) {
     return (
@@ -306,88 +291,44 @@ export default function ExplorePage() {
   }
 
   return (
-    <Container
-      maxWidth={false}
-      sx={{ mt: 4, width: "100%", px: { xs: 0, sm: 2 } }}
-    >
-      {/* Filter Panel - always visible */}
-      <Box sx={{ mb: 4 }}>
-        <FilterPanel
-          filtersData={filterOptions}
-          onSelectionChange={handleFilterChange}
-          selectedFilters={filters}
-        />
-      </Box>
-
-      {/* Visualizations */}
-      <Grid container spacing={4} sx={{ width: "100%", margin: 0 }}>
-        {/* Word Cloud - show spinner if loading */}
+    <Grid container spacing={4} sx={{ width: "100%", margin: 0 }}>
+      {/* Word Cloud - only show if we have data */}
+      {wordCloudData.length > 0 && (
         <Grid item xs={12} sx={{ width: "100%" }}>
           <Typography variant="h6" gutterBottom>
             Word Cloud
           </Typography>
           <Box sx={{ height: 300, width: "100%" }}>
-            {loading ? (
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  height: "100%",
-                }}
-              >
-                <CircularProgress />
-              </Box>
-            ) : wordCloudData.length > 0 ? (
-              <Box sx={{ width: "100%", height: "100%", position: "relative" }}>
-                <WordCloud
-                  words={wordCloudData}
-                  options={wordCloudOptions}
-                  minSize={[300, 300] as [number, number]}
-                />
-              </Box>
-            ) : null}
+            <Box sx={{ width: "100%", height: "100%", position: "relative" }}>
+              <WordCloud
+                words={wordCloudData}
+                options={wordCloudOptions}
+                minSize={[300, 300] as [number, number]}
+              />
+            </Box>
           </Box>
         </Grid>
+      )}
 
-        {/* Numeric Values Histograms - show spinner if loading */}
-        <Grid item xs={12} sx={{ width: "100%" }}>
-          {loading ? (
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                height: 300,
-              }}
-            >
-              <CircularProgress />
-            </Box>
-          ) : numericData && Object.entries(numericData).length > 0 ? (
-            <Grid container spacing={3} sx={{ width: "100%", margin: 0 }}>
-              {Object.entries(numericData).map(([key, data]) => {
-                // For non-date fields, ensure 0 is included with frequency 0 if not present
+      {/* Numeric Values Histograms */}
+      <Grid item xs={12} sx={{ width: "100%" }}>
+        {numericData && Object.entries(numericData).length > 0 && (
+          <Grid container spacing={3} sx={{ width: "100%", margin: 0 }}>
+            {Object.entries(numericData)
+              .filter(([key, data]) => data.values.length > 0)
+              .map(([key, data]) => {
                 let chartData = data.values.map((value, i) => ({
                   value,
                   frequency: data.frequencies[i],
-                  name: data.formatXAxis
-                    ? data.formatXAxis(value)
-                    : value.toString(),
+                  name:
+                    data.labels && data.labels.length
+                      ? data.labels[i]
+                      : data.formatXAxis
+                      ? data.formatXAxis(value)
+                      : value.toString(),
                 }));
-                if (!dateKeys.includes(key)) {
-                  const hasZero = data.values.some((v) => v === 0);
-                  if (!hasZero) {
-                    chartData = [
-                      {
-                        value: 0,
-                        frequency: 0,
-                        name: data.formatXAxis ? data.formatXAxis(0) : "0",
-                      },
-                      ...chartData,
-                    ];
-                  }
-                }
                 console.log("Chart data for ", key, ":", chartData);
+
                 return (
                   <Grid item xs={12} md={6} key={key}>
                     <Paper sx={{ p: 3, width: "100%" }}>
@@ -395,7 +336,12 @@ export default function ExplorePage() {
                         {key
                           .replace(/_/g, " ")
                           .replace(/\b\w/g, (l) => l.toUpperCase())}{" "}
-                        Distribution
+                        Distribution (
+                        {chartData.reduce(
+                          (acc, curr) => acc + curr.frequency,
+                          0
+                        )}{" "}
+                        datasets)
                       </Typography>
                       <Box sx={{ width: "100%", minHeight: 250 }}>
                         <ResponsiveContainer width="100%" aspect={2}>
@@ -410,16 +356,24 @@ export default function ExplorePage() {
                           >
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis
-                              dataKey="name"
+                              dataKey="value"
                               tick={{ fontSize: 12 }}
                               interval="preserveStartEnd"
-                              domain={[
-                                !dateKeys.includes(key) ? 0 : "dataMin",
-                                "dataMax",
-                              ]}
                               type="number"
+                              domain={[
+                                chartData[0].value as number,
+                                chartData[chartData.length - 1].value as number,
+                              ]}
                               allowDecimals={false}
-                              scale="linear"
+                              scale={key !== "sample_size" ? "linear" : "log"}
+                              tickFormatter={(value) => {
+                                const dataPoint = chartData.find(
+                                  (d) => d.value === value
+                                );
+                                return dataPoint
+                                  ? dataPoint.name
+                                  : value.toString();
+                              }}
                             />
                             <YAxis
                               tick={{ fontSize: 12 }}
@@ -452,10 +406,55 @@ export default function ExplorePage() {
                   </Grid>
                 );
               })}
-            </Grid>
-          ) : null}
-        </Grid>
+          </Grid>
+        )}
       </Grid>
+    </Grid>
+  );
+};
+
+export default function ExplorePage() {
+  const [filters, setFilters] = useState<Record<string, string[]>>({});
+  const [filterOptions, setFilterOptions] = useState<AggregateFilter[]>([]);
+  const debouncedFilters = useDebounce(filters, 500); // 500ms debounce
+
+  // Fetch filter options
+  useEffect(() => {
+    const fetchFilters = async () => {
+      try {
+        const filters = await fetchAggregateFilters();
+        setFilterOptions(filters);
+      } catch (err) {
+        console.error("Error fetching filters:", err);
+      }
+    };
+    fetchFilters();
+  }, []);
+
+  // Handle filter changes
+  const handleFilterChange = useCallback((key: string, values: string[]) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: values,
+    }));
+  }, []);
+
+  return (
+    <Container
+      maxWidth={false}
+      sx={{ mt: 4, width: "100%", px: { xs: 0, sm: 2 } }}
+    >
+      {/* Filter Panel */}
+      <Box sx={{ mb: 4 }}>
+        <FilterPanel
+          filtersData={filterOptions}
+          onSelectionChange={handleFilterChange}
+          selectedFilters={filters}
+        />
+      </Box>
+
+      {/* Data Visualization */}
+      <DataVisualization filters={debouncedFilters} />
     </Container>
   );
 }

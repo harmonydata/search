@@ -103,7 +103,7 @@ function MatchedVariablesDataGrid({
     }
 
     const script = document.createElement("script");
-    script.src = "/js/harmony-export.js";
+    script.src = "/app/js/harmony-export.js";
     script.async = true;
     document.body.appendChild(script);
 

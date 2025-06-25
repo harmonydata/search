@@ -132,8 +132,13 @@ export default function CompactResultCard({
         cursor: "pointer",
         display: "flex",
         width: "100%",
+        bgcolor: isSelected ? "rgba(25, 118, 210, 0.08)" : "transparent",
+        borderRight: isSelected ? "3px solid" : "3px solid transparent",
+        borderColor: isSelected ? "primary.main" : "transparent",
         "&:hover": {
-          bgcolor: "rgba(0, 0, 0, 0.02)",
+          bgcolor: isSelected
+            ? "rgba(25, 118, 210, 0.12)"
+            : "rgba(0, 0, 0, 0.02)",
         },
       }}
     >

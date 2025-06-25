@@ -3,6 +3,13 @@
   "outputDirectory": ".next",
   "devCommand": "npm run dev",
   "installCommand": "npm install --legacy-peer-deps",
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "destination": "https://harmonydata.ac.uk/search/",
+      "permanent": true
+    }
+  ],
   "rewrites": [{ "source": "/search/(.*)", "destination": "/$1" }],
   "headers": [
     {

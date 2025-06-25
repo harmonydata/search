@@ -56,11 +56,12 @@ function DiscoverPageContent() {
     null
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerImageError, setDrawerImageError] = useState(false);
   const [apiOffline, setApiOffline] = useState(false);
   const [similarStudy, setSimilarStudy] = useState<SearchResult | null>(null);
 
   // New state for advanced search options
-  const [useSearch2, setUseSearch2] = useState(true);
+  const [useSearch2, setUseSearch2] = useState(false);
   const [hybridWeight, setHybridWeight] = useState(0.5);
   const [debouncedHybridWeight, setDebouncedHybridWeight] = useState(0.5);
 
@@ -68,7 +69,10 @@ function DiscoverPageContent() {
   const [lastSearchTime, setLastSearchTime] = useState<number | null>(null);
   const [lastApiTime, setLastApiTime] = useState<number | null>(null);
 
-  const resultsPerPage = 10; // Page size for the API
+  // State for new pagination logic with deduplication
+  const [topLevelIdsSeen, setTopLevelIdsSeen] = useState<string[]>([]);
+
+  const resultsPerPage = 20;
 
   const searchParams = useSearchParams();
   const resourceType = searchParams.get("resource_type");
@@ -83,7 +87,11 @@ function DiscoverPageContent() {
   const filtersRef = useRef(JSON.stringify(selectedFilters));
   const useSearch2Ref = useRef(useSearch2);
   const hybridWeightRef = useRef(debouncedHybridWeight);
+  const topLevelIdsSeenRef = useRef(topLevelIdsSeen);
   const isResettingPageRef = useRef(false);
+
+  // Ref to store the latest top_level_ids_seen_so_far immediately for next API call
+  const currentTopLevelIdsRef = useRef<string[]>([]);
 
   // Calculate dynamic hybrid weight based on query length
   const calculateDynamicHybridWeight = useCallback((query: string): number => {
@@ -118,9 +126,12 @@ function DiscoverPageContent() {
   }, []);
 
   // Update hybrid weight when search query changes (auto-calculation)
+  // This needs to happen BEFORE the search is triggered to avoid wasteful searches
   useEffect(() => {
     const dynamicWeight = calculateDynamicHybridWeight(debouncedSearchQuery);
     setHybridWeight(dynamicWeight);
+    // Also immediately update the debounced value to avoid delay
+    setDebouncedHybridWeight(dynamicWeight);
   }, [debouncedSearchQuery, calculateDynamicHybridWeight]);
 
   // Debounce search query to prevent firing API calls on every keystroke
@@ -162,16 +173,14 @@ function DiscoverPageContent() {
         results,
         selectedResult,
         apiOffline,
+        topLevelIdsSeen,
       };
 
       console.log("Current state stored in window.__debugState");
       console.log("Current state:", {
         pagination: {
-          // currentPage,
           currentPage,
           totalHits,
-          resultsPerPage,
-          totalPages: Math.ceil(totalHits / resultsPerPage),
         },
         searchQuery,
         debouncedSearchQuery,
@@ -199,6 +208,7 @@ function DiscoverPageContent() {
     results,
     selectedResult,
     apiOffline,
+    topLevelIdsSeen,
   ]);
 
   // Handle result selection
@@ -298,6 +308,11 @@ function DiscoverPageContent() {
       setSelectedResult(null);
     }
   }, [results, selectedResult]);
+
+  // Reset drawer image error when selected result changes
+  useEffect(() => {
+    setDrawerImageError(false);
+  }, [selectedResult]);
 
   // Convert SearchResult to StudyDetail format
   // This needs to be defined *before* studyDetailForDisplay which uses it
@@ -853,7 +868,8 @@ function DiscoverPageContent() {
           1, // First page
           resultsPerPage,
           useSearch2,
-          debouncedHybridWeight
+          debouncedHybridWeight,
+          undefined // First page, no IDs seen yet
         );
 
         setResults(searchResponse.results || []);
@@ -893,6 +909,9 @@ function DiscoverPageContent() {
 
       // Clear results immediately when search parameters change
       setResults([]);
+      // Reset pagination state for new search
+      setTopLevelIdsSeen([]);
+      currentTopLevelIdsRef.current = [];
 
       // Reset to page 1 if not already there
       if (currentPage !== 1) {
@@ -906,6 +925,7 @@ function DiscoverPageContent() {
         filtersRef.current = JSON.stringify(selectedFilters);
         useSearch2Ref.current = useSearch2;
         hybridWeightRef.current = debouncedHybridWeight;
+        topLevelIdsSeenRef.current = topLevelIdsSeen;
       });
     }
   }, [
@@ -1004,6 +1024,21 @@ function DiscoverPageContent() {
       console.log("Filters:", combinedFilters);
       console.log("Page:", pageToUse);
       console.log("Results per page:", resultsPerPage);
+      console.log("Use Search2:", useSearch2);
+      console.log(
+        "Top Level IDs Seen:",
+        pageToUse > 1 ? topLevelIdsSeen : "First page"
+      );
+      // More detailed logging for pagination debugging
+      console.log("Detailed pagination info:", {
+        pageToUse,
+        topLevelIdsSeenLength: topLevelIdsSeen.length,
+        topLevelIdsSeenSample: topLevelIdsSeen.slice(0, 5),
+        currentTopLevelIdsRefLength: currentTopLevelIdsRef.current.length,
+        currentTopLevelIdsRefSample: currentTopLevelIdsRef.current.slice(0, 5),
+        willPassIds: pageToUse > 1 && !useSearch2,
+        useSearch2,
+      });
 
       // Create a promise that rejects after a timeout
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -1021,7 +1056,8 @@ function DiscoverPageContent() {
           pageToUse, // Use pageToUse instead of currentPage
           resultsPerPage,
           useSearch2,
-          debouncedHybridWeight
+          debouncedHybridWeight,
+          pageToUse > 1 ? currentTopLevelIdsRef.current : undefined // Use ref for immediate availability
         ),
         timeoutPromise,
       ]);
@@ -1050,19 +1086,44 @@ function DiscoverPageContent() {
       // Handle results for infinite scroll
       const newResults = res.results || [];
 
+      // Update topLevelIdsSeen with the new IDs from the response
+      if (res.top_level_ids_seen_so_far) {
+        console.log("Received top_level_ids_seen_so_far:", {
+          count: res.top_level_ids_seen_so_far.length,
+          sample: res.top_level_ids_seen_so_far.slice(0, 5),
+          previousCount: topLevelIdsSeen.length,
+        });
+        // Update both state and ref immediately
+        setTopLevelIdsSeen(res.top_level_ids_seen_so_far);
+        currentTopLevelIdsRef.current = res.top_level_ids_seen_so_far;
+      } else {
+        console.log("No top_level_ids_seen_so_far in response");
+      }
+
       if (pageToUse === 1) {
         // First page - replace all results
         setResults(newResults);
         setTotalHits(res.num_hits || 0);
-        // Reset infinite scroll state for new searches
-        setHasMoreResults(
-          newResults.length === resultsPerPage &&
-            newResults.length < (res.num_hits || 0)
-        );
+        // For new search endpoint (not useSearch2), determine hasMore based on whether we got results
+        // For old search endpoint (useSearch2), use the traditional count-based logic
+        if (!useSearch2) {
+          // New pagination logic: we have more if we got any results (we'll check next page to see if there are more)
+          const hasMore = newResults.length > 0;
+          setHasMoreResults(hasMore);
+
+          // If first page already shows we have all results, update totalHits
+          if (!hasMore || newResults.length < resultsPerPage) {
+            setTotalHits(Math.max(res.num_hits || 0, newResults.length));
+          }
+        } else {
+          // Old pagination logic: based on count comparison
+          setHasMoreResults(
+            newResults.length === resultsPerPage &&
+              newResults.length < (res.num_hits || 0)
+          );
+        }
       } else {
         // Additional pages - append to existing results
-        let finalResultsLength = 0;
-
         setResults((prevResults) => {
           // Deduplicate by UUID to prevent duplicates
           const existingUuids = new Set(
@@ -1071,25 +1132,72 @@ function DiscoverPageContent() {
           const uniqueNewResults = newResults.filter(
             (r) => !existingUuids.has(r.extra_data?.uuid)
           );
-          const updatedResults = [...prevResults, ...uniqueNewResults];
-
-          // Store the length for hasMoreResults calculation
-          finalResultsLength = updatedResults.length;
-
-          return updatedResults;
+          return [...prevResults, ...uniqueNewResults];
         });
 
-        // Calculate hasMoreResults outside of state updater to avoid multiple re-renders
-        setHasMoreResults(
-          newResults.length === resultsPerPage &&
-            finalResultsLength < (res.num_hits || 0)
-        );
+        // For pagination: if we got no results, we're at the end
+        if (!useSearch2) {
+          // New pagination logic: we're done if this page returned no results
+          const hasMore = newResults.length > 0;
+          setHasMoreResults(hasMore);
+
+          // If we've reached the end, update totalHits to reflect actual results
+          if (!hasMore) {
+            setTotalHits(
+              Math.max(
+                totalHits,
+                results.length +
+                  newResults.filter(
+                    (r) =>
+                      !results.some(
+                        (existing) =>
+                          existing.extra_data?.uuid === r.extra_data?.uuid
+                      )
+                  ).length
+              )
+            );
+          }
+        } else {
+          // Old pagination logic: based on count comparison
+          setHasMoreResults(newResults.length === resultsPerPage);
+        }
       }
 
       // Calculate total processing time (including React rendering)
       const searchEndTime = Date.now();
       const totalDuration = searchEndTime - searchStartTime;
       setLastSearchTime(totalDuration);
+
+      // Auto-load more pages if we don't have enough results (new pagination logic only)
+      if (!useSearch2 && newResults.length > 0) {
+        // Define minimum thresholds
+        const minResultsThreshold = Math.min(20, resultsPerPage / 2); // At least 20 results or half the page size
+        const currentTotalResults =
+          pageToUse === 1
+            ? newResults.length
+            : results.length + newResults.length;
+
+        // If we got fewer than expected results and haven't reached minimum threshold, auto-load next page
+        if (
+          newResults.length < resultsPerPage &&
+          currentTotalResults < minResultsThreshold
+        ) {
+          console.log("🔄 Auto-loading next page - insufficient results:", {
+            gotResults: newResults.length,
+            requestedResults: resultsPerPage,
+            currentTotal: currentTotalResults,
+            minThreshold: minResultsThreshold,
+            nextPage: pageToUse + 1,
+          });
+
+          // Auto-trigger next page after a short delay to avoid rapid-fire requests
+          setTimeout(() => {
+            if (!loadingMore && hasMoreResults) {
+              setCurrentPage(pageToUse + 1);
+            }
+          }, 100);
+        }
+      }
 
       // IMPORTANT: We do NOT update filters based on search results
       // This ensures filters remain stable and consistent during search
@@ -1383,7 +1491,8 @@ function DiscoverPageContent() {
         currentPage,
         resultsPerPage,
         useSearch2,
-        debouncedHybridWeight
+        debouncedHybridWeight,
+        currentPage > 1 ? currentTopLevelIdsRef.current : undefined
       );
       setResults(res.results || []);
       setTotalHits(res.num_hits || 0);
@@ -1547,10 +1656,25 @@ function DiscoverPageContent() {
         />
 
         {/* Search Results Summary */}
-        {!loading && !apiOffline && totalHits > 0 && (
+        {!loading && !apiOffline && (results.length > 0 || totalHits > 0) && (
           <Box sx={{ mb: 2, display: "flex", justifyContent: "flex-start" }}>
             <Typography variant="body2" color="text.secondary">
-              {results.length} of {totalHits} results loaded
+              {(() => {
+                // Smart display logic for results count
+                if (!hasMoreResults) {
+                  // We've reached the end - show total found
+                  return `${results.length} results found`;
+                } else if (results.length > totalHits) {
+                  // We have more results than original estimate - show estimate was low
+                  return `${results.length} results loaded (${totalHits}+ estimated)`;
+                } else if (totalHits > 0) {
+                  // Normal case - show loaded vs estimated
+                  return `${results.length} of ~${totalHits} results loaded`;
+                } else {
+                  // Fallback - just show loaded count
+                  return `${results.length} results loaded`;
+                }
+              })()}
               {lastApiTime && ` (API: ${lastApiTime}ms`}
               {lastSearchTime && lastApiTime && `, Total: ${lastSearchTime}ms)`}
             </Typography>
@@ -1871,7 +1995,8 @@ function DiscoverPageContent() {
               {selectedResult &&
                 ((selectedResult.dataset_schema &&
                   (selectedResult.dataset_schema as any).image) ||
-                  (selectedResult as any).image) && (
+                  (selectedResult as any).image) &&
+                !drawerImageError && (
                   <Box
                     sx={{
                       width: 50,
@@ -1890,7 +2015,8 @@ function DiscoverPageContent() {
                       }
                       alt={selectedResult.dataset_schema?.name || "Study image"}
                       fill
-                      style={{ objectFit: "cover" }}
+                      style={{ objectFit: "contain" }}
+                      onError={() => setDrawerImageError(true)}
                       unoptimized={true}
                     />
                   </Box>

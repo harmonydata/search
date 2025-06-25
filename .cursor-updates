@@ -64,3 +64,23 @@
 - Fixed loadMore race condition where duplicate API calls were causing results to be cleared, simplified to only update currentPage and let effect handle API call.
 - Added debouncing to hybrid weight slider to prevent multiple searches when dragging (300ms delay), using debouncedHybridWeight in all API calls.
 - Separated search parameter changes from page changes: only search parameters (query, filters, config) reset results and go to page 1, page changes for infinite scroll append results without clearing.
+- Added visual indication for selected result items in the results list with background color and right-side border to show which item is currently open in the study pane.
+- Changed study detail images from object-fit cover to contain to properly display non-square images without cropping.
+- Added error handling to hide image containers entirely when images fail to load from remote sites, preventing broken image placeholders from being displayed.
+- Enhanced variables table with response options column showing concatenated options (e.g., "Often / Sometimes / Not often / Never") and added maximize button to open variables in large dialog view for better exploration.
+- Fixed state preservation in variables table by removing props that cause re-renders and using external styling wrappers to maintain DataGrid state (selections, filters, sorting) when switching between embedded and dialog views.
+- Fixed popover positioning for download dropdown by moving it outside the DataGrid toolbar and ensuring proper anchor element capture.
+- Completely refactored variables table state management: lifted all DataGrid state (selections, filters, sorting) to wrapper component level to ensure true state preservation when maximizing/minimizing, and fixed popover anchor issues by resetting anchor state during view transitions.
+- Fixed TypeError "Cannot read properties of undefined (reading 'size')" by removing external selection state control from DataGrid and letting it manage its own internal state, preventing conflicts between controlled and uncontrolled state management.
+- Updated advanced search toggle to default to off (Previous Version) and use correct API endpoint mapping (search vs search2)
+- Added API version fetching from /info/version endpoint to display harmony_discovery_version field for current version
+- Fixed toggle logic: OFF = Current Version (search endpoint + API version), ON = Previous Version (search2 endpoint)
+- Fixed wasteful alpha search by immediately updating both hybridWeight and debouncedHybridWeight when query changes, preventing double API calls
+- Fixed pagination for new search endpoint by adding currentTopLevelIdsRef to store top_level_ids_seen_so_far immediately for subsequent API calls
+- Enhanced pagination logging to track both state and ref values for debugging pagination issues with deduplication
+- Added auto-loading pagination logic for new search endpoint: automatically loads next page if current page returns fewer than expected results and total results are below minimum threshold (20 results), ensuring sufficient content for scrolling even with API deduplication
+- Fixed results count display to handle API estimate inaccuracies: shows "X results found" when complete, "X results loaded (Y+ estimated)" when exceeding estimate, "X of ~Y results loaded" for normal cases, preventing silly displays like "172 out of 100 results loaded"
+- Updated totalHits estimate when reaching end of results to reflect actual count rather than API's initial guess
+- Fixed harmonise button to only render when there's a selection, preventing it from taking up space when hidden, and added selection count to download button tooltip.
+- Fixed Excel export to use proper xlsx library instead of CSV with .xls extension, and included response options in all download formats (JSON, CSV, Excel).
+- Fixed harmonise button custom element registration error by checking if element is already defined before loading script, and ensured button updates when selection changes.

@@ -1,4 +1,4 @@
-const API_BASE = "https://harmonydiscoveryapiweaviate.fastdatascience.com";
+const API_BASE = "https://harmonydataweaviate.azureedge.net";
 
 export interface AggregateFilter {
   id: string;
@@ -72,6 +72,7 @@ export interface SearchResponse {
   results: SearchResult[];
   aggregations: Record<string, any>;
   num_hits?: number;
+  top_level_ids_seen_so_far?: string[];
 }
 
 // Improved function to format labels nicely
@@ -134,9 +135,10 @@ export async function fetchSearchResults(
   query: string,
   filters?: Record<string, string[]>,
   page: number = 1,
-  resultsPerPage: number = 10,
+  resultsPerPage: number = 40,
   useSearch2: boolean = true,
-  hybridWeight?: number
+  hybridWeight?: number,
+  topLevelIdsSeen?: string[]
 ): Promise<SearchResponse> {
   const params = new URLSearchParams();
 
@@ -174,6 +176,13 @@ export async function fetchSearchResults(
   const offset = (page - 1) * resultsPerPage;
   params.set("num_results", resultsPerPage.toString());
   params.set("offset", offset.toString());
+
+  // Add top_level_ids_seen_so_far parameter for pagination (only for search endpoint)
+  if (topLevelIdsSeen && topLevelIdsSeen.length > 0 && !useSearch2) {
+    topLevelIdsSeen.forEach((id) => {
+      params.append("top_level_ids_seen_so_far", id);
+    });
+  }
 
   // Group numeric range params for better logging
   const numericRangeParams: Record<string, { min?: string; max?: string }> = {};
@@ -252,6 +261,7 @@ export async function fetchSearchResults(
     results: data.results || [],
     aggregations: data.aggregations || {},
     num_hits: data.num_hits,
+    top_level_ids_seen_so_far: data.top_level_ids_seen_so_far || [],
   } as SearchResponse;
 }
 
@@ -277,7 +287,7 @@ export async function fetchResultByUuid(uuid: string): Promise<SearchResult> {
 
 export async function fetchOgData(url: string): Promise<any> {
   const response = await fetch(
-    `https://harmonydiscoverynodefunctionapp1.azurewebsites.net/api/ogData?url=${encodeURIComponent(
+    `https://harmonydata.azureedge.net/api/ogData?url=${encodeURIComponent(
       url
     )}`
   );
@@ -285,6 +295,31 @@ export async function fetchOgData(url: string): Promise<any> {
     throw new Error("Failed to fetch OpenGraph data");
   }
   return response.json();
+}
+
+export interface VersionInfo {
+  harmony_discovery_version?: string;
+  [key: string]: any;
+}
+
+export async function fetchVersionInfo(): Promise<VersionInfo> {
+  const response = await fetch(`${API_BASE}/info/version`);
+  if (!response.ok) {
+    console.error("Failed to fetch version info:", response.statusText);
+    throw new Error("Failed to fetch version info");
+  }
+  const data = await response.json();
+
+  // Store response in window object for debugging
+  if (typeof window !== "undefined") {
+    // @ts-ignore - Adding debug property to window
+    window.__lastVersionResponse = data;
+    console.log(
+      "Version API response cached in window.__lastVersionResponse for debugging"
+    );
+  }
+
+  return data;
 }
 
 // Types for explore page data

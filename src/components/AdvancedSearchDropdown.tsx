@@ -12,6 +12,7 @@ import {
 } from "@mui/material";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
+import { fetchVersionInfo, VersionInfo } from "@/services/api";
 
 interface AdvancedSearchDropdownProps {
   useSearch2: boolean;
@@ -28,8 +29,28 @@ export default function AdvancedSearchDropdown({
 }: AdvancedSearchDropdownProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
+  const [loadingVersion, setLoadingVersion] = useState(true);
 
   const open = Boolean(anchorEl);
+
+  // Fetch version information on component mount
+  useEffect(() => {
+    const loadVersionInfo = async () => {
+      try {
+        const version = await fetchVersionInfo();
+        setVersionInfo(version);
+      } catch (error) {
+        console.error("Failed to fetch version info:", error);
+        // Set a fallback in case of error
+        setVersionInfo({ harmony_discovery_version: "Unknown" });
+      } finally {
+        setLoadingVersion(false);
+      }
+    };
+
+    loadVersionInfo();
+  }, []);
 
   const handleClick = () => {
     setAnchorEl(buttonRef.current);
@@ -109,12 +130,15 @@ export default function AdvancedSearchDropdown({
               label={
                 <Box>
                   <Typography variant="body2" fontWeight={500}>
-                    Use Search2 Endpoint
+                    Search Version
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {useSearch2
-                      ? "Using enhanced search (search2)"
-                      : "Using legacy search"}
+                      ? "Previous Version"
+                      : loadingVersion
+                      ? "Loading..."
+                      : versionInfo?.harmony_discovery_version ||
+                        "Current Version"}
                   </Typography>
                 </Box>
               }

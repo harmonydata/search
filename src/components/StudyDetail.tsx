@@ -3,7 +3,7 @@
 import { Box, Typography, Collapse, IconButton } from "@mui/material";
 import Image from "next/image";
 import { ChevronDown, ChevronUp, Bug } from "lucide-react";
-import { useState, memo, useMemo } from "react";
+import { useState, memo, useMemo, useEffect } from "react";
 import SquareChip from "@/components/SquareChip";
 import DataCatalogCard from "@/components/DataCatalogCard";
 import OrganizationCard from "@/components/OrganizationCard";
@@ -75,6 +75,12 @@ const StudyDetailComponent = ({
   const [aiSummaryExpanded, setAiSummaryExpanded] = useState(false);
   const [additionalLinksExpanded, setAdditionalLinksExpanded] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  // Reset image error when study image changes
+  useEffect(() => {
+    setImageError(false);
+  }, [study.image]);
 
   // State for debug dialog
   const [debugDialogOpen, setDebugDialogOpen] = useState(false);
@@ -203,7 +209,7 @@ const StudyDetailComponent = ({
           </Box>
 
           {/* Image beside the title if available */}
-          {study.image && (
+          {study.image && !imageError && (
             <Box
               sx={{
                 width: 100,
@@ -218,7 +224,8 @@ const StudyDetailComponent = ({
                 src={study.image}
                 alt={study.title}
                 fill
-                style={{ objectFit: "cover" }}
+                style={{ objectFit: "contain" }}
+                onError={() => setImageError(true)}
                 unoptimized={true}
               />
             </Box>

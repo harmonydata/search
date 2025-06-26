@@ -72,7 +72,7 @@ function DiscoverPageContent() {
   // State for new pagination logic with deduplication
   const [topLevelIdsSeen, setTopLevelIdsSeen] = useState<string[]>([]);
 
-  const resultsPerPage = 20;
+  const resultsPerPage = 50;
 
   const searchParams = useSearchParams();
   const resourceType = searchParams.get("resource_type");
@@ -1535,11 +1535,18 @@ function DiscoverPageContent() {
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          py: 4,
+          py: { xs: 2, sm: 3, md: 4 }, // Responsive padding
         }}
       >
         {/* Search Section or Similar Study Header */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 3, mb: 4 }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 3,
+            mb: { xs: 2, sm: 3, md: 4 },
+          }}
+        >
           {similarUid ? (
             // Similar Study Header
             <Box
@@ -1842,7 +1849,7 @@ function DiscoverPageContent() {
                 <Box
                   sx={{
                     flex: 1,
-                    overflowY: "hidden",
+                    overflowY: "auto",
                     minHeight: 0, // Important for flex child scrolling
                     display: "flex",
                     flexDirection: "column",
@@ -1855,7 +1862,6 @@ function DiscoverPageContent() {
                     hasMore={hasMoreResults}
                     loader={<Typography>Loading more results...</Typography>}
                     scrollableTarget="search-results-container"
-                    height="70vh"
                     endMessage={
                       <Typography>No more results to load.</Typography>
                     }

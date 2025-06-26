@@ -84,3 +84,4 @@
 - Fixed harmonise button to only render when there's a selection, preventing it from taking up space when hidden, and added selection count to download button tooltip.
 - Fixed Excel export to use proper xlsx library instead of CSV with .xls extension, and included response options in all download formats (JSON, CSV, Excel).
 - Fixed harmonise button custom element registration error by checking if element is already defined before loading script, and ensured button updates when selection changes.
+- Fixed infinite scroll container height issues on smaller screens by removing fixed 70vh height and using responsive padding/margins to ensure proper scrolling on all screen sizes

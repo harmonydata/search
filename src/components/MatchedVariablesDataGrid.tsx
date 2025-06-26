@@ -353,9 +353,10 @@ function MatchedVariablesDataGrid({
 
   return (
     <>
-      <Box>
+      <Box sx={{ height: "100%", minHeight: 400 }}>
         {rows.length > 0 && (
           <DataGrid
+            autoPageSize
             apiRef={apiRef}
             rows={rows}
             columns={columns}
@@ -366,9 +367,7 @@ function MatchedVariablesDataGrid({
               background: "white",
               borderRadius: 2,
               fontSize: 14,
-              minHeight: 200,
-              maxHeight: 400,
-              height: "auto",
+              height: "100%",
             }}
             hideFooterSelectedRowCount
             pageSizeOptions={[10, 25, 50]}
@@ -598,8 +597,7 @@ export default function MatchedVariablesWrapper({
       <Box
         sx={{
           "& .MuiDataGrid-root": {
-            maxHeight: 400,
-            height: "auto",
+            height: 450,
             borderRadius: 2,
           },
         }}

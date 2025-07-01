@@ -71,6 +71,9 @@ function DiscoverPageContent() {
 
   // State for new pagination logic with deduplication
   const [topLevelIdsSeen, setTopLevelIdsSeen] = useState<string[]>([]);
+  const [nextPageOffset, setNextPageOffset] = useState<number | undefined>(
+    undefined
+  );
 
   const resultsPerPage = 50;
 
@@ -92,6 +95,9 @@ function DiscoverPageContent() {
 
   // Ref to store the latest top_level_ids_seen_so_far immediately for next API call
   const currentTopLevelIdsRef = useRef<string[]>([]);
+
+  // Ref to store the latest next_page_offset immediately for next API call
+  const currentNextPageOffsetRef = useRef<number | undefined>(undefined);
 
   // Calculate dynamic hybrid weight based on query length
   const calculateDynamicHybridWeight = useCallback((query: string): number => {
@@ -912,6 +918,8 @@ function DiscoverPageContent() {
       // Reset pagination state for new search
       setTopLevelIdsSeen([]);
       currentTopLevelIdsRef.current = [];
+      setNextPageOffset(undefined);
+      currentNextPageOffsetRef.current = undefined;
 
       // Reset to page 1 if not already there
       if (currentPage !== 1) {
@@ -1036,7 +1044,14 @@ function DiscoverPageContent() {
         topLevelIdsSeenSample: topLevelIdsSeen.slice(0, 5),
         currentTopLevelIdsRefLength: currentTopLevelIdsRef.current.length,
         currentTopLevelIdsRefSample: currentTopLevelIdsRef.current.slice(0, 5),
+        nextPageOffset: currentNextPageOffsetRef.current,
         willPassIds: pageToUse > 1 && !useSearch2,
+        willPassOffset:
+          pageToUse > 1 && currentNextPageOffsetRef.current !== undefined,
+        willUsePost:
+          pageToUse > 1 &&
+          !useSearch2 &&
+          currentTopLevelIdsRef.current.length > 0,
         useSearch2,
       });
 
@@ -1057,7 +1072,8 @@ function DiscoverPageContent() {
           resultsPerPage,
           useSearch2,
           debouncedHybridWeight,
-          pageToUse > 1 ? currentTopLevelIdsRef.current : undefined // Use ref for immediate availability
+          pageToUse > 1 ? currentTopLevelIdsRef.current : undefined, // Use ref for immediate availability
+          pageToUse > 1 ? currentNextPageOffsetRef.current : undefined // Pass next page offset for subsequent pages
         ),
         timeoutPromise,
       ]);
@@ -1098,6 +1114,21 @@ function DiscoverPageContent() {
         currentTopLevelIdsRef.current = res.top_level_ids_seen_so_far;
       } else {
         console.log("No top_level_ids_seen_so_far in response");
+      }
+
+      // Update nextPageOffset with the new offset from the response (new pagination logic)
+      if (res.next_page_offset !== undefined) {
+        console.log("Received next_page_offset:", {
+          offset: res.next_page_offset,
+          previousOffset: currentNextPageOffsetRef.current,
+        });
+        // Update both state and ref immediately
+        setNextPageOffset(res.next_page_offset);
+        currentNextPageOffsetRef.current = res.next_page_offset;
+      } else {
+        console.log(
+          "No next_page_offset in response (using calculated offset)"
+        );
       }
 
       if (pageToUse === 1) {
@@ -1492,7 +1523,8 @@ function DiscoverPageContent() {
         resultsPerPage,
         useSearch2,
         debouncedHybridWeight,
-        currentPage > 1 ? currentTopLevelIdsRef.current : undefined
+        currentPage > 1 ? currentTopLevelIdsRef.current : undefined,
+        currentPage > 1 ? currentNextPageOffsetRef.current : undefined
       );
       setResults(res.results || []);
       setTotalHits(res.num_hits || 0);

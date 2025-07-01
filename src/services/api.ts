@@ -73,6 +73,7 @@ export interface SearchResponse {
   aggregations: Record<string, any>;
   num_hits?: number;
   top_level_ids_seen_so_far?: string[];
+  next_page_offset?: number;
 }
 
 // Improved function to format labels nicely
@@ -138,10 +139,9 @@ export async function fetchSearchResults(
   resultsPerPage: number = 40,
   useSearch2: boolean = true,
   hybridWeight?: number,
-  topLevelIdsSeen?: string[]
+  topLevelIdsSeen?: string[],
+  nextPageOffset?: number
 ): Promise<SearchResponse> {
-  const params = new URLSearchParams();
-
   // Check if we have any filters
   const hasFilters = filters && Object.keys(filters).length > 0;
 
@@ -155,80 +155,136 @@ export async function fetchSearchResults(
   }
 
   // Set query parameter - use "*" as a wildcard if query is empty but we have filters
-  const safeQuery = !query || query.trim() === "" ? "*" : query.trim();
+  const safeQuery = !query || query.trim() === "" ? "" : query.trim();
 
-  /*   // force keyword search if query is a single word or a wildcard
-  if (!(safeQuery !== "*" && safeQuery.split(" ").length > 1)) {
-    params.set("query_type", "hybrid");
-  } else {
-    params.set("query_type", "keyword");
-  } */
+  // Determine if we need to use POST (when we have top_level_ids_seen_so_far)
+  const needsPost =
+    topLevelIdsSeen && topLevelIdsSeen.length > 0 && !useSearch2;
 
-  // Add hybrid weight parameter if provided
-  if (hybridWeight !== undefined) {
-    params.set("alpha", hybridWeight.toString());
-  }
+  const endpoint = useSearch2 ? "search2" : "search";
+  const baseUrl = `${API_BASE}/discover/${endpoint}`;
 
-  // Always append the query parameter, even if it's "*"
-  params.append("query", safeQuery);
+  let url: string;
+  let requestOptions: RequestInit;
 
-  // Add limit parameter (no offset for now)
-  const offset = (page - 1) * resultsPerPage;
-  params.set("num_results", resultsPerPage.toString());
-  params.set("offset", offset.toString());
+  if (needsPost) {
+    // Use POST request with body for large data
+    url = baseUrl;
 
-  // Add top_level_ids_seen_so_far parameter for pagination (only for search endpoint)
-  if (topLevelIdsSeen && topLevelIdsSeen.length > 0 && !useSearch2) {
-    topLevelIdsSeen.forEach((id) => {
-      params.append("top_level_ids_seen_so_far", id);
+    // Prepare request body
+    const requestBody: any = {
+      query: [safeQuery],
+      num_results: resultsPerPage,
+    };
+
+    // Add offset (use nextPageOffset if provided, otherwise calculate)
+    const offset =
+      nextPageOffset !== undefined
+        ? nextPageOffset
+        : (page - 1) * resultsPerPage;
+    requestBody.offset = offset;
+
+    // Add hybrid weight if provided
+    if (hybridWeight !== undefined) {
+      requestBody.alpha = hybridWeight;
+    }
+
+    // Add top_level_ids_seen_so_far array
+    requestBody.top_level_ids_seen_so_far = topLevelIdsSeen;
+
+    // Add filters to request body
+    if (filters) {
+      Object.entries(filters).forEach(([key, values]) => {
+        if (values.length > 0) {
+          requestBody[key] = values;
+        }
+      });
+    }
+
+    requestOptions = {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    };
+
+    console.log("Using POST request for pagination with body:", {
+      query: [safeQuery],
+      topLevelIdsCount: topLevelIdsSeen.length,
+      offset,
+      endpoint,
     });
-  }
+  } else {
+    // Use GET request with URL parameters (first page or old endpoint)
+    const params = new URLSearchParams();
 
-  // Group numeric range params for better logging
-  const numericRangeParams: Record<string, { min?: string; max?: string }> = {};
+    // Add hybrid weight parameter if provided
+    if (hybridWeight !== undefined) {
+      params.set("alpha", hybridWeight.toString());
+    }
 
-  // Append each filter value as a separate query parameter if values exist
-  if (filters) {
-    for (const key in filters) {
-      // Handle the case of min/max parameters for numeric fields
-      if (key.endsWith("_min") || key.endsWith("_max")) {
-        // Extract the base field name
-        const fieldName = key.replace(/_(min|max)$/, "");
+    // Always append the query parameter, even if it's "*"
+    params.append("query", safeQuery);
 
-        // Initialize entry if it doesn't exist
-        if (!numericRangeParams[fieldName]) {
-          numericRangeParams[fieldName] = {};
-        }
+    // Add limit parameter and offset
+    // Use nextPageOffset if provided (new pagination), otherwise calculate offset (backward compatibility)
+    const offset =
+      nextPageOffset !== undefined
+        ? nextPageOffset
+        : (page - 1) * resultsPerPage;
+    params.set("num_results", resultsPerPage.toString());
+    params.set("offset", offset.toString());
 
-        // Set min or max value
-        if (key.endsWith("_min")) {
-          numericRangeParams[fieldName].min = filters[key][0];
+    // Group numeric range params for better logging
+    const numericRangeParams: Record<string, { min?: string; max?: string }> =
+      {};
+
+    // Append each filter value as a separate query parameter if values exist
+    if (filters) {
+      for (const key in filters) {
+        // Handle the case of min/max parameters for numeric fields
+        if (key.endsWith("_min") || key.endsWith("_max")) {
+          // Extract the base field name
+          const fieldName = key.replace(/_(min|max)$/, "");
+
+          // Initialize entry if it doesn't exist
+          if (!numericRangeParams[fieldName]) {
+            numericRangeParams[fieldName] = {};
+          }
+
+          // Set min or max value
+          if (key.endsWith("_min")) {
+            numericRangeParams[fieldName].min = filters[key][0];
+          } else {
+            numericRangeParams[fieldName].max = filters[key][0];
+          }
+
+          // Always add the parameter to the URL
+          params.append(key, filters[key][0]);
         } else {
-          numericRangeParams[fieldName].max = filters[key][0];
+          // Regular non-numeric filter - add all values
+          filters[key].forEach((value) => {
+            params.append(key, value);
+          });
         }
-
-        // Always add the parameter to the URL
-        params.append(key, filters[key][0]);
-      } else {
-        // Regular non-numeric filter - add all values
-        filters[key].forEach((value) => {
-          params.append(key, value);
-        });
       }
     }
+
+    url = `${baseUrl}?${params.toString()}`;
+    requestOptions = {
+      method: "GET",
+    };
+
+    // Log numeric range parameters for debugging
+    if (Object.keys(numericRangeParams).length > 0) {
+      console.log("Numeric range parameters:", numericRangeParams);
+    }
+
+    console.log("Using GET request:", url);
   }
 
-  // Use the selected endpoint
-  const endpoint = useSearch2 ? "search2" : "search";
-  const url = `${API_BASE}/discover/${endpoint}?${params.toString()}`;
-  console.log("Search URL:", url);
-
-  // Log numeric range parameters for debugging
-  if (Object.keys(numericRangeParams).length > 0) {
-    console.log("Numeric range parameters:", numericRangeParams);
-  }
-
-  const response = await fetch(url);
+  const response = await fetch(url, requestOptions);
   if (!response.ok) {
     console.error("Search API error:", response.status, await response.text());
     throw new Error("Search API request failed");
@@ -251,6 +307,7 @@ export async function fetchSearchResults(
       firstResult: data.results?.[0],
       aggregations: Object.keys(data.aggregations || {}),
       endpoint: endpoint,
+      method: needsPost ? "POST" : "GET",
       hybridWeight: hybridWeight,
     });
   }
@@ -262,6 +319,7 @@ export async function fetchSearchResults(
     aggregations: data.aggregations || {},
     num_hits: data.num_hits,
     top_level_ids_seen_so_far: data.top_level_ids_seen_so_far || [],
+    next_page_offset: data.next_page_offset,
   } as SearchResponse;
 }
 

@@ -85,3 +85,6 @@
 - Fixed Excel export to use proper xlsx library instead of CSV with .xls extension, and included response options in all download formats (JSON, CSV, Excel).
 - Fixed harmonise button custom element registration error by checking if element is already defined before loading script, and ensured button updates when selection changes.
 - Fixed infinite scroll container height issues on smaller screens by removing fixed 70vh height and using responsive padding/margins to ensure proper scrolling on all screen sizes
+- Added next_page_offset pagination support for enhanced API compatibility: when API returns next_page_offset, uses that for subsequent pagination calls instead of calculated offset, with backward compatibility fallback when next_page_offset is absent
+- Enhanced pagination logging to track next_page_offset values and whether offset or calculated pagination is being used for each request
+- Fixed HTTP spec compliance by converting pagination requests with top_level_ids_seen_so_far to POST requests with JSON body instead of huge URL query parameters, maintaining GET for first page for backward compatibility

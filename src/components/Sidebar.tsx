@@ -89,7 +89,11 @@ export default function Sidebar() {
         >
           <Link href="/">
             <Image
-              src="/harmony.png"
+              src={
+                process.env.NODE_ENV === "production"
+                  ? "/search/harmony.png"
+                  : "/harmony.png"
+              }
               alt="Harmony Logo"
               width={40}
               height={40}
@@ -206,7 +210,11 @@ export default function Sidebar() {
       <Box sx={{ p: 1, pt: 3, display: "flex", justifyContent: "center" }}>
         <Link href="/">
           <Image
-            src="/harmony.png"
+            src={
+              process.env.NODE_ENV === "production"
+                ? "/search/harmony.png"
+                : "/harmony.png"
+            }
             alt="Harmony Logo"
             width={64}
             height={64}

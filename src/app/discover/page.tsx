@@ -1680,7 +1680,11 @@ function DiscoverPageContent() {
                         </Typography>
                       )}
                       <Image
-                        src="/search/icons/discover.svg"
+                        src={
+                          process.env.NODE_ENV === "production"
+                            ? "/search/icons/discover.svg"
+                            : "/icons/discover.svg"
+                        }
                         alt="Search"
                         width={20}
                         height={20}

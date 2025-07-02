@@ -4,9 +4,6 @@ import { transformSearchResultToStudyDetail } from "@/lib/utils/studyTransform";
 import { notFound } from "next/navigation";
 import StudyPageClient from "./StudyPageClient";
 
-// Store all study data globally for static generation
-let allStudyData: Map<string, any> | null = null;
-
 // This runs at build time for static export
 export async function generateStaticParams() {
   try {
@@ -26,21 +23,12 @@ export async function generateStaticParams() {
 
     console.log(`Found ${studies.length} studies with full data`);
 
-    // Create a map of slug to study data
-    allStudyData = new Map();
-
-    // Store each study by its slug
-    for (const study of studies) {
-      if (study.extra_data?.slug) {
-        allStudyData.set(study.extra_data.slug, study);
-      }
-    }
-
     const slugs = studies
       .map((study: any) => study.extra_data?.slug)
       .filter((slug: string) => Boolean(slug));
 
     console.log(`Generated ${slugs.length} study pages`);
+    console.log(`Available slugs:`, slugs.slice(0, 5)); // Log first 5 slugs
     return slugs.map((slug: string) => ({
       slug: slug,
     }));
@@ -60,12 +48,27 @@ export default async function StudyPage({
   try {
     console.log(`Generating static page for study: ${slug}`);
 
-    if (!allStudyData || !allStudyData.has(slug)) {
-      throw new Error(`Study data not found for slug: ${slug}`);
+    // Fetch the specific study data for this slug
+    const response = await fetch(
+      `https://harmonydataweaviate.azureedge.net/discover/search?query=*&num_results=1&offset=0&resource_type=study&slug=${encodeURIComponent(
+        slug
+      )}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch study by slug: ${response.statusText}`);
     }
 
-    const searchResult = allStudyData.get(slug);
-    const study = transformSearchResultToStudyDetail(searchResult);
+    const data = await response.json();
+    const studyResult = data.results?.[0];
+
+    if (!studyResult) {
+      throw new Error(`Study with slug "${slug}" not found`);
+    }
+
+    console.log(`Found study data for ${slug}:`, studyResult.extra_data?.name);
+
+    const study = transformSearchResultToStudyDetail(studyResult);
 
     return <StudyPageClient study={study} />;
   } catch (error) {

@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
       : undefined,
   basePath: isGitHubPagesDeployment ? "/search" : "",
   assetPrefix: isGitHubPagesDeployment ? "/search" : "",
-  trailingSlash: isGitHubPagesDeployment,
+  trailingSlash: false,
   reactStrictMode: false,
   eslint: {
     ignoreDuringBuilds: true,

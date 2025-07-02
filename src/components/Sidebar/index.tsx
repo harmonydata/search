@@ -16,12 +16,14 @@ import {
   ArrowLeftRight,
   Download,
   BarChart2,
+  BookOpen,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navigationItems = [
   { text: "Search", icon: Search, href: "/" },
+  { text: "Studies", icon: BookOpen, href: "/studies" },
   { text: "Explore", icon: BarChart2, href: "/explore" },
   { text: "Compare", icon: ArrowLeftRight, href: "/compare" },
   { text: "Saves", icon: Download, href: "/saves" },

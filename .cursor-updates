@@ -31,6 +31,7 @@
 - Implemented responsive layout with drawer for study details on smaller screens and fixed scrolling issues.
 - Enhanced study details panel with sticky positioning that stays visible while scrolling through search results.
 - Updated StudyDetail component to show temporal coverage, sample size, age coverage, study design and resource type from correct API fields.
+- Restructured explore page with new "Meta Data Explorer" layout: added four summary cards (Studies/Datasets, Data Sources, Topics, Variables), reorganized content with Popular Phrases (word cloud), Popular Topics (top 20 keywords as chips), and Popular Data Sources (top 4 sources with rich organization info) in side-by-side half-width cards, followed by existing distribution graphs.
 - Replaced separate Data Access and Item Level Metadata sections with a single horizontally scrollable Data Catalogs view with clickable links to external resources.
 - Improved Data Catalog cards with rounded corners and side-by-side layout for logo and text to match design requirements.
 - Created a reusable DataCatalogCard component with proper styling featuring a white logo section and slight background color for the text area.
@@ -92,3 +93,14 @@
 - Fixed similar study searches to exclude the original study from results by passing its UUID in top_level_ids_seen_so_far parameter
 - Replaced "Loading more results..." text with clean spinning Loader2 icon for better visual feedback during pagination
 - Updated number_of_variables field usage to access from dataset_schema instead of extra_data following API changes
+- Added slug field to SearchResult interface in API types for study URL generation
+- Created /studies page displaying all studies in responsive grid layout with larger StudyCard components
+- Built individual study pages at /studies/{slug} with full StudyDetail component and SEO metadata
+- Implemented static generation for all study pages using generateStaticParams for optimal performance
+- Added fetchStudyBySlug and fetchAllStudySlugs API functions for study-specific data fetching
+- Created transformSearchResultToStudyDetail utility function to convert API data to StudyDetail component format
+- Fixed studies page runtime error by converting to client component to properly handle event handlers
+- Implemented fully responsive layout: sidebar becomes top navigation bar on mobile devices (md breakpoint and below)
+- Updated main layout to dynamically adjust margins and spacing based on screen size and sidebar position
+- Fixed individual study page width constraints to prevent overflow while allowing proper horizontal scrolling for long content
+- Added Studies navigation item with BookOpen icon to sidebar for easy access to the studies grid page

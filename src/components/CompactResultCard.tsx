@@ -232,7 +232,7 @@ export default function CompactResultCard({
               e.stopPropagation();
               if (result.extra_data?.uuid) {
                 window.open(
-                  `/discover?like=${result.extra_data.uuid}`,
+                  `discover?like=${result.extra_data.uuid}`,
                   "_blank"
                 );
               }
@@ -350,7 +350,7 @@ export default function CompactResultCard({
               {hasVariables && (
                 <SquareChip chipVariant="primary" size="small">
                   {hasMatchedVariables
-                    ? `${matchedVariablesCount} Matched Variables`
+                    ? `Matched by variable`
                     : `${variablesCount} Variables`}
                 </SquareChip>
               )}

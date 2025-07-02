@@ -491,3 +491,90 @@ export async function fetchWordCloud(
 
   return response.json();
 }
+
+export interface SourceInfo {
+  "@context": string;
+  "@type": string;
+  name: string;
+  alternateName: string;
+  url: string;
+  logo: string;
+}
+
+export interface SourcesResponse {
+  [key: string]: SourceInfo;
+}
+
+export async function fetchSources(): Promise<SourcesResponse> {
+  const response = await fetch(`${API_BASE}/discover/sources`, {
+    headers: {
+      accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch sources data");
+  }
+
+  return response.json();
+}
+
+export async function fetchStudyBySlug(slug: string): Promise<SearchResult> {
+  const response = await fetchSearchResults(
+    "*", // Use wildcard
+    {
+      resource_type: ["study"],
+      slug: [slug], // Filter by slug
+    },
+    1, // First page
+    1, // Just need one result
+    false // Use new search endpoint
+  );
+
+  if (!response.results || response.results.length === 0) {
+    throw new Error(`Study with slug "${slug}" not found`);
+  }
+
+  return response.results[0];
+}
+
+export async function fetchAllStudySlugs(): Promise<string[]> {
+  const response = await fetchSearchResults(
+    "*", // Use wildcard to get all results
+    { resource_type: ["study"] }, // Filter for studies only
+    1, // First page
+    1000, // Get a large number of results
+    false // Use new search endpoint
+  );
+
+  const slugs =
+    response.results
+      ?.map((study) => study.extra_data?.slug)
+      .filter((slug): slug is string => Boolean(slug)) || [];
+
+  return slugs;
+}
+
+export async function fetchAllStudiesWithUuids(): Promise<
+  Array<{ slug: string; uuid: string }>
+> {
+  const response = await fetchSearchResults(
+    "*", // Use wildcard to get all results
+    { resource_type: ["study"] }, // Filter for studies only
+    1, // First page
+    1000, // Get a large number of results
+    false // Use new search endpoint
+  );
+
+  const studiesWithUuids =
+    response.results
+      ?.map((study) => ({
+        slug: study.extra_data?.slug,
+        uuid: study.extra_data?.uuid,
+      }))
+      .filter((study): study is { slug: string; uuid: string } =>
+        Boolean(study.slug && study.uuid)
+      ) || [];
+
+  return studiesWithUuids;
+}

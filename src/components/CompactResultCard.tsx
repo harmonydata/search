@@ -83,8 +83,8 @@ export default function CompactResultCard({
       !keyword.startsWith("<")
   );
 
-  // Get the variables count from extra_data
-  const variablesCount = result.extra_data?.number_of_variables || 0;
+  // Get the variables count from dataset_schema
+  const variablesCount = result.dataset_schema?.number_of_variables || 0;
   const matchedVariablesCount = result.variables_which_matched?.length || 0;
   const hasVariables = variablesCount > 0;
   const hasMatchedVariables = matchedVariablesCount > 0;

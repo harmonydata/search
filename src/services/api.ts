@@ -40,6 +40,7 @@ export interface SearchResult {
       name?: string;
     }[];
     temporalCoverage?: string;
+    number_of_variables?: number;
   };
   extra_data: {
     description?: string;
@@ -50,7 +51,7 @@ export interface SearchResult {
     age_upper?: number;
     age_lower?: number;
     uuid?: string;
-    number_of_variables?: number;
+    slug?: string;
   };
   distance?: number;
   cosine_similarity?: number;

@@ -30,7 +30,7 @@ import {
 } from "@/services/api";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { Database, File, Book, FileText } from "lucide-react";
+import { Database, File, Book, FileText, Loader2 } from "lucide-react";
 import AdvancedSearchDropdown from "@/components/AdvancedSearchDropdown";
 import InfiniteScroll from "react-infinite-scroll-component";
 
@@ -332,7 +332,7 @@ function DiscoverPageContent() {
 
     // Only fetch additional data if we don't have the required fields
     const needsLookup =
-      displayResult.extra_data?.number_of_variables &&
+      displayResult.dataset_schema?.number_of_variables &&
       !displayResult.dataset_schema?.variableMeasured?.length &&
       !displayResult.variables_which_matched?.length;
 
@@ -1033,27 +1033,11 @@ function DiscoverPageContent() {
       console.log("Page:", pageToUse);
       console.log("Results per page:", resultsPerPage);
       console.log("Use Search2:", useSearch2);
+      console.log("Similar UID (will be excluded):", similarUid || "None");
       console.log(
         "Top Level IDs Seen:",
         pageToUse > 1 ? topLevelIdsSeen : "First page"
       );
-      // More detailed logging for pagination debugging
-      console.log("Detailed pagination info:", {
-        pageToUse,
-        topLevelIdsSeenLength: topLevelIdsSeen.length,
-        topLevelIdsSeenSample: topLevelIdsSeen.slice(0, 5),
-        currentTopLevelIdsRefLength: currentTopLevelIdsRef.current.length,
-        currentTopLevelIdsRefSample: currentTopLevelIdsRef.current.slice(0, 5),
-        nextPageOffset: currentNextPageOffsetRef.current,
-        willPassIds: pageToUse > 1 && !useSearch2,
-        willPassOffset:
-          pageToUse > 1 && currentNextPageOffsetRef.current !== undefined,
-        willUsePost:
-          pageToUse > 1 &&
-          !useSearch2 &&
-          currentTopLevelIdsRef.current.length > 0,
-        useSearch2,
-      });
 
       // Create a promise that rejects after a timeout
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -1062,6 +1046,36 @@ function DiscoverPageContent() {
 
       // Track API time specifically
       const apiStartTime = Date.now();
+
+      // Determine what IDs to exclude from search results
+      let idsToExclude: string[] | undefined;
+      if (pageToUse > 1) {
+        // For pagination, use the existing top level IDs
+        idsToExclude = currentTopLevelIdsRef.current;
+      } else if (similarUid) {
+        // For similar study searches, exclude the original study
+        idsToExclude = [similarUid];
+        console.log(
+          "Excluding original study from similar search:",
+          similarUid
+        );
+      }
+      // More detailed logging for pagination debugging
+      console.log("Detailed pagination info:", {
+        pageToUse,
+        topLevelIdsSeenLength: topLevelIdsSeen.length,
+        topLevelIdsSeenSample: topLevelIdsSeen.slice(0, 5),
+        currentTopLevelIdsRefLength: currentTopLevelIdsRef.current.length,
+        currentTopLevelIdsRefSample: currentTopLevelIdsRef.current.slice(0, 5),
+        nextPageOffset: currentNextPageOffsetRef.current,
+        idsToExclude: idsToExclude || [],
+        willPassIds: pageToUse > 1 && !useSearch2,
+        willPassOffset:
+          pageToUse > 1 && currentNextPageOffsetRef.current !== undefined,
+        willUsePost:
+          pageToUse > 1 && !useSearch2 && (idsToExclude?.length || 0) > 0,
+        useSearch2,
+      });
 
       // Race the actual API call against the timeout
       const res: SearchResponse = await Promise.race([
@@ -1072,7 +1086,7 @@ function DiscoverPageContent() {
           resultsPerPage,
           useSearch2,
           debouncedHybridWeight,
-          pageToUse > 1 ? currentTopLevelIdsRef.current : undefined, // Use ref for immediate availability
+          idsToExclude, // Use the determined IDs to exclude
           pageToUse > 1 ? currentNextPageOffsetRef.current : undefined // Pass next page offset for subsequent pages
         ),
         timeoutPromise,
@@ -1510,10 +1524,12 @@ function DiscoverPageContent() {
 
       // Extract UUID from LIKE query if present
       let searchQuery = query;
+      let originalStudyUuid: string | undefined;
       const likeMatch = query.match(/^LIKE:(.*?)\s*\(([^)]+)\)$/);
       if (likeMatch) {
         // Use the UUID from the brackets for the actual search
-        searchQuery = `LIKE:${likeMatch[2]}`;
+        originalStudyUuid = likeMatch[2];
+        searchQuery = `LIKE:${originalStudyUuid}`;
       }
 
       const res: SearchResponse = await fetchSearchResults(
@@ -1523,7 +1539,13 @@ function DiscoverPageContent() {
         resultsPerPage,
         useSearch2,
         debouncedHybridWeight,
-        currentPage > 1 ? currentTopLevelIdsRef.current : undefined,
+        // For LIKE searches, exclude the original study by passing its UUID in top_level_ids_seen_so_far
+        // For regular pagination, use the current ref
+        originalStudyUuid
+          ? [originalStudyUuid] // Exclude original study from LIKE search results
+          : currentPage > 1
+          ? currentTopLevelIdsRef.current
+          : undefined,
         currentPage > 1 ? currentNextPageOffsetRef.current : undefined
       );
       setResults(res.results || []);
@@ -1892,7 +1914,52 @@ function DiscoverPageContent() {
                     dataLength={results.length}
                     next={loadMore}
                     hasMore={hasMoreResults}
-                    loader={<Typography>Loading more results...</Typography>}
+                    loader={
+                      // Check if we have an empty state (no search query and no filters)
+                      !debouncedSearchQuery &&
+                      (!selectedFilters ||
+                        Object.values(selectedFilters).every(
+                          (arr) => arr.length === 0
+                        )) ? (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            py: 6,
+                            textAlign: "center",
+                          }}
+                        >
+                          <Typography
+                            variant="h6"
+                            color="text.secondary"
+                            gutterBottom
+                          >
+                            Enter a search term or select some filters to begin
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Use the search bar above or apply filters to
+                            discover studies
+                          </Typography>
+                        </Box>
+                      ) : (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            py: 3,
+                          }}
+                        >
+                          <Loader2
+                            size={24}
+                            className="animate-spin"
+                            style={{ color: "#1976d2" }}
+                          />
+                        </Box>
+                      )
+                    }
                     scrollableTarget="search-results-container"
                     endMessage={
                       <Typography>No more results to load.</Typography>

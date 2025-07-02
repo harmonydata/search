@@ -1,14 +1,18 @@
 import { Container, Box, Typography } from "@mui/material";
-import { fetchStudyBySlug } from "@/services/api";
 import StudyDetail from "@/components/StudyDetail";
 import { transformSearchResultToStudyDetail } from "@/lib/utils/studyTransform";
 import { notFound } from "next/navigation";
 import StudyPageClient from "./StudyPageClient";
 
+// Store all study data globally for static generation
+let allStudyData: Map<string, any> | null = null;
+
 // This runs at build time for static export
 export async function generateStaticParams() {
   try {
-    console.log("Fetching all study slugs for static generation...");
+    console.log("Fetching all studies for static generation...");
+
+    // Fetch all studies in one request - this already has all the data we need!
     const response = await fetch(
       "https://harmonydataweaviate.azureedge.net/discover/search?query=*&num_results=1000&offset=0&resource_type=study"
     );
@@ -18,12 +22,25 @@ export async function generateStaticParams() {
     }
 
     const data = await response.json();
-    const slugs =
-      data.results
-        ?.map((study: any) => study.extra_data?.slug)
-        .filter((slug: string) => Boolean(slug)) || [];
+    const studies = data.results || [];
 
-    console.log(`Found ${slugs.length} studies to generate`);
+    console.log(`Found ${studies.length} studies with full data`);
+
+    // Create a map of slug to study data
+    allStudyData = new Map();
+
+    // Store each study by its slug
+    for (const study of studies) {
+      if (study.extra_data?.slug) {
+        allStudyData.set(study.extra_data.slug, study);
+      }
+    }
+
+    const slugs = studies
+      .map((study: any) => study.extra_data?.slug)
+      .filter((slug: string) => Boolean(slug));
+
+    console.log(`Generated ${slugs.length} study pages`);
     return slugs.map((slug: string) => ({
       slug: slug,
     }));
@@ -41,13 +58,18 @@ export default async function StudyPage({
   const { slug } = await params;
 
   try {
-    // Pre-fetch the study data at build time
-    const searchResult = await fetchStudyBySlug(slug);
+    console.log(`Generating static page for study: ${slug}`);
+
+    if (!allStudyData || !allStudyData.has(slug)) {
+      throw new Error(`Study data not found for slug: ${slug}`);
+    }
+
+    const searchResult = allStudyData.get(slug);
     const study = transformSearchResultToStudyDetail(searchResult);
 
     return <StudyPageClient study={study} />;
   } catch (error) {
-    console.error(`Failed to fetch study: ${slug}`, error);
+    console.error(`Failed to generate static page for study: ${slug}`, error);
     notFound();
   }
 }

@@ -33,6 +33,10 @@ jobs:
       - name: Build for GitHub Pages deployment
         run: npm run build:github-pages
 
+        env:
+          GITHUB_PAGES_DEPLOYMENT: "true"
+          NEXT_STATIC_EXPORT: "true"
+
       - name: Create .nojekyll file
         run: touch out/.nojekyll
 

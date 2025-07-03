@@ -1680,10 +1680,7 @@ function DiscoverPageContent() {
                         </Typography>
                       )}
                       <Image
-                        src={
-                          process.env.NEXT_PUBLIC_ASSET_PREFIX +
-                          "/icons/discover.svg"
-                        }
+                        src="/icons/discover.svg"
                         alt="Search"
                         width={20}
                         height={20}

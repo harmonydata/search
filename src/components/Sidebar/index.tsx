@@ -60,7 +60,7 @@ export default function Sidebar() {
           <Link href="/explore">
             <Box
               component="img"
-              src="/search/harmony.png"
+              src="/harmony.png"
               alt="Harmony Logo"
               sx={{ width: 40, height: 40, objectFit: "contain" }}
             />
@@ -121,7 +121,7 @@ export default function Sidebar() {
         <Link href="/explore">
           <Box
             component="img"
-            src="/search/harmony.png"
+            src="/harmony.png"
             alt="Harmony Logo"
             sx={{ width: 48, height: 48, objectFit: "contain" }}
           />

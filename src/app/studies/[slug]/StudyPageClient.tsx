@@ -2,6 +2,7 @@
 
 import { Container, Box } from "@mui/material";
 import StudyDetail from "@/components/StudyDetail";
+import { getAssetPrefix } from "@/lib/utils/shared";
 
 interface StudyPageClientProps {
   study: any;
@@ -31,7 +32,7 @@ export default function StudyPageClient({ study }: StudyPageClientProps) {
           isDrawerView={false}
           onTopicClick={(topic) => {
             // Handle topic clicks - navigate to search with topic
-            window.location.href = `/discover?query=${encodeURIComponent(
+            window.location.href = `${getAssetPrefix()}/discover?query=${encodeURIComponent(
               topic
             )}`;
           }}

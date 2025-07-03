@@ -17,11 +17,27 @@ import { usePathname } from "next/navigation";
 import { LayoutGrid } from "lucide-react";
 
 const navigationItems = [
-  { text: "Search", icon: "/icons/discover.svg", href: "/" },
+  {
+    text: "Search",
+    icon: process.env.NEXT_PUBLIC_ASSET_PREFIX + "/icons/discover.svg",
+    href: "/",
+  },
   { text: "Browse", icon: "", href: "/studies" },
-  { text: "Explore", icon: "/icons/explore.svg", href: "/explore" },
-  { text: "Compare", icon: "/icons/compare.svg", href: "/compare" },
-  { text: "Saves", icon: "/icons/saves.svg", href: "/saves" },
+  {
+    text: "Explore",
+    icon: process.env.NEXT_PUBLIC_ASSET_PREFIX + "/icons/explore.svg",
+    href: "/explore",
+  },
+  {
+    text: "Compare",
+    icon: process.env.NEXT_PUBLIC_ASSET_PREFIX + "/icons/compare.svg",
+    href: "/compare",
+  },
+  {
+    text: "Saves",
+    icon: process.env.NEXT_PUBLIC_ASSET_PREFIX + "/icons/saves.svg",
+    href: "/saves",
+  },
 ];
 
 export default function Sidebar() {
@@ -61,7 +77,7 @@ export default function Sidebar() {
         >
           <Link href="/">
             <Image
-              src="/harmony.png"
+              src={process.env.NEXT_PUBLIC_ASSET_PREFIX + "/harmony.png"}
               alt="Harmony Logo"
               width={40}
               height={40}
@@ -178,7 +194,7 @@ export default function Sidebar() {
       <Box sx={{ p: 1, pt: 3, display: "flex", justifyContent: "center" }}>
         <Link href="/">
           <Image
-            src="/harmony.png"
+            src={process.env.NEXT_PUBLIC_ASSET_PREFIX + "/harmony.png"}
             alt="Harmony Logo"
             width={64}
             height={64}

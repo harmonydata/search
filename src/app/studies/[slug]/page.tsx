@@ -48,27 +48,57 @@ export default async function StudyPage({
   try {
     console.log(`Generating static page for study: ${slug}`);
 
-    // Fetch the specific study data for this slug
-    const response = await fetch(
+    // First, fetch the study by slug to get the UUID
+    const searchResponse = await fetch(
       `https://harmonydataweaviate.azureedge.net/discover/search?query=*&num_results=1&offset=0&resource_type=study&slug=${encodeURIComponent(
         slug
       )}`
     );
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch study by slug: ${response.statusText}`);
+    if (!searchResponse.ok) {
+      throw new Error(
+        `Failed to fetch study by slug: ${searchResponse.statusText}`
+      );
     }
 
-    const data = await response.json();
-    const studyResult = data.results?.[0];
+    const searchData = await searchResponse.json();
+    const studyResult = searchData.results?.[0];
 
     if (!studyResult) {
       throw new Error(`Study with slug "${slug}" not found`);
     }
 
-    console.log(`Found study data for ${slug}:`, studyResult.extra_data?.name);
+    const uuid = studyResult.extra_data?.uuid;
+    if (!uuid) {
+      throw new Error(`Study with slug "${slug}" has no UUID`);
+    }
 
-    const study = transformSearchResultToStudyDetail(studyResult);
+    console.log(`Found study UUID for ${slug}: ${uuid}`);
+
+    // Now fetch the full study data using the UUID via the lookup endpoint
+    const lookupResponse = await fetch(
+      `https://harmonydataweaviate.azureedge.net/discover/lookup?uuid=${uuid}`
+    );
+
+    if (!lookupResponse.ok) {
+      throw new Error(
+        `Failed to fetch study by UUID: ${lookupResponse.statusText}`
+      );
+    }
+
+    const lookupData = await lookupResponse.json();
+    const fullStudyResult = lookupData.results?.[0];
+
+    if (!fullStudyResult) {
+      throw new Error(`Study with UUID "${uuid}" not found in lookup`);
+    }
+
+    console.log(
+      `Found full study data for ${slug}:`,
+      fullStudyResult.dataset_schema?.name
+    );
+
+    const study = transformSearchResultToStudyDetail(fullStudyResult);
 
     return <StudyPageClient study={study} />;
   } catch (error) {

@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import {
   Box,
@@ -11,6 +13,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { LayoutGrid } from "lucide-react";
 import { getAssetPrefix } from "@/lib/utils/shared";
+import { usePathname } from "next/navigation";
 
 const navigationItems = [
   { text: "Search", icon: getAssetPrefix() + "/icons/discover.svg", href: "/" },
@@ -33,6 +36,8 @@ const navigationItems = [
 ];
 
 export default function Sidebar() {
+  const pathname = usePathname();
+
   // Use CSS media queries for responsive behavior instead of client-side logic
   return (
     <>
@@ -88,6 +93,7 @@ export default function Sidebar() {
               key={item.text}
               component={Link}
               href={item.href}
+              selected={pathname === item.href}
               sx={{
                 flexDirection: "column",
                 minWidth: 48,
@@ -95,10 +101,14 @@ export default function Sidebar() {
                 px: 1,
                 py: 0.5,
                 borderRadius: 2,
-                color: "#444653",
+                color: pathname === item.href ? "primary.main" : "#444653",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                bgcolor: pathname === item.href ? "action.selected" : "inherit",
+                "&.Mui-selected": {
+                  bgcolor: "action.selected",
+                },
               }}
             >
               <ListItemIcon
@@ -196,12 +206,16 @@ export default function Sidebar() {
               <ListItemButton
                 component={Link}
                 href={item.href}
+                selected={pathname === item.href}
                 sx={{
                   minHeight: 48,
                   justifyContent: "center",
                   px: 2.5,
                   flexDirection: "column",
-                  color: "#444653",
+                  color: pathname === item.href ? "primary.main" : "#444653",
+                  "&.Mui-selected": {
+                    bgcolor: "action.selected",
+                  },
                 }}
               >
                 <ListItemIcon

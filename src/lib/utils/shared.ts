@@ -256,16 +256,20 @@ export function findOrganizationLogo(
 }
 
 /**
- * Get the asset prefix for client components
- * This is needed because client components can't use Next.js Image's automatic assetPrefix
+ * Get the asset prefix for components
+ * This works for both server and client components
  */
 export function getAssetPrefix(): string {
-  // For client components, we need to check if we're in a browser environment
+  // Check if we're building for GitHub Pages deployment
+  if (process.env.GITHUB_PAGES_DEPLOYMENT === "true") {
+    return "/search";
+  }
+  // For client components, we can check if we're in a browser environment
   if (typeof window !== "undefined") {
     // In the browser, we can check the current path to determine if we're in production
     const isProduction = window.location.pathname.startsWith("/search");
     return isProduction ? "/search" : "";
   }
-  // Fallback for SSR or build time
+  // Fallback
   return process.env.NEXT_PUBLIC_ASSET_PREFIX || "";
 }

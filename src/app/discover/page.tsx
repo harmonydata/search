@@ -32,6 +32,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { Database, File, Book, FileText, Loader2 } from "lucide-react";
 import AdvancedSearchDropdown from "@/components/AdvancedSearchDropdown";
+import { getAssetPrefix } from "@/lib/utils/shared";
 import InfiniteScroll from "react-infinite-scroll-component";
 
 // Create a new component for the search functionality
@@ -1680,7 +1681,7 @@ function DiscoverPageContent() {
                         </Typography>
                       )}
                       <Image
-                        src="/icons/discover.svg"
+                        src={getAssetPrefix() + "/icons/discover.svg"}
                         alt="Search"
                         width={20}
                         height={20}

@@ -261,7 +261,7 @@ export function findOrganizationLogo(
  */
 export function getAssetPrefix(): string {
   // Check if we're building for GitHub Pages deployment
-  if (process.env.GITHUB_PAGES_DEPLOYMENT === "true") {
+  if (process.env.GITHUB_PAGES_DEPLOYMENT) {
     return "/search";
   }
   // For client components, we can check if we're in a browser environment

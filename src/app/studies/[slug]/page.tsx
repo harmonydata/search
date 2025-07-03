@@ -3,37 +3,26 @@ import StudyDetail from "@/components/StudyDetail";
 import { transformSearchResultToStudyDetail } from "@/lib/utils/studyTransform";
 import { notFound } from "next/navigation";
 import StudyPageClient from "./StudyPageClient";
+import { fetchAllStudiesWithUuids, fetchResultByUuid } from "@/services/api";
 
 // This runs at build time for static export
 export async function generateStaticParams() {
   try {
     console.log("Fetching all studies for static generation...");
 
-    // Fetch all studies in one request - this already has all the data we need!
-    const response = await fetch(
-      "https://harmonydataweaviate.azureedge.net/discover/search?query=*&num_results=1000&offset=0&resource_type=study"
+    // Use the API service to get all studies with UUIDs
+    const studiesWithUuids = await fetchAllStudiesWithUuids();
+
+    console.log(
+      `Found ${studiesWithUuids.length} studies for static generation`
     );
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch studies for static generation");
-    }
-
-    const data = await response.json();
-    const studies = data.results || [];
-
-    console.log(`Found ${studies.length} studies with full data`);
-
-    const slugs = studies
-      .map((study: any) => study.extra_data?.slug)
-      .filter((slug: string) => Boolean(slug));
-
-    console.log(`Generated ${slugs.length} study pages`);
-    console.log(`Available slugs:`, slugs.slice(0, 5)); // Log first 5 slugs
-    return slugs.map((slug: string) => ({
-      slug: slug,
+    // Return the params for each study
+    return studiesWithUuids.map((study) => ({
+      slug: study.slug,
     }));
   } catch (error) {
-    console.error("Error generating static params:", error);
+    console.error("Failed to generate static params:", error);
     return [];
   }
 }
@@ -48,50 +37,21 @@ export default async function StudyPage({
   try {
     console.log(`Generating static page for study: ${slug}`);
 
-    // First, fetch the study by slug to get the UUID
-    const searchResponse = await fetch(
-      `https://harmonydataweaviate.azureedge.net/discover/search?query=*&num_results=1&offset=0&resource_type=study&slug=${encodeURIComponent(
-        slug
-      )}`
-    );
+    // Use the API service to get all studies and find the matching one
+    const studiesWithUuids = await fetchAllStudiesWithUuids();
 
-    if (!searchResponse.ok) {
-      throw new Error(
-        `Failed to fetch study by slug: ${searchResponse.statusText}`
-      );
-    }
+    // Find the study with the matching slug
+    const studyWithUuid = studiesWithUuids.find((study) => study.slug === slug);
 
-    const searchData = await searchResponse.json();
-    const studyResult = searchData.results?.[0];
-
-    if (!studyResult) {
+    if (!studyWithUuid) {
       throw new Error(`Study with slug "${slug}" not found`);
     }
 
-    const uuid = studyResult.extra_data?.uuid;
-    if (!uuid) {
-      throw new Error(`Study with slug "${slug}" has no UUID`);
-    }
-
+    const uuid = studyWithUuid.uuid;
     console.log(`Found study UUID for ${slug}: ${uuid}`);
 
-    // Now fetch the full study data using the UUID via the lookup endpoint
-    const lookupResponse = await fetch(
-      `https://harmonydataweaviate.azureedge.net/discover/lookup?uuid=${uuid}`
-    );
-
-    if (!lookupResponse.ok) {
-      throw new Error(
-        `Failed to fetch study by UUID: ${lookupResponse.statusText}`
-      );
-    }
-
-    const lookupData = await lookupResponse.json();
-    const fullStudyResult = lookupData.results?.[0];
-
-    if (!fullStudyResult) {
-      throw new Error(`Study with UUID "${uuid}" not found in lookup`);
-    }
+    // Use the API service to fetch the full study data using the UUID
+    const fullStudyResult = await fetchResultByUuid(uuid);
 
     console.log(
       `Found full study data for ${slug}:`,

@@ -104,3 +104,4 @@
 - Updated main layout to dynamically adjust margins and spacing based on screen size and sidebar position
 - Fixed individual study page width constraints to prevent overflow while allowing proper horizontal scrolling for long content
 - Added Studies navigation item with BookOpen icon to sidebar for easy access to the studies grid page
+- Fixed static generation for study pages to use proper API service functions instead of manual fetch calls, ensuring each page shows unique study data

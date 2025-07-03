@@ -2,6 +2,17 @@ import type { NextConfig } from "next";
 
 // Only apply base path when explicitly building for GitHub Pages deployment
 const isGitHubPagesDeployment = process.env.GITHUB_PAGES_DEPLOYMENT === "true";
+console.log(
+  `[next.config.js] DEBUG: process.env.GITHUB_PAGES_DEPLOYMENT = '${process.env.GITHUB_PAGES_DEPLOYMENT}'`
+);
+console.log(
+  `[next.config.js] DEBUG: isGitHubPagesDeployment = ${isGitHubPagesDeployment}`
+);
+console.log(
+  `[next.config.js] DEBUG: Calculated assetPrefix = '${
+    isGitHubPagesDeployment ? "/search" : ""
+  }'`
+);
 
 const nextConfig: NextConfig = {
   // Only enable static export when NEXT_STATIC_EXPORT is true OR when building for GitHub Pages

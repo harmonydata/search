@@ -347,6 +347,20 @@ const DataVisualization = ({
     .sort((a, b) => b.doc_count - a.doc_count)
     .slice(0, 4);
 
+  // Get top instruments for Popular Instruments section
+  const instrumentsData = aggregations.instruments || {};
+  const topInstruments = Object.entries(instrumentsData)
+    .map(([key, value]) => ({ key, doc_count: value as number }))
+    .sort((a, b) => b.doc_count - a.doc_count)
+    .slice(0, 10);
+
+  // Get top study designs for Popular Study Designs section
+  const studyDesignData = aggregations.study_design || {};
+  const topStudyDesigns = Object.entries(studyDesignData)
+    .map(([key, value]) => ({ key, doc_count: value as number }))
+    .sort((a, b) => b.doc_count - a.doc_count)
+    .slice(0, 20);
+
   return (
     <Box sx={{ width: "100%" }}>
       {/* Summary Statistics Cards */}
@@ -491,6 +505,79 @@ const DataVisualization = ({
                     </Grid>
                   ))}
                 </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
+      </Grid>
+
+      {/* Popular Instruments and Study Designs - side by side */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* Popular Instruments */}
+        {topInstruments.length > 0 && (
+          <Grid item xs={12} md={6}>
+            <Card elevation={1} sx={{ height: "100%" }}>
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Popular Instruments
+                </Typography>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                  {topInstruments.map((instrument, index) => (
+                    <MuiTooltip
+                      key={`instrument-tooltip-${index}`}
+                      title={`Click to search for \"${instrument.key}\"`}
+                    >
+                      <span>
+                        <SquareChip
+                          sx={{ cursor: "pointer" }}
+                          onClick={() => {
+                            const url = `${getAssetPrefix()}/discover?instruments=${encodeURIComponent(
+                              instrument.key
+                            )}`;
+                            window.open(url, "_blank");
+                          }}
+                        >
+                          {instrument.key}
+                        </SquareChip>
+                      </span>
+                    </MuiTooltip>
+                  ))}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
+
+        {/* Popular Study Designs */}
+        {topStudyDesigns.length > 0 && (
+          <Grid item xs={12} md={6}>
+            <Card elevation={1} sx={{ height: "100%" }}>
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Popular Study Designs
+                </Typography>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                  {topStudyDesigns.map((design, index) => (
+                    <MuiTooltip
+                      key={`design-tooltip-${index}`}
+                      title={`Click to search for \"${design.key}\"`}
+                    >
+                      <span>
+                        <SquareChip
+                          sx={{ cursor: "pointer" }}
+                          onClick={() => {
+                            const url = `${getAssetPrefix()}/discover?study_design=${encodeURIComponent(
+                              design.key
+                            )}`;
+                            window.open(url, "_blank");
+                          }}
+                        >
+                          {design.key}
+                        </SquareChip>
+                      </span>
+                    </MuiTooltip>
+                  ))}
+                </Box>
               </CardContent>
             </Card>
           </Grid>

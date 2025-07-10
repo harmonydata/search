@@ -84,6 +84,8 @@ function DiscoverPageContent() {
   const similarUid = searchParams.get("like");
   const initialQuery = searchParams.get("query");
   const initialTopics = searchParams.getAll("topics");
+  const initialInstruments = searchParams.getAll("instruments");
+  const initialStudyDesign = searchParams.getAll("study_design");
 
   const router = useRouter();
 
@@ -682,7 +684,7 @@ function DiscoverPageContent() {
         !topic.startsWith("<")
     );
 
-    const instruments = (displayResult as any).instruments || [];
+    const instruments = (displayResult as any).extra_data?.instruments || [];
 
     // Extract variables that matched the search query
     const matchedVariables = displayResult.variables_which_matched || [];
@@ -1314,6 +1316,18 @@ function DiscoverPageContent() {
         keywords: newKeywords,
       }));
       handleFilterSelection("keywords", newKeywords);
+    }
+  };
+  // Handler for topic clicks in study detail
+  const handleInstrumentClick = (instrument: string) => {
+    const currentInstruments = selectedFilters?.instruments || [];
+    if (!currentInstruments.includes(instrument)) {
+      const newInstruments = [...currentInstruments, instrument];
+      setSelectedFilters((prev) => ({
+        ...prev,
+        instruments: newInstruments,
+      }));
+      handleFilterSelection("instruments", newInstruments);
     }
   };
 
@@ -2062,6 +2076,7 @@ function DiscoverPageContent() {
                     study={studyDetail}
                     isDrawerView={false}
                     onTopicClick={handleTopicClick}
+                    onInstrumentClick={handleInstrumentClick}
                     debugData={studyDebugData}
                   />
                 </Box>
@@ -2178,6 +2193,7 @@ function DiscoverPageContent() {
                 study={studyDetail}
                 isDrawerView={true}
                 onTopicClick={handleTopicClick}
+                onInstrumentClick={handleInstrumentClick}
                 debugData={studyDebugData}
               />
             ) : (

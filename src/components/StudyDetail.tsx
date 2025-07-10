@@ -11,6 +11,7 @@ import TextWithLinkPreviews from "@/components/TextWithLinkPreviews";
 import LinkPreviewCard from "@/components/LinkPreviewCard";
 import MatchedVariablesDataGrid from "@/components/MatchedVariablesDataGrid";
 import StudyDetailDebugDialog from "@/components/StudyDetailDebugDialog";
+import ChildDatasetCard from "@/components/ChildDatasetCard";
 
 interface StudyDetailProps {
   study: {
@@ -55,9 +56,12 @@ interface StudyDetailProps {
       uuid?: string;
     }>;
     additionalLinks?: string[];
+    child_datasets?: Array<any>;
   };
   isDrawerView?: boolean;
+  isStudyPage?: boolean;
   onTopicClick?: (topic: string) => void;
+  onInstrumentClick?: (instrument: string) => void;
   // Debug data - only available in development mode
   debugData?: {
     originalSearchResult?: any;
@@ -69,6 +73,7 @@ const StudyDetailComponent = ({
   study,
   isDrawerView = false,
   onTopicClick,
+  onInstrumentClick,
   debugData,
 }: StudyDetailProps) => {
   const [variablesExpanded, setVariablesExpanded] = useState(false);
@@ -84,6 +89,9 @@ const StudyDetailComponent = ({
 
   // State for debug dialog
   const [debugDialogOpen, setDebugDialogOpen] = useState(false);
+
+  // Add state for instruments dropdown
+  const [instrumentsExpanded, setInstrumentsExpanded] = useState(false);
 
   // Filter out malformed keywords/topics that contain HTML fragments
   const filteredTopics = study.topics.filter(
@@ -115,6 +123,13 @@ const StudyDetailComponent = ({
     (study.allVariables && study.allVariables.length > 0);
   const hasAdditionalLinks =
     study.additionalLinks && study.additionalLinks.length > 0;
+
+  // Debug log for instruments
+  console.log("StudyDetail instruments debug:", {
+    instruments: study.instruments,
+    hasInstruments,
+    instrumentsLength: study.instruments?.length,
+  });
 
   // Prepare deduped list of all variables for the DataGrid
   const allStudyVariables = useMemo(() => {
@@ -453,6 +468,30 @@ const StudyDetailComponent = ({
           </Box>
         </Box>
       )}
+      {/* Topics section - only shown if topics exist */}
+      {hasTopics && (
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Topics:
+          </Typography>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+            {filteredTopics.map((topic, index) => (
+              <SquareChip
+                key={`topic-${index}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onTopicClick) {
+                    onTopicClick(topic);
+                  }
+                }}
+                sx={{ cursor: "pointer" }}
+              >
+                {topic}
+              </SquareChip>
+            ))}
+          </Box>
+        </Box>
+      )}
 
       {/* Additional Links section - only shown if links exist */}
       {hasAdditionalLinks && (
@@ -489,13 +528,19 @@ const StudyDetailComponent = ({
               <Box
                 sx={{
                   display: "flex",
-                  flexDirection: "column",
+                  flexWrap: "wrap",
                   gap: 2,
                   mb: 2,
+                  alignItems: "flex-start",
                 }}
               >
                 {study.additionalLinks?.map((link, index) => (
-                  <LinkPreviewCard key={`link-${index}`} url={link} />
+                  <Box
+                    key={`link-${index}`}
+                    sx={{ flex: "1 1 350px", minWidth: 300, maxWidth: 500 }}
+                  >
+                    <LinkPreviewCard url={link} />
+                  </Box>
                 ))}
               </Box>
             )}
@@ -503,46 +548,79 @@ const StudyDetailComponent = ({
         </Box>
       )}
 
-      {/* Topics section - only shown if topics exist */}
-      {hasTopics && (
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            Topics:
-          </Typography>
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-            {filteredTopics.map((topic, index) => (
-              <SquareChip
-                key={`topic-${index}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onTopicClick) {
-                    onTopicClick(topic);
-                  }
-                }}
-                sx={{ cursor: "pointer" }}
-              >
-                {topic}
-              </SquareChip>
-            ))}
-          </Box>
+      {/* Instruments section - only shown if instruments exist */}
+      {hasInstruments && (
+        <Box sx={{ mb: 2 }}>
+          <SquareChip
+            fullWidth
+            chipVariant="secondary"
+            endIcon={
+              instrumentsExpanded ? (
+                <ChevronUp
+                  size={16}
+                  style={{ fill: "#004735", stroke: "none" }}
+                />
+              ) : (
+                <ChevronDown
+                  size={16}
+                  style={{ fill: "#004735", stroke: "none" }}
+                />
+              )
+            }
+            sx={{
+              justifyContent: "space-between",
+              py: 2,
+              height: "auto",
+              mb: 2,
+            }}
+            onClick={() => setInstrumentsExpanded((prev) => !prev)}
+          >
+            Instruments ({study.instruments.length})
+          </SquareChip>
+          <Collapse in={instrumentsExpanded}>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1 }}>
+              {study.instruments.map((instrument, idx) => (
+                <SquareChip
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onInstrumentClick) {
+                      onInstrumentClick(instrument);
+                    }
+                  }}
+                  key={`instrument-${idx}`}
+                >
+                  {instrument}
+                </SquareChip>
+              ))}
+            </Box>
+          </Collapse>
         </Box>
       )}
 
-      {/* Instruments section - only shown if instruments exist */}
-      {hasInstruments && (
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            Instruments:
-          </Typography>
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-            {study.instruments.map((instrument, index) => (
-              <SquareChip key={`instrument-${index}`} chipVariant="secondary">
-                {instrument}
-              </SquareChip>
-            ))}
+      {/* Child Datasets section - only if present */}
+      {Array.isArray(study.child_datasets) &&
+        study.child_datasets.length > 0 && (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Child Datasets:
+            </Typography>
+            <Box
+              sx={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 2,
+                alignItems: "stretch",
+              }}
+            >
+              {study.child_datasets.map((ds: any, idx: number) => (
+                <ChildDatasetCard
+                  key={ds.extra_data?.uuid || idx}
+                  dataset={ds}
+                />
+              ))}
+            </Box>
           </Box>
-        </Box>
-      )}
+        )}
 
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <SquareChip

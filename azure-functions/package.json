@@ -9,14 +9,20 @@
     "clean": "rimraf dist",
     "prestart": "npm run clean && npm run build",
     "start": "func start",
-    "test": "echo \"No tests yet...\""
+    "test": "echo \"No tests yet...\"",
+    "deploy": "npm run build && func azure functionapp publish harmonydiscoverynodefunctionapp1",
+    "deploy:staging": "npm run build && func azure functionapp publish harmonydiscoverynodefunctionapp1 --slot staging",
+    "deploy:production": "npm run build && func azure functionapp publish harmonydiscoverynodefunctionapp1 --slot production"
   },
   "dependencies": {
     "@azure/functions": "^4.0.0",
     "cheerio": "^1.0.0-rc.12"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "devDependencies": {
-    "@types/node": "18.x",
+    "@types/node": "20.x",
     "azure-functions-core-tools": "^4.x",
     "rimraf": "^5.0.0",
     "typescript": "^4.0.0"

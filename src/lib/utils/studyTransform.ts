@@ -24,14 +24,18 @@ export function transformSearchResultToStudyDetail(result: SearchResult) {
   }));
 
   // Geographic coverage
-  const geographicCoverage = result.extra_data?.country_codes?.join(", ");
+  const geographicCoverage =
+    result.extra_data?.country_codes?.join(", ") ||
+    (result as any).geographic_coverage;
 
   // Temporal coverage
-  const temporalCoverage = result.dataset_schema?.temporalCoverage;
+  const temporalCoverage =
+    result.dataset_schema?.temporalCoverage ||
+    (result as any).temporal_coverage;
 
   // Age coverage
-  const ageLower = result.extra_data?.age_lower;
-  const ageUpper = result.extra_data?.age_upper;
+  const ageLower = result.extra_data?.age_lower ?? (result as any).age_lower;
+  const ageUpper = result.extra_data?.age_upper ?? (result as any).age_upper;
   const ageCoverage =
     ageLower !== undefined && ageUpper !== undefined
       ? `${ageLower} - ${ageUpper} years`
@@ -42,11 +46,14 @@ export function transformSearchResultToStudyDetail(result: SearchResult) {
       : undefined;
 
   // Study design
-  const studyDesign = result.extra_data?.study_design || [];
+  const studyDesign =
+    result.extra_data?.study_design || (result as any).study_design || [];
 
   // Resource type
   const resourceType =
-    result.extra_data?.resource_type || result.dataset_schema?.["@type"];
+    result.extra_data?.resource_type ||
+    result.dataset_schema?.["@type"] ||
+    (result as any).resource_type;
 
   // Topics (keywords)
   const topics =
@@ -58,7 +65,8 @@ export function transformSearchResultToStudyDetail(result: SearchResult) {
     ) || [];
 
   // Instruments
-  const instruments = (result as any).instruments || [];
+  const instruments =
+    (result as any).instruments || (result.extra_data?.instruments ?? []);
 
   // Data catalogs
   const dataCatalogs = result.dataset_schema?.includedInDataCatalog?.map(
@@ -87,6 +95,17 @@ export function transformSearchResultToStudyDetail(result: SearchResult) {
       }
     });
   }
+  // Add DOIs from extra_data if present
+  if (Array.isArray(result.extra_data?.dois)) {
+    result.extra_data.dois.forEach((doi) => {
+      if (typeof doi === "string" && doi.startsWith("http")) {
+        additionalLinks.push(`${doi}`);
+      }
+    });
+  }
+
+  // Pass through child_datasets if present
+  const child_datasets = (result as any).child_datasets || [];
 
   return {
     title,
@@ -105,5 +124,6 @@ export function transformSearchResultToStudyDetail(result: SearchResult) {
     matchedVariables,
     allVariables,
     additionalLinks,
+    child_datasets,
   };
 }

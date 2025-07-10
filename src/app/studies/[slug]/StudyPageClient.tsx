@@ -32,8 +32,14 @@ export default function StudyPageClient({ study }: StudyPageClientProps) {
           isDrawerView={false}
           onTopicClick={(topic) => {
             // Handle topic clicks - navigate to search with topic
-            window.location.href = `${getAssetPrefix()}/discover?query=${encodeURIComponent(
+            window.location.href = `${getAssetPrefix()}/discover?topics=${encodeURIComponent(
               topic
+            )}`;
+          }}
+          onInstrumentClick={(instrument) => {
+            // Handle topic clicks - navigate to search with topic
+            window.location.href = `${getAssetPrefix()}/discover?instruments=${encodeURIComponent(
+              instrument
             )}`;
           }}
         />

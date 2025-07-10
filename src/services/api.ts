@@ -52,6 +52,25 @@ export interface SearchResult {
     age_lower?: number;
     uuid?: string;
     slug?: string;
+    // New fields
+    instruments?: string[];
+    harmony_id?: string;
+    sample_size?: number;
+    geographic_coverage?: string[];
+    end_year?: number;
+    language_codes?: string[];
+    duration_years?: number;
+    dois?: string[];
+    data_access?: string;
+    source?: string;
+    num_sweeps?: number;
+    urls?: string[];
+    start_year?: number;
+    keywords?: string[];
+    sex?: string;
+    genetic_data_collected?: boolean;
+    num_variables?: number;
+    number_of_variables?: number;
   };
   distance?: number;
   cosine_similarity?: number;

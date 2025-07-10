@@ -10,10 +10,16 @@ import {
   Badge,
   Switch,
   Button,
+  Tooltip,
 } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
 import { FilterAltOff } from "@mui/icons-material";
-import { fetchAggregateFilters, AggregateFilter } from "@/services/api";
+import {
+  fetchAggregateFilters,
+  AggregateFilter,
+  fetchSources,
+  SourcesResponse,
+} from "@/services/api";
 import FancySlider from "@/components/FancySlider";
 import { countryCodes } from "@/config/constants";
 
@@ -265,8 +271,9 @@ const DropdownFilter: React.FC<{
   filter: AggregateFilter;
   onChange: (selected: string[]) => void;
   mapping?: Record<string, string>;
+  sourceMapping?: Record<string, { name: string; logo?: string }>;
   initialSelected?: string[];
-}> = ({ filter, onChange, mapping, initialSelected = [] }) => {
+}> = ({ filter, onChange, mapping, sourceMapping, initialSelected = [] }) => {
   const [value, setValue] = useState<string[]>(initialSelected);
 
   // Update internal state when initialSelected changes
@@ -276,6 +283,9 @@ const DropdownFilter: React.FC<{
 
   // Format the options for display
   const getOptionLabel = (option: string) => {
+    if (sourceMapping && sourceMapping[option]) {
+      return sourceMapping[option].name;
+    }
     if (mapping && mapping[option]) {
       return mapping[option];
     }
@@ -373,8 +383,9 @@ const ChipsFilter: React.FC<{
   filter: AggregateFilter;
   onChange: (selected: string[]) => void;
   mapping?: Record<string, string>;
+  sourceMapping?: Record<string, { name: string; logo?: string }>;
   initialSelected?: string[];
-}> = ({ filter, onChange, mapping, initialSelected = [] }) => {
+}> = ({ filter, onChange, mapping, sourceMapping, initialSelected = [] }) => {
   const [selected, setSelected] = useState<string[]>(initialSelected);
 
   // Update internal state when initialSelected changes
@@ -434,22 +445,87 @@ const ChipsFilter: React.FC<{
 
   // Get formatted label for display
   const getLabel = (option: string) => {
+    if (sourceMapping && sourceMapping[option]) {
+      return sourceMapping[option].name;
+    }
     if (mapping && mapping[option]) {
       return mapping[option];
     }
     return formatLabel(option);
   };
 
+  // Get logo for source filters
+  const getLogo = (option: string) => {
+    if (sourceMapping && sourceMapping[option]) {
+      return sourceMapping[option].logo;
+    }
+    return undefined;
+  };
+
   return (
     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-      {filteredOptions.map((option) => (
-        <Chip
-          key={option}
-          label={getLabel(option)}
-          color={selected.includes(option) ? "primary" : "default"}
-          onClick={() => handleToggle(option)}
-        />
-      ))}
+      {filteredOptions.map((option) => {
+        const logo = getLogo(option);
+        const isSourceFilter = filter.id === "source";
+
+        const chip =
+          isSourceFilter && logo ? (
+            <Box
+              key={option}
+              onClick={() => handleToggle(option)}
+              sx={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+
+                height: 50,
+                borderRadius: "25px",
+                backgroundColor: selected.includes(option)
+                  ? "primary.main"
+                  : "grey.200",
+                color: selected.includes(option)
+                  ? "primary.contrastText"
+                  : "text.primary",
+                cursor: "pointer",
+                transition: "all 0.2s",
+                "&:hover": {
+                  backgroundColor: selected.includes(option)
+                    ? "primary.dark"
+                    : "grey.300",
+                },
+              }}
+            >
+              <img
+                src={logo}
+                alt={getLabel(option)}
+                style={{
+                  width: "calc(100% - 8px)",
+                  height: "calc(100% - 8px)",
+                  objectFit: "contain",
+                  margin: "0px 12px",
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            </Box>
+          ) : (
+            <Chip
+              key={option}
+              label={getLabel(option)}
+              color={selected.includes(option) ? "primary" : "default"}
+              onClick={() => handleToggle(option)}
+            />
+          );
+
+        return isSourceFilter && logo ? (
+          <Tooltip key={option} title={getLabel(option)}>
+            {chip}
+          </Tooltip>
+        ) : (
+          chip
+        );
+      })}
     </Box>
   );
 };
@@ -481,6 +557,36 @@ export default function FilterPanel({
 
   // Track whether initial filters have been set
   const [initialFiltersSet, setInitialFiltersSet] = useState<boolean>(false);
+
+  // State for sources data
+  const [sourcesData, setSourcesData] = useState<SourcesResponse | null>(null);
+
+  // Fetch sources data when component mounts
+  useEffect(() => {
+    const loadSources = async () => {
+      try {
+        const sources = await fetchSources();
+        setSourcesData(sources);
+      } catch (error) {
+        console.error("Failed to fetch sources:", error);
+      }
+    };
+    loadSources();
+  }, []);
+
+  // Create source mapping for display
+  const sourceMapping = useMemo(() => {
+    if (!sourcesData) return {};
+
+    const mapping: Record<string, { name: string; logo?: string }> = {};
+    Object.entries(sourcesData).forEach(([key, sourceInfo]) => {
+      mapping[key] = {
+        name: sourceInfo.name || sourceInfo.alternateName || key,
+        logo: sourceInfo.logo,
+      };
+    });
+    return mapping;
+  }, [sourcesData]);
 
   // Function to reset all filters
   const resetAllFilters = () => {
@@ -1038,6 +1144,9 @@ export default function FilterPanel({
                         handleFilterSelection(key, selected);
                       }}
                       mapping={mapping}
+                      sourceMapping={
+                        sub.id === "source" ? sourceMapping : undefined
+                      }
                       initialSelected={selectedFilters[key] || []}
                     />
                   );
@@ -1052,6 +1161,9 @@ export default function FilterPanel({
                         handleFilterSelection(key, selected);
                       }}
                       mapping={mapping}
+                      sourceMapping={
+                        sub.id === "source" ? sourceMapping : undefined
+                      }
                       initialSelected={selectedFilters[key] || []}
                     />
                   );
@@ -1127,6 +1239,9 @@ export default function FilterPanel({
                     ? languageMap
                     : undefined
                 }
+                sourceMapping={
+                  activeFilter.id === "source" ? sourceMapping : undefined
+                }
                 initialSelected={selectedFilters[activeFilter.id] || []}
               />
             </Box>
@@ -1149,6 +1264,9 @@ export default function FilterPanel({
                     : activeFilter.id === "language_codes"
                     ? languageMap
                     : undefined
+                }
+                sourceMapping={
+                  activeFilter.id === "source" ? sourceMapping : undefined
                 }
                 initialSelected={selectedFilters[activeFilter.id] || []}
               />

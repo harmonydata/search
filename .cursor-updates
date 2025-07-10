@@ -105,3 +105,5 @@
 - Fixed individual study page width constraints to prevent overflow while allowing proper horizontal scrolling for long content
 - Added Studies navigation item with BookOpen icon to sidebar for easy access to the studies grid page
 - Fixed static generation for study pages to use proper API service functions instead of manual fetch calls, ensuring each page shows unique study data
+- Added comprehensive sitemap generation with all study pages and navigation routes for better SEO
+- Fixed sidebar active state highlighting with proper client-side navigation detection

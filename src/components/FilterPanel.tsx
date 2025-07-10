@@ -91,6 +91,7 @@ interface ExtendedAggregateFilter extends AggregateFilter {
 
 // Helper function to format labels nicely (replace underscores with spaces and capitalize)
 const formatLabel = (label: string): string => {
+  if (label.toLowerCase() === "keywords") return "Topics";
   return label
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
@@ -371,7 +372,7 @@ const DropdownFilter: React.FC<{
         <TextField
           {...params}
           variant="outlined"
-          placeholder={`Select ${filter.label}`}
+          placeholder={`Select ${formatLabel(filter.label)}`}
         />
       )}
     />

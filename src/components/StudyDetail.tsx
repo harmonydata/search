@@ -507,7 +507,7 @@ const StudyDetailComponent = ({
       {hasTopics && (
         <Box sx={{ mb: 4 }}>
           <Typography variant="subtitle2" gutterBottom>
-            Keywords:
+            Topics:
           </Typography>
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
             {filteredTopics.map((topic, index) => (

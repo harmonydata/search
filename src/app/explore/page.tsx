@@ -11,6 +11,7 @@ import {
   Alert,
   Card,
   CardContent,
+  Tooltip as MuiTooltip,
 } from "@mui/material";
 import WordCloud from "react-wordcloud";
 import {
@@ -41,6 +42,7 @@ import FilterPanel from "@/components/FilterPanel";
 import SquareChip from "@/components/SquareChip";
 import OrganizationCard from "@/components/OrganizationCard";
 import { useDebounce } from "@/lib/hooks/useDebounce";
+import { getAssetPrefix } from "@/lib/utils/shared";
 
 // Word cloud options
 const wordCloudOptions = {
@@ -371,11 +373,60 @@ const DataVisualization = ({
               Popular Phrases
             </Typography>
             <Box sx={{ height: 300, width: "100%" }}>
-              <Box sx={{ width: "100%", height: "100%", position: "relative" }}>
+              <Box
+                sx={{ width: "100%", height: "100%", position: "relative" }}
+                onClick={(e) => {
+                  // Handle clicks on word cloud words
+                  const target = e.target as HTMLElement;
+                  if (target.tagName === "text" || target.closest("text")) {
+                    const textElement =
+                      target.tagName === "text"
+                        ? target
+                        : target.closest("text");
+                    if (textElement) {
+                      const wordText = textElement.textContent;
+                      if (wordText) {
+                        const searchUrl = `${getAssetPrefix()}/discover?query=${encodeURIComponent(
+                          wordText
+                        )}`;
+                        window.open(searchUrl, "_blank");
+                      }
+                    }
+                  }
+                }}
+                onMouseOver={(e) => {
+                  // Add custom tooltip on hover
+                  const target = e.target as HTMLElement;
+                  if (target.tagName === "text" || target.closest("text")) {
+                    const textElement =
+                      target.tagName === "text"
+                        ? target
+                        : target.closest("text");
+                    if (textElement) {
+                      const wordText = textElement.textContent;
+                      if (wordText) {
+                        (
+                          textElement as HTMLElement
+                        ).title = `Click to search for "${wordText}"`;
+                      }
+                    }
+                  }
+                }}
+              >
                 <WordCloud
                   words={wordCloudData}
                   options={wordCloudOptions}
                   minSize={[300, 300] as [number, number]}
+                  callbacks={{
+                    onWordClick: (word) => {
+                      const searchUrl = `${getAssetPrefix()}/discover?query=${encodeURIComponent(
+                        word.text
+                      )}`;
+                      window.open(searchUrl, "_blank");
+                    },
+                    getWordTooltip: (word) =>
+                      `Click to search for \"${word.text}\"`,
+                  }}
                 />
               </Box>
             </Box>
@@ -395,12 +446,24 @@ const DataVisualization = ({
                 </Typography>
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
                   {topKeywords.map((keyword, index) => (
-                    <SquareChip
-                      key={`keyword-${index}`}
-                      sx={{ cursor: "default" }}
+                    <MuiTooltip
+                      key={`keyword-tooltip-${index}`}
+                      title={`Click to search for \"${keyword.key}\"`}
                     >
-                      {keyword.key}
-                    </SquareChip>
+                      <span>
+                        <SquareChip
+                          sx={{ cursor: "pointer" }}
+                          onClick={() => {
+                            const url = `${getAssetPrefix()}/discover?topics=${encodeURIComponent(
+                              keyword.key
+                            )}`;
+                            window.open(url, "_blank");
+                          }}
+                        >
+                          {keyword.key}
+                        </SquareChip>
+                      </span>
+                    </MuiTooltip>
                   ))}
                 </Box>
               </CardContent>

@@ -34,6 +34,7 @@ import { Database, File, Book, FileText, Loader2 } from "lucide-react";
 import AdvancedSearchDropdown from "@/components/AdvancedSearchDropdown";
 import { getAssetPrefix } from "@/lib/utils/shared";
 import InfiniteScroll from "react-infinite-scroll-component";
+import { useRouter } from "next/navigation";
 
 // Create a new component for the search functionality
 function DiscoverPageContent() {
@@ -81,6 +82,39 @@ function DiscoverPageContent() {
   const searchParams = useSearchParams();
   const resourceType = searchParams.get("resource_type");
   const similarUid = searchParams.get("like");
+  const initialQuery = searchParams.get("query");
+  const initialTopics = searchParams.getAll("topics");
+
+  const router = useRouter();
+
+  useEffect(() => {
+    let didSet = false;
+    if (initialQuery) {
+      setSearchQuery(initialQuery);
+      setDebouncedSearchQuery(initialQuery);
+      didSet = true;
+    }
+    if (
+      initialTopics &&
+      initialTopics.length > 0 &&
+      (!selectedFilters.keywords ||
+        selectedFilters.keywords.join(",") !== initialTopics.join(","))
+    ) {
+      setSelectedFilters((prev) => ({
+        ...prev,
+        keywords: initialTopics,
+      }));
+      didSet = true;
+    }
+    // Remove the params from the URL after processing
+    if (didSet && typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("query");
+      url.searchParams.delete("topics");
+      router.replace(url.pathname + url.search);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuery, initialTopics]);
   const resourceTypeFilter = useMemo(
     () => (resourceType ? [resourceType] : []),
     [resourceType]

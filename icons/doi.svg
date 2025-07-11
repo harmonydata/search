@@ -1,0 +1,18 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Document/paper background -->
+  <rect x="4" y="2" width="24" height="28" rx="2" fill="#1976d2" stroke="#1565c0" stroke-width="1"/>
+  
+  <!-- Document fold -->
+  <path d="M24 2 L28 6 L24 10 L24 2 Z" fill="#1565c0"/>
+  
+  <!-- Lines representing text -->
+  <rect x="8" y="8" width="12" height="1.5" rx="0.75" fill="white"/>
+  <rect x="8" y="11" width="10" height="1.5" rx="0.75" fill="white"/>
+  <rect x="8" y="14" width="14" height="1.5" rx="0.75" fill="white"/>
+  
+  <!-- DOI text -->
+  <text x="16" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="6" font-weight="bold" fill="white">DOI</text>
+  
+  <!-- Small academic symbol (graduation cap) -->
+  <path d="M8 24 L12 22 L16 24 L20 22 L24 24 L20 26 L16 24 L12 26 Z" fill="white" opacity="0.8"/>
+</svg> 

@@ -1207,14 +1207,41 @@ function DiscoverPageContent() {
       } else {
         // Additional pages - append to existing results
         setResults((prevResults) => {
-          // Deduplicate by UUID to prevent duplicates
-          const existingUuids = new Set(
-            prevResults.map((r) => r.extra_data?.uuid).filter(Boolean)
-          );
-          const uniqueNewResults = newResults.filter(
-            (r) => !existingUuids.has(r.extra_data?.uuid)
-          );
-          return [...prevResults, ...uniqueNewResults];
+          // Auto-load more pages if we don't have enough results (new pagination logic only)
+          if (!useSearch2 && newResults.length > 0) {
+            // Define minimum thresholds
+            const minResultsThreshold = Math.min(20, resultsPerPage / 2); // At least 20 results or half the page size
+
+            // Calculate the total results that will exist AFTER the state update
+            let currentTotalResults;
+            if (pageToUse === 1) {
+              currentTotalResults = newResults.length;
+            } else {
+              currentTotalResults = prevResults.length + newResults.length;
+            }
+
+            // If we got fewer than expected results and haven't reached minimum threshold, auto-load next page
+            if (
+              newResults.length < resultsPerPage &&
+              currentTotalResults < minResultsThreshold
+            ) {
+              console.log("🔄 Auto-loading next page - insufficient results:", {
+                gotResults: newResults.length,
+                requestedResults: resultsPerPage,
+                currentTotal: currentTotalResults,
+                minThreshold: minResultsThreshold,
+                nextPage: pageToUse + 1,
+              });
+
+              // Auto-trigger next page after a short delay to avoid rapid-fire requests
+              setTimeout(() => {
+                if (!loadingMore && hasMoreResults) {
+                  setCurrentPage(pageToUse + 1);
+                }
+              }, 100);
+            }
+          }
+          return [...prevResults, ...newResults];
         });
 
         // For pagination: if we got no results, we're at the end
@@ -1249,37 +1276,6 @@ function DiscoverPageContent() {
       const searchEndTime = Date.now();
       const totalDuration = searchEndTime - searchStartTime;
       setLastSearchTime(totalDuration);
-
-      // Auto-load more pages if we don't have enough results (new pagination logic only)
-      if (!useSearch2 && newResults.length > 0) {
-        // Define minimum thresholds
-        const minResultsThreshold = Math.min(20, resultsPerPage / 2); // At least 20 results or half the page size
-        const currentTotalResults =
-          pageToUse === 1
-            ? newResults.length
-            : results.length + newResults.length;
-
-        // If we got fewer than expected results and haven't reached minimum threshold, auto-load next page
-        if (
-          newResults.length < resultsPerPage &&
-          currentTotalResults < minResultsThreshold
-        ) {
-          console.log("🔄 Auto-loading next page - insufficient results:", {
-            gotResults: newResults.length,
-            requestedResults: resultsPerPage,
-            currentTotal: currentTotalResults,
-            minThreshold: minResultsThreshold,
-            nextPage: pageToUse + 1,
-          });
-
-          // Auto-trigger next page after a short delay to avoid rapid-fire requests
-          setTimeout(() => {
-            if (!loadingMore && hasMoreResults) {
-              setCurrentPage(pageToUse + 1);
-            }
-          }, 100);
-        }
-      }
 
       // IMPORTANT: We do NOT update filters based on search results
       // This ensures filters remain stable and consistent during search

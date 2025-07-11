@@ -41,3 +41,5 @@ next-env.d.ts
 *.swp
 *.swo
 public/js/harmony-export.js
+azure-functions_test/
+

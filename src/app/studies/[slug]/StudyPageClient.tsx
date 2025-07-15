@@ -37,7 +37,7 @@ export default function StudyPageClient({ study }: StudyPageClientProps) {
             )}`;
           }}
           onInstrumentClick={(instrument) => {
-            // Handle topic clicks - navigate to search with topic
+            // Handle instrument clicks - navigate to search with instrument
             window.location.href = `${getAssetPrefix()}discover?instruments=${encodeURIComponent(
               instrument
             )}`;

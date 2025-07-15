@@ -14,6 +14,7 @@ import {
 import { useState } from "react";
 import SquareChip from "@/components/SquareChip";
 import JsonTreeDialog from "@/components/JsonTreeDialog";
+import { getAssetPrefix } from "@/lib/utils/shared";
 
 interface CompactResultCardProps {
   result: SearchResult;
@@ -232,7 +233,7 @@ export default function CompactResultCard({
               e.stopPropagation();
               if (result.extra_data?.uuid) {
                 window.open(
-                  `discover?like=${result.extra_data.uuid}`,
+                  `${getAssetPrefix()}discover?like=${result.extra_data.uuid}`,
                   "_blank"
                 );
               }

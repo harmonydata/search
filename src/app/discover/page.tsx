@@ -113,7 +113,16 @@ function DiscoverPageContent() {
       const url = new URL(window.location.href);
       url.searchParams.delete("query");
       url.searchParams.delete("topics");
-      router.replace(url.pathname + url.search);
+
+      // Ensure we navigate to the correct path
+      // If we're in the /search/ folder, make sure we stay in /search/
+      let targetPath = url.pathname;
+      if (targetPath.endsWith("/") && targetPath !== "/") {
+        // Remove trailing slash to avoid double slashes
+        targetPath = targetPath.slice(0, -1);
+      }
+
+      router.replace(targetPath + url.search);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery, initialTopics]);

@@ -108,19 +108,45 @@ function DiscoverPageContent() {
       }));
       didSet = true;
     }
+    if (
+      initialInstruments &&
+      initialInstruments.length > 0 &&
+      (!selectedFilters.instruments ||
+        selectedFilters.instruments.join(",") !== initialInstruments.join(","))
+    ) {
+      setSelectedFilters((prev) => ({
+        ...prev,
+        instruments: initialInstruments,
+      }));
+      didSet = true;
+    }
+    if (
+      initialStudyDesign &&
+      initialStudyDesign.length > 0 &&
+      (!selectedFilters.study_design ||
+        selectedFilters.study_design.join(",") !== initialStudyDesign.join(","))
+    ) {
+      setSelectedFilters((prev) => ({
+        ...prev,
+        study_design: initialStudyDesign,
+      }));
+      didSet = true;
+    }
     // Remove the params from the URL after processing
     if (didSet && typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.delete("query");
       url.searchParams.delete("topics");
+      url.searchParams.delete("instruments");
+      url.searchParams.delete("study_design");
 
       //router auto appends the basepath (/search) so we need to take care here!
-      const targetPath = url.pathname.replace("/search", "/");
+      const targetPath = url.pathname.replace("/search", "");
       console.log("Navigating to:", targetPath + url.search);
       router.replace(targetPath + url.search);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialQuery, initialTopics]);
+  }, [initialQuery, initialTopics, initialInstruments, initialStudyDesign]);
   const resourceTypeFilter = useMemo(
     () => (resourceType ? [resourceType] : []),
     [resourceType]

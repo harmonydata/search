@@ -115,14 +115,9 @@ function DiscoverPageContent() {
       url.searchParams.delete("topics");
 
       // Ensure we navigate to the correct path
-      // If we're in the /search/ folder, make sure we stay in /search/
-      let targetPath = url.pathname;
-      if (targetPath.endsWith("/") && targetPath !== "/") {
-        // Remove trailing slash to avoid double slashes
-        targetPath = targetPath.slice(0, -1);
-      }
-
-      router.replace(targetPath + url.search);
+      // Keep the pathname as is, just remove the processed parameters
+      console.log("Navigating to:", url.pathname + url.search);
+      router.replace(url.pathname + url.search);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery, initialTopics]);

@@ -500,7 +500,6 @@ const ChipsFilter: React.FC<{
                 src={logo}
                 alt={getLabel(option)}
                 style={{
-                  width: "calc(100% - 8px)",
                   height: "calc(100% - 8px)",
                   objectFit: "contain",
                   margin: "0px 12px",
@@ -539,9 +538,7 @@ export default function FilterPanel({
   const [filters, setFilters] = useState<ExtendedAggregateFilter[]>(
     filtersData ? (filtersData as ExtendedAggregateFilter[]) : []
   );
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(
-    filtersData && filtersData.length > 0 ? filtersData[0].id : null
-  );
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [internalSelectedFilters, setInternalSelectedFilters] = useState<
     Record<string, string[]>
   >({});
@@ -726,9 +723,6 @@ export default function FilterPanel({
       } as ExtendedAggregateFilter);
 
       setFilters(filtersCopy as ExtendedAggregateFilter[]);
-      if (!selectedCategory && filtersCopy.length > 0) {
-        setSelectedCategory(filtersCopy[0].id);
-      }
 
       // Mark initial filters as set
       setInitialFiltersSet(true);
@@ -830,9 +824,6 @@ export default function FilterPanel({
           } as ExtendedAggregateFilter);
 
           setFilters(filtersCopy as ExtendedAggregateFilter[]);
-          if (filtersCopy.length > 0 && !selectedCategory) {
-            setSelectedCategory(filtersCopy[0].id);
-          }
 
           // Mark initial filters as set
           setInitialFiltersSet(true);
@@ -1021,7 +1012,12 @@ export default function FilterPanel({
   };
 
   const handleCategoryClick = (categoryId: string) => {
-    setSelectedCategory(categoryId);
+    // Toggle the selected category - if clicking the same category, deselect it
+    if (selectedCategory === categoryId) {
+      setSelectedCategory(null);
+    } else {
+      setSelectedCategory(categoryId);
+    }
   };
 
   const activeFilter = filters.find((filter) => filter.id === selectedCategory);
@@ -1036,7 +1032,26 @@ export default function FilterPanel({
     <Box>
       {/* Top row: filter categories as chips with badge showing number of selections and reset button */}
       <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", flex: 1 }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1,
+            flexWrap: "nowrap", // Prevent wrapping to ensure single row
+            flex: 1,
+            overflowX: "auto", // Allow horizontal scrolling on smaller screens
+            pt: 2, // Add horizontal padding to prevent badges from being cut off
+            "&::-webkit-scrollbar": {
+              height: "4px",
+            },
+            "&::-webkit-scrollbar-track": {
+              background: "transparent",
+            },
+            "&::-webkit-scrollbar-thumb": {
+              background: "rgba(0,0,0,0.2)",
+              borderRadius: "2px",
+            },
+          }}
+        >
           {filters.map((filter) => (
             <Badge
               key={filter.id}
@@ -1058,6 +1073,10 @@ export default function FilterPanel({
                 onClick={() => handleCategoryClick(filter.id)}
                 variant={filter.id === selectedCategory ? "filled" : "outlined"}
                 color={filter.id === selectedCategory ? "primary" : "default"}
+                sx={{
+                  flexShrink: 0, // Prevent chips from shrinking
+                  whiteSpace: "nowrap", // Prevent text wrapping within chips
+                }}
               />
             </Badge>
           ))}
@@ -1082,8 +1101,8 @@ export default function FilterPanel({
         )}
       </Box>
 
-      {/* Second row: subordinate filter for the selected category */}
-      {activeFilter && (
+      {/* Second row: subordinate filter for the selected category - only show when a filter is selected */}
+      {activeFilter && selectedCategory && (
         <Box sx={{ mb: 2 }}>
           {activeFilter.subFilters ? (
             // Merged filter rendering in a flex row with wrapping and padding

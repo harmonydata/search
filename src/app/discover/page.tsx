@@ -115,9 +115,12 @@ function DiscoverPageContent() {
       url.searchParams.delete("topics");
 
       // Ensure we navigate to the correct path
-      // Keep the pathname as is, just remove the processed parameters
-      console.log("Navigating to:", url.pathname + url.search);
-      router.replace(url.pathname + url.search);
+      // When deployed with basePath, navigate to root to avoid double /search/
+      const targetPath = process.env.GITHUB_PAGES_DEPLOYMENT
+        ? "/"
+        : url.pathname;
+      console.log("Navigating to:", targetPath + url.search);
+      router.replace(targetPath + url.search);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery, initialTopics]);

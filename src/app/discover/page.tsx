@@ -114,11 +114,8 @@ function DiscoverPageContent() {
       url.searchParams.delete("query");
       url.searchParams.delete("topics");
 
-      // Ensure we navigate to the correct path
-      // When deployed with basePath, navigate to root to avoid double /search/
-      const targetPath = process.env.GITHUB_PAGES_DEPLOYMENT
-        ? "/"
-        : url.pathname;
+      //router auto appends the basepath (/search) so we need to take care here!
+      const targetPath = url.pathname.replace("/search", "/");
       console.log("Navigating to:", targetPath + url.search);
       router.replace(targetPath + url.search);
     }

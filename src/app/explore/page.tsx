@@ -400,7 +400,7 @@ const DataVisualization = ({
                     if (textElement) {
                       const wordText = textElement.textContent;
                       if (wordText) {
-                        const searchUrl = `${getAssetPrefix()}/discover?query=${encodeURIComponent(
+                        const searchUrl = `${getAssetPrefix()}?query=${encodeURIComponent(
                           wordText
                         )}`;
                         window.open(searchUrl, "_blank");
@@ -433,7 +433,7 @@ const DataVisualization = ({
                   minSize={[300, 300] as [number, number]}
                   callbacks={{
                     onWordClick: (word) => {
-                      const searchUrl = `${getAssetPrefix()}/discover?query=${encodeURIComponent(
+                      const searchUrl = `${getAssetPrefix()}?query=${encodeURIComponent(
                         word.text
                       )}`;
                       window.open(searchUrl, "_blank");
@@ -468,7 +468,7 @@ const DataVisualization = ({
                         <SquareChip
                           sx={{ cursor: "pointer" }}
                           onClick={() => {
-                            const url = `${getAssetPrefix()}/discover?topics=${encodeURIComponent(
+                            const url = `${getAssetPrefix()}?topics=${encodeURIComponent(
                               keyword.key
                             )}`;
                             window.open(url, "_blank");
@@ -531,7 +531,7 @@ const DataVisualization = ({
                         <SquareChip
                           sx={{ cursor: "pointer" }}
                           onClick={() => {
-                            const url = `${getAssetPrefix()}/discover?instruments=${encodeURIComponent(
+                            const url = `${getAssetPrefix()}?instruments=${encodeURIComponent(
                               instrument.key
                             )}`;
                             window.open(url, "_blank");
@@ -566,7 +566,7 @@ const DataVisualization = ({
                         <SquareChip
                           sx={{ cursor: "pointer" }}
                           onClick={() => {
-                            const url = `${getAssetPrefix()}/discover?study_design=${encodeURIComponent(
+                            const url = `${getAssetPrefix()}?study_design=${encodeURIComponent(
                               design.key
                             )}`;
                             window.open(url, "_blank");

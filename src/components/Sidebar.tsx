@@ -16,21 +16,21 @@ import { getAssetPrefix } from "@/lib/utils/shared";
 import { usePathname } from "next/navigation";
 
 const navigationItems = [
-  { text: "Search", icon: getAssetPrefix() + "/icons/discover.svg", href: "/" },
+  { text: "Search", icon: getAssetPrefix() + "icons/discover.svg", href: "/" },
   { text: "Browse", icon: "", href: "/studies" },
   {
     text: "Explore",
-    icon: getAssetPrefix() + "/icons/explore.svg",
+    icon: getAssetPrefix() + "icons/explore.svg",
     href: "/explore",
   },
   {
     text: "Compare",
-    icon: getAssetPrefix() + "/icons/compare.svg",
+    icon: getAssetPrefix() + "icons/compare.svg",
     href: "/compare",
   },
   {
     text: "Saves",
-    icon: getAssetPrefix() + "/icons/saves.svg",
+    icon: getAssetPrefix() + "icons/saves.svg",
     href: "/saves",
   },
 ];
@@ -76,7 +76,7 @@ export default function Sidebar() {
         >
           <Link href="/">
             <Image
-              src={getAssetPrefix() + "/harmony.png"}
+              src={getAssetPrefix() + "harmony.png"}
               alt="Harmony Logo"
               width={40}
               height={40}
@@ -182,7 +182,7 @@ export default function Sidebar() {
         <Box sx={{ p: 1, pt: 3, display: "flex", justifyContent: "center" }}>
           <Link href="/">
             <Image
-              src={getAssetPrefix() + "/harmony.png"}
+              src={getAssetPrefix() + "harmony.png"}
               alt="Harmony Logo"
               width={64}
               height={64}

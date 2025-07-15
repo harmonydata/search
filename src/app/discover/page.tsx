@@ -1725,7 +1725,7 @@ function DiscoverPageContent() {
                         </Typography>
                       )}
                       <Image
-                        src={getAssetPrefix() + "/icons/discover.svg"}
+                        src={getAssetPrefix() + "icons/discover.svg"}
                         alt="Search"
                         width={20}
                         height={20}

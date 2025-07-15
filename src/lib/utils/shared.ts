@@ -262,14 +262,14 @@ export function findOrganizationLogo(
 export function getAssetPrefix(): string {
   // Check if we're building for GitHub Pages deployment
   if (process.env.GITHUB_PAGES_DEPLOYMENT) {
-    return "/search";
+    return "/search/";
   }
   // For client components, we can check if we're in a browser environment
   if (typeof window !== "undefined") {
     // In the browser, we can check the current path to determine if we're in production
     const isProduction = window.location.pathname.startsWith("/search");
-    return isProduction ? "/search" : "";
+    return isProduction ? "/search/" : "/";
   }
   // Fallback
-  return process.env.NEXT_PUBLIC_ASSET_PREFIX || "";
+  return process.env.NEXT_PUBLIC_ASSET_PREFIX || "/";
 }

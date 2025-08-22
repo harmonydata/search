@@ -13,6 +13,43 @@ const inFlightRequests = new Map<string, Promise<any>>();
 const resultCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
+// Function to clean URLs by removing extra closing brackets (same as in api.ts)
+function cleanUrl(url: string): string {
+  if (!url || typeof url !== "string") {
+    return url;
+  }
+
+  // Check if URL ends with a closing bracket and has unbalanced brackets
+  if (url.endsWith(")")) {
+    // Count opening and closing brackets
+    const openBrackets = (url.match(/\(/g) || []).length;
+    const closeBrackets = (url.match(/\)/g) || []).length;
+
+    // If we have more closing brackets than opening brackets, remove the extra ones
+    if (closeBrackets > openBrackets) {
+      const extraBrackets = closeBrackets - openBrackets;
+      // Remove the extra closing brackets from the end
+      let cleanedUrl = url;
+      for (let i = 0; i < extraBrackets; i++) {
+        if (cleanedUrl.endsWith(")")) {
+          cleanedUrl = cleanedUrl.slice(0, -1);
+        }
+      }
+
+      // Log the cleaning for debugging
+      if (cleanedUrl !== url) {
+        console.log(
+          `Cleaned URL: "${url}" -> "${cleanedUrl}" (removed ${extraBrackets} extra closing brackets)`
+        );
+      }
+
+      return cleanedUrl;
+    }
+  }
+
+  return url;
+}
+
 interface OpenGraphData {
   title: string;
   description: string;
@@ -71,7 +108,20 @@ export default function LinkPreviewCard({
         if (!requestPromise) {
           // Create a new request if none exists
           console.log(`Fetching OpenGraph data for ${url}`);
+
+          // Try with original URL first, then with cleaned URL if it fails
           requestPromise = fetchOgData(url)
+            .catch(async (error) => {
+              // If the first attempt fails, try with a cleaned URL
+              const cleanedUrl = cleanUrl(url);
+              if (cleanedUrl !== url) {
+                console.log(
+                  `First attempt failed, retrying with cleaned URL: ${cleanedUrl}`
+                );
+                return fetchOgData(cleanedUrl);
+              }
+              throw error; // Re-throw if no cleaning was done
+            })
             .then((data) => {
               // Cache the result
               resultCache.set(cacheKey, { data, timestamp: Date.now() });

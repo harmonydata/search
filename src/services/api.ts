@@ -6,6 +6,15 @@ export interface AggregateFilter {
   options: string[];
   type?: "multiselect" | "range";
 }
+export interface VariableSchema {
+  name: string;
+  description?: string;
+  options?: string[];
+  response_options?: string[];
+  cosine_similarity?: number;
+  source?: string[];
+  keywords?: string[];
+}
 
 export interface SearchResult {
   // New fields from the Weaviate API
@@ -17,10 +26,7 @@ export interface SearchResult {
     url?: string[];
     keywords?: string[];
     identifier?: string[];
-    variableMeasured?: {
-      name: string;
-      description?: string;
-    }[];
+    variableMeasured?: VariableSchema[];
     includedInDataCatalog?: {
       "@type"?: string;
       name?: string;
@@ -79,12 +85,7 @@ export interface SearchResult {
   score?: number;
   match_type?: string[];
   ancestors?: SearchResult[];
-  variables_which_matched?: {
-    name: string;
-    description?: string;
-    uuid?: string;
-    score: number;
-  }[];
+  variables_which_matched?: VariableSchema[];
   datasets_which_matched?: SearchResult[];
 }
 
@@ -343,8 +344,19 @@ export async function fetchSearchResults(
   } as SearchResponse;
 }
 
-export async function fetchResultByUuid(uuid: string): Promise<SearchResult> {
-  const url = `${API_BASE}/discover/lookup?uuid=${uuid}`;
+export async function fetchResultByUuid(
+  uuid: string,
+  query?: string
+): Promise<SearchResult> {
+  const params = new URLSearchParams();
+  params.set("uuid", uuid);
+
+  // Append query parameter if provided
+  if (query && query.trim()) {
+    params.set("query", query.trim());
+  }
+
+  const url = `${API_BASE}/discover/lookup?${params.toString()}`;
   const response = await fetch(url);
 
   if (!response.ok) {
@@ -363,10 +375,50 @@ export async function fetchResultByUuid(uuid: string): Promise<SearchResult> {
   return data.results[0];
 }
 
+// Function to clean URLs by removing extra closing brackets
+function cleanUrl(url: string): string {
+  if (!url || typeof url !== "string") {
+    return url;
+  }
+
+  // Check if URL ends with a closing bracket and has unbalanced brackets
+  if (url.endsWith(")")) {
+    // Count opening and closing brackets
+    const openBrackets = (url.match(/\(/g) || []).length;
+    const closeBrackets = (url.match(/\)/g) || []).length;
+
+    // If we have more closing brackets than opening brackets, remove the extra ones
+    if (closeBrackets > openBrackets) {
+      const extraBrackets = closeBrackets - openBrackets;
+      // Remove the extra closing brackets from the end
+      let cleanedUrl = url;
+      for (let i = 0; i < extraBrackets; i++) {
+        if (cleanedUrl.endsWith(")")) {
+          cleanedUrl = cleanedUrl.slice(0, -1);
+        }
+      }
+
+      // Log the cleaning for debugging
+      if (cleanedUrl !== url) {
+        console.log(
+          `Cleaned URL: "${url}" -> "${cleanedUrl}" (removed ${extraBrackets} extra closing brackets)`
+        );
+      }
+
+      return cleanedUrl;
+    }
+  }
+
+  return url;
+}
+
 export async function fetchOgData(url: string): Promise<any> {
+  // Clean the URL before making the request
+  const cleanedUrl = cleanUrl(url);
+
   const response = await fetch(
     `https://harmonydata.azureedge.net/api/ogData?url=${encodeURIComponent(
-      url
+      cleanedUrl
     )}`
   );
   if (!response.ok) {

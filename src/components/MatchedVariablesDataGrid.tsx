@@ -124,7 +124,7 @@ function MatchedVariablesDataGrid({
         (row.score ? "[MATCHING] " : "") +
         (row.description || row.name) +
         (row.description && row.name ? " (" + row.name + ")" : ""),
-      sortable: false,
+      sortable: true,
     },
     {
       field: "options",
@@ -134,7 +134,14 @@ function MatchedVariablesDataGrid({
         row.options && Array.isArray(row.options)
           ? row.options.join(" / ")
           : "",
-      sortable: false,
+      sortable: true,
+    },
+    {
+      field: "matched",
+      headerName: "Matched",
+      type: "boolean",
+      flex: 0.5,
+      sortable: true,
     },
   ];
 
@@ -356,8 +363,9 @@ function MatchedVariablesDataGrid({
       <Box sx={{ height: "100%", minHeight: 400 }}>
         {rows.length > 0 && (
           <DataGrid
-            autoPageSize
+            //autoPageSize
             apiRef={apiRef}
+            paginationMode="server"
             rows={rows}
             columns={columns}
             checkboxSelection
@@ -369,8 +377,8 @@ function MatchedVariablesDataGrid({
               fontSize: 14,
               height: "100%",
             }}
-            hideFooterSelectedRowCount
-            pageSizeOptions={[10, 25, 50]}
+            hideFooter
+            pageSizeOptions={[20, 50, 100]}
             showToolbar
             slots={{
               toolbar: () => (

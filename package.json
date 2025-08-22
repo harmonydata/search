@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev --turbopack -p 3222",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3222",
     "lint": "next lint",
     "export": "next build && next export",
     "static": "NEXT_STATIC_EXPORT=true next build",

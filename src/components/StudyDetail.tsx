@@ -140,7 +140,7 @@ const StudyDetailComponent = ({
     const matchedMap = new Map<string, any>();
     matched.forEach((v) => {
       const key = v.uuid || v.name;
-      if (key) matchedMap.set(key, v);
+      if (key) matchedMap.set(key, { ...v, matched: true });
     });
     // Add unmatched variables
     allVars.forEach((v) => {

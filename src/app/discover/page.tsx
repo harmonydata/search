@@ -414,6 +414,11 @@ function DiscoverPageContent() {
           description: result.extra_data?.description,
           score: result.score || 0,
         };
+        console.log(
+          "Updating variables which matched:",
+          fullyPopulatedResult,
+          varibleResult
+        );
         fullyPopulatedResult.variables_which_matched = [varibleResult];
       }
       return mapResultToStudyDetail(fullyPopulatedResult);
@@ -885,11 +890,13 @@ function DiscoverPageContent() {
       }
       // Always fetch the full detail from the backend
       const fullResult = await fetchResultByUuid(
-        selectedResult.extra_data?.uuid || ""
+        selectedResult.extra_data?.uuid || "",
+        searchQuery
       );
       // Preserve the matched variables from the original search result
-      fullResult.variables_which_matched =
-        selectedResult.variables_which_matched;
+      //fullResult.variables_which_matched =
+      //selectedResult.variables_which_matched;
+
       const detail = await mapResultToStudyDetail(fullResult);
 
       // Store debug data in development mode
@@ -910,7 +917,7 @@ function DiscoverPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [selectedResult, mapResultToStudyDetail]);
+  }, [selectedResult, mapResultToStudyDetail, searchQuery]);
 
   // Effect to load similar study when UID is present
   useEffect(() => {

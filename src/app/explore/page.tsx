@@ -13,7 +13,6 @@ import {
   CardContent,
   Tooltip as MuiTooltip,
 } from "@mui/material";
-import WordCloud from "react-wordcloud";
 import {
   BarChart,
   Bar,
@@ -25,6 +24,8 @@ import {
   LineChart,
   Line,
   Area,
+  Treemap,
+  Cell,
 } from "recharts";
 import {
   fetchAggregateData,
@@ -44,13 +45,143 @@ import OrganizationCard from "@/components/OrganizationCard";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { getAssetPrefix } from "@/lib/utils/shared";
 
-// Word cloud options
-const wordCloudOptions = {
-  rotations: 2,
-  rotationAngles: [-90, 0] as [number, number],
-  fontSizes: [12, 60] as [number, number],
-  padding: 1,
-} as const;
+// Define the props for the Treemap content component
+type TreemapContentProps = {
+  root: { children: { name: string }[] };
+  depth?: number;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  index: number;
+  payload?: any;
+  [key: string]: any;
+};
+
+// Treemap content component
+const TreemapContent = (props: TreemapContentProps) => {
+  const { root, depth, x, y, width, height, index, payload, ...rest } = props;
+  const color = TREEMAP_COLORS[index! % TREEMAP_COLORS.length];
+  const name = root.children[index].name || "Unknown";
+
+  return (
+    <CustomizedContent
+      root={root}
+      depth={depth}
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      index={index}
+      name={name}
+      color={color}
+    />
+  );
+};
+
+// Treemap color palette
+const TREEMAP_COLORS = [
+  "#8884d8",
+  "#82ca9d",
+  "#ffc658",
+  "#ff7c7c",
+  "#8dd1e1",
+  "#d084d0",
+  "#87d068",
+  "#ffb347",
+  "#ff6b6b",
+  "#4ecdc4",
+  "#45b7d1",
+  "#96ceb4",
+  "#feca57",
+  "#ff9ff3",
+  "#54a0ff",
+];
+
+// Custom treemap content component with text wrapping
+const CustomizedContent = (props: any) => {
+  const { root, depth, x, y, width, height, index, name, color } = props;
+
+  // Don't render text in the smallest rectangles
+  if (width < 30 || height < 20) {
+    return null;
+  }
+
+  // A simple algorithm to break the text into lines
+  const words = name.split(" ");
+  const lines = [];
+  let currentLine = words[0];
+
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i];
+    // This is a rough estimation. For perfect accuracy, you'd need to
+    // measure the text width in the DOM, but that's much more complex.
+    // We estimate character width to be around 6-8px for a 12px font.
+    const estimatedWidth = (currentLine.length + word.length + 1) * 7;
+
+    if (estimatedWidth < width - 10) {
+      // 10px padding
+      currentLine += ` ${word}`;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  lines.push(currentLine);
+
+  const fontSize = 11;
+  const lineHeight = 1.1; // 1.1em
+  const totalTextHeight = lines.length * fontSize * lineHeight;
+
+  // Only render if the text block fits vertically
+  if (totalTextHeight > height - 10) {
+    return null;
+  }
+
+  // Calculate the starting y position to vertically center the text block
+  const startY = y + (height - totalTextHeight) / 2 + fontSize;
+
+  return (
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        style={{
+          fill: color,
+          stroke: "#fff",
+          strokeWidth: 2 / (depth + 1e-10),
+          cursor: "pointer",
+        }}
+        onClick={() => {
+          const searchUrl = `${getAssetPrefix()}?query=${encodeURIComponent(
+            name
+          )}`;
+          window.open(searchUrl, "_blank");
+        }}
+      />
+      <text
+        x={x + width / 2} // Center horizontally
+        y={startY}
+        textAnchor="middle"
+        fill="#000"
+        fontSize={fontSize}
+        strokeWidth="0"
+        style={{
+          pointerEvents: "none",
+          fontWeight: "normal",
+        }} // Prevent text from blocking mouse events
+      >
+        {lines.map((line, i) => (
+          <tspan key={i} x={x + width / 2} dy={i === 0 ? 0 : `${lineHeight}em`}>
+            {line}
+          </tspan>
+        ))}
+      </text>
+    </g>
+  );
+};
 
 interface NumericDataPoint {
   values: (number | string)[];
@@ -183,12 +314,16 @@ const formatXAxisValue = (
   return Math.round(value).toString();
 };
 
-// Transform word cloud data from API format to react-wordcloud format
-const transformWordCloudData = (data: Record<string, number>) => {
-  return Object.entries(data).map(([text, value]) => ({
-    text,
-    value: value * 100, // Scale up values for better visualization
-  }));
+// Transform word cloud data from API format to treemap format
+const transformTreemapData = (data: Record<string, number>) => {
+  return Object.entries(data)
+    .map(([name, value]) => ({
+      name,
+      value: Math.round(value * 1000), // Scale up and round to integers for better treemap visualization
+    }))
+    .filter((item) => item.value > 0) // Filter out zero values
+    .sort((a, b) => b.value - a.value) // Sort by value descending
+    .slice(0, 50); // Limit to top 50 items for better performance
 };
 
 // Summary Card Component
@@ -234,8 +369,8 @@ const DataVisualization = ({
     null
   );
   const [numericData, setNumericData] = useState<ProcessedNumericData>({});
-  const [wordCloudData, setWordCloudData] = useState<
-    Array<{ text: string; value: number }>
+  const [treemapData, setTreemapData] = useState<
+    Array<{ name: string; value: number }>
   >([]);
   const [sourcesData, setSourcesData] = useState<SourcesResponse | null>(null);
 
@@ -275,15 +410,13 @@ const DataVisualization = ({
         setNumericData(processedNumericData);
         setSourcesData(sourcesData);
 
-        // Try to fetch word cloud data separately
+        // Try to fetch word cloud data separately for treemap
         try {
           const wordCloudResponse = await fetchWordCloud(filters);
-          setWordCloudData(
-            transformWordCloudData(wordCloudResponse.aggregations)
-          );
+          setTreemapData(transformTreemapData(wordCloudResponse.aggregations));
         } catch (wordCloudError) {
           console.warn("Word cloud data fetch failed:", wordCloudError);
-          setWordCloudData([]); // Set empty array to indicate no word cloud data
+          setTreemapData([]); // Set empty array to indicate no treemap data
         }
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -379,70 +512,61 @@ const DataVisualization = ({
         </Grid>
       </Grid>
 
-      {/* Popular Phrases (Word Cloud) */}
-      {wordCloudData.length > 0 && (
+      {/* Popular Phrases (Treemap) */}
+      {treemapData.length > 0 && (
         <Card elevation={1} sx={{ mb: 4 }}>
           <CardContent sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
               Popular Phrases
             </Typography>
-            <Box sx={{ height: 300, width: "100%" }}>
-              <Box
-                sx={{ width: "100%", height: "100%", position: "relative" }}
-                onClick={(e) => {
-                  // Handle clicks on word cloud words
-                  const target = e.target as HTMLElement;
-                  if (target.tagName === "text" || target.closest("text")) {
-                    const textElement =
-                      target.tagName === "text"
-                        ? target
-                        : target.closest("text");
-                    if (textElement) {
-                      const wordText = textElement.textContent;
-                      if (wordText) {
-                        const searchUrl = `${getAssetPrefix()}?query=${encodeURIComponent(
-                          wordText
-                        )}`;
-                        window.open(searchUrl, "_blank");
+            <Box sx={{ height: 400, width: "100%" }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <Treemap
+                  data={treemapData}
+                  dataKey="value"
+                  nameKey="name"
+                  aspectRatio={4 / 3}
+                  stroke="#fff"
+                  content={TreemapContent as any}
+                >
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <Box
+                            sx={{
+                              bgcolor: "background.paper",
+                              p: 2,
+                              borderRadius: 1,
+                              boxShadow: 2,
+                              border: 1,
+                              borderColor: "divider",
+                            }}
+                          >
+                            <Typography
+                              variant="body2"
+                              sx={{ fontWeight: "bold" }}
+                            >
+                              {data.name}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Frequency: {(data.value / 1000).toFixed(3)}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Click to search
+                            </Typography>
+                          </Box>
+                        );
                       }
-                    }
-                  }
-                }}
-                onMouseOver={(e) => {
-                  // Add custom tooltip on hover
-                  const target = e.target as HTMLElement;
-                  if (target.tagName === "text" || target.closest("text")) {
-                    const textElement =
-                      target.tagName === "text"
-                        ? target
-                        : target.closest("text");
-                    if (textElement) {
-                      const wordText = textElement.textContent;
-                      if (wordText) {
-                        (
-                          textElement as HTMLElement
-                        ).title = `Click to search for "${wordText}"`;
-                      }
-                    }
-                  }
-                }}
-              >
-                <WordCloud
-                  words={wordCloudData}
-                  options={wordCloudOptions}
-                  minSize={[300, 300] as [number, number]}
-                  callbacks={{
-                    onWordClick: (word) => {
-                      const searchUrl = `${getAssetPrefix()}?query=${encodeURIComponent(
-                        word.text
-                      )}`;
-                      window.open(searchUrl, "_blank");
-                    },
-                    getWordTooltip: (word) =>
-                      `Click to search for \"${word.text}\"`,
-                  }}
-                />
-              </Box>
+                      return null;
+                    }}
+                  />
+                </Treemap>
+              </ResponsiveContainer>
             </Box>
           </CardContent>
         </Card>

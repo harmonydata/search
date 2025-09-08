@@ -10,6 +10,7 @@ interface SearchResultsProps {
   onSelectResult?: (result: SearchResult) => void;
   selectedResultId?: string;
   onFindSimilar?: (result: SearchResult) => void;
+  collapsed?: boolean;
 }
 
 export default function SearchResults({
@@ -18,6 +19,7 @@ export default function SearchResults({
   onSelectResult,
   selectedResultId,
   onFindSimilar,
+  collapsed = false,
 }: SearchResultsProps) {
   // Filter results based on resourceTypeFilter if provided, using case-insensitive comparison
   const filteredResults =

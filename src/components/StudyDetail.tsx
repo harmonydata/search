@@ -1,6 +1,12 @@
 "use client";
 
-import { Box, Typography, Collapse, IconButton } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Collapse,
+  IconButton,
+  CircularProgress,
+} from "@mui/material";
 import Image from "next/image";
 import { ChevronDown, ChevronUp, Bug } from "lucide-react";
 import { useState, memo, useMemo, useEffect } from "react";
@@ -11,7 +17,12 @@ import TextWithLinkPreviews from "@/components/TextWithLinkPreviews";
 import LinkPreviewCard from "@/components/LinkPreviewCard";
 import MatchedVariablesDataGrid from "@/components/MatchedVariablesDataGrid";
 import StudyDetailDebugDialog from "@/components/StudyDetailDebugDialog";
-import ChildDatasetCard from "@/components/ChildDatasetCard";
+import ChildDatasetsDataGrid from "@/components/ChildDatasetsDataGrid";
+import {
+  cleanupText,
+  cleanupTextFromKnowledge,
+  CleanupType,
+} from "@/services/api";
 
 interface StudyDetailProps {
   study: {
@@ -67,6 +78,8 @@ interface StudyDetailProps {
     originalSearchResult?: any;
     lookupData?: any;
   };
+  // Original search result containing dataset_schema
+  originalSearchResult?: any;
 }
 
 const StudyDetailComponent = ({
@@ -75,6 +88,7 @@ const StudyDetailComponent = ({
   onTopicClick,
   onInstrumentClick,
   debugData,
+  originalSearchResult,
 }: StudyDetailProps) => {
   const [variablesExpanded, setVariablesExpanded] = useState(false);
   const [aiSummaryExpanded, setAiSummaryExpanded] = useState(false);
@@ -82,16 +96,120 @@ const StudyDetailComponent = ({
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
+  // AI Summary state
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const [aiSummaryError, setAiSummaryError] = useState<string | null>(null);
+
   // Reset image error when study image changes
   useEffect(() => {
     setImageError(false);
   }, [study.image]);
+
+  // Reset description expanded state when study changes
+  useEffect(() => {
+    setDescriptionExpanded(false);
+  }, [study.title]);
+
+  // Reset AI summary state when study changes
+  useEffect(() => {
+    setAiSummaryExpanded(false);
+    setAiSummary(null);
+    setAiSummaryError(null);
+  }, [study.title]);
+
+  // Generate AI summary when section is expanded
+  const generateAiSummary = async () => {
+    if (aiSummary || aiSummaryLoading) return;
+
+    setAiSummaryLoading(true);
+    setAiSummaryError(null);
+
+    try {
+      // First try knowledge-based approach
+      let result = await cleanupTextFromKnowledge(study.title);
+
+      // Check if the response is empty (AI doesn't know the study)
+      let summaryText = "";
+      if (Array.isArray(result.result)) {
+        summaryText = result.result
+          .map((item: any) => item.question_text || item)
+          .join("\n\n");
+      } else {
+        summaryText = result.result || "";
+      }
+
+      // If knowledge-based approach returned empty, try schema-based approach
+      if (!summaryText.trim()) {
+        const datasetSchema =
+          originalSearchResult?.dataset_schema ||
+          debugData?.lookupData?.dataset_schema;
+
+        if (!datasetSchema) {
+          throw new Error("No dataset schema available for AI summary");
+        }
+
+        // Create a filtered version without the large variableMeasured array
+        const filteredSchema = {
+          ...datasetSchema,
+          variableMeasured: undefined, // Remove the large variables array
+          // Keep a count of variables instead
+          variableCount: datasetSchema.variableMeasured?.length || 0,
+        };
+
+        // Use schema-based approach
+        result = await cleanupText(filteredSchema, "summarise_text");
+
+        // Handle the schema response format
+        if (Array.isArray(result.result)) {
+          summaryText = result.result
+            .map((item: any) => item.question_text || item)
+            .join("\n\n");
+        } else {
+          summaryText = result.result || "";
+        }
+      }
+
+      setAiSummary(summaryText);
+    } catch (error) {
+      setAiSummaryError(
+        error instanceof Error ? error.message : "Failed to generate AI summary"
+      );
+    } finally {
+      setAiSummaryLoading(false);
+    }
+  };
+
+  // Generate AI summary when section is expanded
+  useEffect(() => {
+    if (aiSummaryExpanded) {
+      generateAiSummary();
+    }
+  }, [aiSummaryExpanded]);
 
   // State for debug dialog
   const [debugDialogOpen, setDebugDialogOpen] = useState(false);
 
   // Add state for instruments dropdown
   const [instrumentsExpanded, setInstrumentsExpanded] = useState(false);
+
+  // State for collapsible sections
+  const [expandedSections, setExpandedSections] = useState<{
+    [key: string]: boolean;
+  }>({
+    description: true,
+    details: false,
+    variables: false,
+    links: false,
+    childDatasets: false,
+  });
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
 
   // Filter out malformed keywords/topics that contain HTML fragments
   const filteredTopics = study.topics.filter(
@@ -250,9 +368,7 @@ const StudyDetailComponent = ({
 
       {study.description && (
         <Box sx={{ mb: 4 }}>
-          <Collapse in={descriptionExpanded} collapsedSize="130px">
-            {" "}
-            {/* ~5 lines at default font size */}
+          {descriptionExpanded ? (
             <TextWithLinkPreviews
               text={study.description}
               paragraphProps={{
@@ -261,7 +377,21 @@ const StudyDetailComponent = ({
               }}
               compact
             />
-          </Collapse>
+          ) : (
+            <Typography
+              variant="body1"
+              sx={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                display: "-webkit-box",
+                WebkitLineClamp: 5,
+                WebkitBoxOrient: "vertical",
+                mb: 2,
+              }}
+            >
+              {study.description}
+            </Typography>
+          )}
           {study.description.length > 300 && (
             <Box
               onClick={() => setDescriptionExpanded(!descriptionExpanded)}
@@ -290,117 +420,197 @@ const StudyDetailComponent = ({
         </Box>
       )}
 
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 3,
-          mb: 4,
-        }}
-      >
-        {/* Publisher section - if available */}
-        {study.publisher && (
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
+      {/* Variables section - moved up under description */}
+      {hasVariables && (
+        <Box sx={{ mb: 4 }}>
+          <SquareChip
+            fullWidth
+            chipVariant="secondary"
+            endIcon={
+              variablesExpanded ? (
+                <ChevronUp
+                  size={16}
+                  style={{ fill: "#004735", stroke: "none" }}
+                />
+              ) : (
+                <ChevronDown
+                  size={16}
+                  style={{ fill: "#004735", stroke: "none" }}
+                />
+              )
+            }
+            sx={{ justifyContent: "space-between", py: 2, height: "auto" }}
+            onClick={() => setVariablesExpanded(!variablesExpanded)}
           >
-            <Typography variant="subtitle2">Publisher:</Typography>
-            <OrganizationCard
-              name={study.publisher.name}
-              url={study.publisher.url}
-              logo={study.publisher.logo}
-            />
-          </Box>
-        )}
+            Related Variables found within study
+          </SquareChip>
+          <Collapse in={variablesExpanded}>
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: "rgba(0, 0, 0, 0.02)",
+                borderRadius: 2,
+                mb: 2,
+              }}
+            >
+              <MatchedVariablesDataGrid
+                variables={allStudyVariables}
+                studyName={study.title}
+              />
+            </Box>
+          </Collapse>
+        </Box>
+      )}
 
-        {/* Geographic Coverage - only if available */}
-        {study.geographicCoverage && (
+      {/* Details section */}
+      <Box sx={{ mb: 4 }}>
+        <SquareChip
+          fullWidth
+          chipVariant="secondary"
+          endIcon={
+            expandedSections.details ? (
+              <ChevronUp
+                size={16}
+                style={{ fill: "#004735", stroke: "none" }}
+              />
+            ) : (
+              <ChevronDown
+                size={16}
+                style={{ fill: "#004735", stroke: "none" }}
+              />
+            )
+          }
+          sx={{ justifyContent: "space-between", py: 2, height: "auto" }}
+          onClick={() => toggleSection("details")}
+        >
+          Details
+        </SquareChip>
+        <Collapse in={expandedSections.details}>
           <Box
             sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
+              p: 2,
+              bgcolor: "rgba(0, 0, 0, 0.02)",
+              borderRadius: 2,
+              mb: 2,
             }}
           >
-            <Typography variant="subtitle2">Geographic Coverage:</Typography>
-            <Typography>{study.geographicCoverage}</Typography>
-          </Box>
-        )}
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 3,
+              }}
+            >
+              {/* Publisher section - if available */}
+              {study.publisher && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Typography variant="subtitle2">Publisher:</Typography>
+                  <OrganizationCard
+                    name={study.publisher.name}
+                    url={study.publisher.url}
+                    logo={study.publisher.logo}
+                  />
+                </Box>
+              )}
 
-        {/* Temporal Coverage - only if available */}
-        {study.temporalCoverage && (
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <Typography variant="subtitle2">Temporal Coverage:</Typography>
-            <Typography>
-              {formatTemporalCoverage(study.temporalCoverage)}
-            </Typography>
-          </Box>
-        )}
+              {/* Geographic Coverage - only if available */}
+              {study.geographicCoverage && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Typography variant="subtitle2">
+                    Geographic Coverage:
+                  </Typography>
+                  <Typography>{study.geographicCoverage}</Typography>
+                </Box>
+              )}
 
-        {/* Sample Size - only if available */}
-        {study.sampleSize && study.sampleSize !== "Not specified" && (
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <Typography variant="subtitle2">Sample Size:</Typography>
-            <Typography>{study.sampleSize}</Typography>
-          </Box>
-        )}
+              {/* Temporal Coverage - only if available */}
+              {study.temporalCoverage && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Typography variant="subtitle2">
+                    Temporal Coverage:
+                  </Typography>
+                  <Typography>
+                    {formatTemporalCoverage(study.temporalCoverage)}
+                  </Typography>
+                </Box>
+              )}
 
-        {/* Age Coverage - only if available */}
-        {study.ageCoverage && (
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <Typography variant="subtitle2">Age Coverage:</Typography>
-            <Typography>{study.ageCoverage}</Typography>
-          </Box>
-        )}
+              {/* Sample Size - only if available */}
+              {study.sampleSize && study.sampleSize !== "Not specified" && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Typography variant="subtitle2">Sample Size:</Typography>
+                  <Typography>{study.sampleSize}</Typography>
+                </Box>
+              )}
 
-        {/* Resource Type - only if available */}
-        {study.resourceType && (
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <Typography variant="subtitle2">Resource Type:</Typography>
-            <Typography>{study.resourceType}</Typography>
-          </Box>
-        )}
+              {/* Age Coverage - only if available */}
+              {study.ageCoverage && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Typography variant="subtitle2">Age Coverage:</Typography>
+                  <Typography>{study.ageCoverage}</Typography>
+                </Box>
+              )}
 
-        {/* Study Design - only if available */}
-        {study.studyDesign && study.studyDesign.length > 0 && (
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <Typography variant="subtitle2">Study Design:</Typography>
-            <Typography>{study.studyDesign.join(", ")}</Typography>
+              {/* Resource Type - only if available */}
+              {study.resourceType && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Typography variant="subtitle2">Resource Type:</Typography>
+                  <Typography>{study.resourceType}</Typography>
+                </Box>
+              )}
+
+              {/* Study Design - only if available */}
+              {study.studyDesign && study.studyDesign.length > 0 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Typography variant="subtitle2">Study Design:</Typography>
+                  <Typography>{study.studyDesign.join(", ")}</Typography>
+                </Box>
+              )}
+            </Box>
           </Box>
-        )}
+        </Collapse>
       </Box>
 
       {/* Funders section - only shown if funders exist */}
@@ -601,70 +811,11 @@ const StudyDetailComponent = ({
       {Array.isArray(study.child_datasets) &&
         study.child_datasets.length > 0 && (
           <Box sx={{ mb: 4 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              Child Datasets:
-            </Typography>
-            <Box
-              sx={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 2,
-                alignItems: "stretch",
-              }}
-            >
-              {study.child_datasets.map((ds: any, idx: number) => (
-                <ChildDatasetCard
-                  key={ds.extra_data?.uuid || idx}
-                  dataset={ds}
-                />
-              ))}
-            </Box>
-          </Box>
-        )}
-
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <SquareChip
-          fullWidth
-          chipVariant="secondary"
-          endIcon={
-            aiSummaryExpanded ? (
-              <ChevronUp
-                size={16}
-                style={{ fill: "#004735", stroke: "none" }}
-              />
-            ) : (
-              <ChevronDown
-                size={16}
-                style={{ fill: "#004735", stroke: "none" }}
-              />
-            )
-          }
-          sx={{ justifyContent: "space-between", py: 2, height: "auto" }}
-          onClick={() => setAiSummaryExpanded(!aiSummaryExpanded)}
-        >
-          AI Summary
-        </SquareChip>
-        <Collapse in={aiSummaryExpanded}>
-          <Box
-            sx={{
-              p: 2,
-              bgcolor: "rgba(0, 0, 0, 0.02)",
-              borderRadius: 2,
-              mb: 2,
-            }}
-          >
-            <Typography>AI summary not available yet.</Typography>
-          </Box>
-        </Collapse>
-
-        {/* Only show the variables section if we have variables */}
-        {hasVariables && (
-          <>
             <SquareChip
               fullWidth
               chipVariant="secondary"
               endIcon={
-                variablesExpanded ? (
+                expandedSections.childDatasets ? (
                   <ChevronUp
                     size={16}
                     style={{ fill: "#004735", stroke: "none" }}
@@ -677,11 +828,11 @@ const StudyDetailComponent = ({
                 )
               }
               sx={{ justifyContent: "space-between", py: 2, height: "auto" }}
-              onClick={() => setVariablesExpanded(!variablesExpanded)}
+              onClick={() => toggleSection("childDatasets")}
             >
-              Related Variables found within study
+              Related Datasets ({study.child_datasets.length})
             </SquareChip>
-            <Collapse in={variablesExpanded}>
+            <Collapse in={expandedSections.childDatasets}>
               <Box
                 sx={{
                   p: 2,
@@ -690,16 +841,86 @@ const StudyDetailComponent = ({
                   mb: 2,
                 }}
               >
-                {/* Show all variables (matched and unmatched, deduped) */}
-                <MatchedVariablesDataGrid
-                  variables={allStudyVariables}
-                  studyName={study.title}
-                />
+                <ChildDatasetsDataGrid datasets={study.child_datasets} />
               </Box>
             </Collapse>
-          </>
+          </Box>
         )}
-      </Box>
+
+      {/* Only show AI Summary for studies */}
+      {study.resourceType === "study" && (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <SquareChip
+            fullWidth
+            chipVariant="secondary"
+            endIcon={
+              aiSummaryExpanded ? (
+                <ChevronUp
+                  size={16}
+                  style={{ fill: "#004735", stroke: "none" }}
+                />
+              ) : (
+                <ChevronDown
+                  size={16}
+                  style={{ fill: "#004735", stroke: "none" }}
+                />
+              )
+            }
+            sx={{ justifyContent: "space-between", py: 2, height: "auto" }}
+            onClick={() => setAiSummaryExpanded(!aiSummaryExpanded)}
+          >
+            AI Summary
+          </SquareChip>
+          <Collapse in={aiSummaryExpanded}>
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: "rgba(0, 0, 0, 0.02)",
+                borderRadius: 2,
+                mb: 2,
+              }}
+            >
+              {aiSummaryLoading && (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <CircularProgress size={20} />
+                  <Typography>Generating AI summary...</Typography>
+                </Box>
+              )}
+
+              {aiSummaryError && (
+                <Typography color="error">Error: {aiSummaryError}</Typography>
+              )}
+
+              {aiSummary && !aiSummaryLoading && (
+                <Box sx={{ "& p": { marginBottom: 2 } }}>
+                  {aiSummary.split("\n\n").map((paragraph, index) => (
+                    <Typography
+                      key={index}
+                      variant="body1"
+                      sx={{
+                        whiteSpace: "pre-wrap",
+                        marginBottom: 2,
+                        "&:last-child": { marginBottom: 0 },
+                        "& strong": { fontWeight: "bold" },
+                      }}
+                      dangerouslySetInnerHTML={{
+                        __html: paragraph.replace(
+                          /\*\*(.*?)\*\*/g,
+                          "<strong>$1</strong>"
+                        ),
+                      }}
+                    />
+                  ))}
+                </Box>
+              )}
+
+              {!aiSummary && !aiSummaryLoading && !aiSummaryError && (
+                <Typography>AI summary not available yet.</Typography>
+              )}
+            </Box>
+          </Collapse>
+        </Box>
+      )}
 
       {/* Debug Dialog */}
       <StudyDetailDebugDialog

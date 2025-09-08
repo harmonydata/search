@@ -5,3 +5,39 @@
 - Added URL cleaning function to detect and remove extra closing brackets that cause 404 errors in OpenGraph data fetching
 - Implemented fallback mechanism in LinkPreviewCard to retry with cleaned URL if first attempt fails
 - Added logging for debugging when URLs are cleaned
+- Fixed child_datasets data not being passed through to StudyDetail component in search page
+- Fixed styling inconsistency in child datasets section header to match other collapsible sections
+- Added cleanup API function to services/api.ts for AI-powered dataset summarization using JSON schema data
+- Updated system prompts to focus on academic research dataset summarization with metadata and variables
+- Integrated cleanup API into StudyDetail component AI Summary section that sends dataset_schema as JSON
+- AI Summary uses dataset schema from original SearchResult for comprehensive dataset analysis
+- Enhanced AI Summary display to properly format array response with question_text objects as paragraphs
+- Added support for basic markdown formatting (bold text) in AI Summary display
+- Optimized AI Summary API calls by filtering out large variableMeasured arrays and replacing with variableCount
+- Updated system prompts to handle variableCount field instead of full variable lists
+- Added knowledge-based AI summarization option that uses AI's existing knowledge of studies
+- Implemented automatic fallback from knowledge-based to schema-based summarization when AI doesn't know the study
+- Removed toggle UI and made the fallback process seamless for users
+- Added conditional display to only show AI Summary section for studies (resourceType === "study")
+- Improved knowledge-based prompt to return empty responses for generic study names
+- Implemented desktop study detail pane expansion feature with smooth transitions
+- Added responsive layout that expands detail pane to 80% width when clicked (20% for results)
+- Created collapsed SearchResults view showing study images/logos in card format maintaining height
+- Added sticky chevron button to collapse back to 50/50 split instead of clicking results area
+- Improved UX by not collapsing when selecting different results - stays expanded until manually collapsed
+- Moved collapse button to fixed position at top-right of results panel, outside scroll area for always-visible access
+- Simplified collapsed results view to show normal cards with content hidden below image line for cleaner sliding effect
+- Refactored to use absolute positioning overlay approach - results stay at 50% width, detail pane overlays with flexbox
+- Added subtle drop shadow to detail pane when expanded for better visual hierarchy
+- Moved collapse button to detail pane (top-left) with click event prevention to avoid triggering detail click
+- Added blue borders on both left and right sides of selected result cards for visibility when detail pane is expanded
+- Enhanced filter panel with hybrid chips/autocomplete component for categorical filters with frequency data
+- Implemented get-keyword-phrases API endpoint integration for intelligent alpha calculation based on study names and abbreviations
+- Modified search logic to use alpha=0 for queries matching keyword phrases instead of heuristic word-count based calculation
+- Updated all fetchResultByUuid calls to include alpha parameter for consistent search behavior across lookup operations
+- Simplified related datasets table to show only dataset name, number of variables, and time coverage
+- Updated dataset links to open internal pages at /items/{slug} instead of external URLs
+- Enhanced /items/{slug} route to support both slugs and UUIDs for child datasets from lookup API
+- Added UUID detection logic to automatically handle datasets without slugs
+- Fixed static generation issue by adding return_variables_within_parent=false parameter to dataset search API calls
+- Updated generateStaticParams to create pages for both slug and UUID versions of each dataset

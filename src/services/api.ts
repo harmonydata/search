@@ -5,6 +5,7 @@ export interface AggregateFilter {
   label: string;
   options: string[];
   type?: "multiselect" | "range";
+  frequencies?: Record<string, number>;
 }
 export interface VariableSchema {
   name: string;
@@ -17,6 +18,7 @@ export interface VariableSchema {
 }
 
 export interface SearchResult {
+  child_datasets: SearchResult[];
   // New fields from the Weaviate API
   dataset_schema?: {
     "@context"?: string;
@@ -144,10 +146,55 @@ export async function fetchAggregateFilters(): Promise<AggregateFilter[]> {
   // data should have an 'aggregations' property
   const aggregations = data.aggregations || {};
   const filters: AggregateFilter[] = Object.keys(aggregations).map((key) => {
+    const aggregationData = aggregations[key];
+
+    // For numeric fields, extract the actual numeric values from the aggregation object
+    const numericFields = [
+      "num_sweeps",
+      "num_variables",
+      "sample_size",
+      "duration_years",
+      "age_lower",
+      "age_upper",
+      "start_year",
+      "end_year",
+    ];
+    let options: string[];
+
+    if (
+      numericFields.includes(key) &&
+      typeof aggregationData === "object" &&
+      !Array.isArray(aggregationData) &&
+      aggregationData.minimum !== undefined &&
+      aggregationData.maximum !== undefined
+    ) {
+      // For numeric fields, create a range from minimum to maximum
+      const min = Math.floor(aggregationData.minimum);
+      const max = Math.ceil(aggregationData.maximum);
+      const range = [];
+
+      // Create a reasonable number of steps (max 100 points)
+      const stepCount = Math.min(100, max - min + 1);
+      const step = (max - min) / (stepCount - 1);
+
+      for (let i = 0; i < stepCount; i++) {
+        range.push(String(Math.round(min + i * step)));
+      }
+
+      options = range;
+    } else {
+      // For non-numeric fields, use the keys as before
+      options = Object.keys(aggregationData);
+    }
+
     return {
       id: key,
       label: formatLabel(key),
-      options: Object.keys(aggregations[key]),
+      options: options,
+      frequencies:
+        typeof aggregationData === "object" && !Array.isArray(aggregationData)
+          ? aggregationData
+          : undefined,
     };
   });
   return filters;
@@ -161,7 +208,8 @@ export async function fetchSearchResults(
   useSearch2: boolean = true,
   hybridWeight?: number,
   topLevelIdsSeen?: string[],
-  nextPageOffset?: number
+  nextPageOffset?: number,
+  returnVariablesWithinParent?: boolean
 ): Promise<SearchResponse> {
   // Check if we have any filters
   const hasFilters = filters && Object.keys(filters).length > 0;
@@ -217,9 +265,20 @@ export async function fetchSearchResults(
     if (filters) {
       Object.entries(filters).forEach(([key, values]) => {
         if (values.length > 0) {
-          requestBody[key] = values;
+          // Handle numeric min/max fields as single integer values
+          if (key.endsWith("_min") || key.endsWith("_max")) {
+            requestBody[key] = parseInt(values[0], 10);
+          } else {
+            // Regular non-numeric filter - add all values
+            requestBody[key] = values;
+          }
         }
       });
+    }
+
+    // Add return_variables_within_parent parameter if provided
+    if (returnVariablesWithinParent !== undefined) {
+      requestBody.return_variables_within_parent = returnVariablesWithinParent;
     }
 
     requestOptions = {
@@ -292,6 +351,14 @@ export async function fetchSearchResults(
       }
     }
 
+    // Add return_variables_within_parent parameter if provided
+    if (returnVariablesWithinParent !== undefined) {
+      params.set(
+        "return_variables_within_parent",
+        returnVariablesWithinParent.toString()
+      );
+    }
+
     url = `${baseUrl}?${params.toString()}`;
     requestOptions = {
       method: "GET",
@@ -346,7 +413,8 @@ export async function fetchSearchResults(
 
 export async function fetchResultByUuid(
   uuid: string,
-  query?: string
+  query?: string,
+  alpha?: number
 ): Promise<SearchResult> {
   const params = new URLSearchParams();
   params.set("uuid", uuid);
@@ -354,6 +422,11 @@ export async function fetchResultByUuid(
   // Append query parameter if provided
   if (query && query.trim()) {
     params.set("query", query.trim());
+  }
+
+  // Append alpha parameter if provided
+  if (alpha !== undefined) {
+    params.set("alpha", alpha.toString());
   }
 
   const url = `${API_BASE}/discover/lookup?${params.toString()}`;
@@ -446,6 +519,26 @@ export async function fetchVersionInfo(): Promise<VersionInfo> {
     window.__lastVersionResponse = data;
     console.log(
       "Version API response cached in window.__lastVersionResponse for debugging"
+    );
+  }
+
+  return data;
+}
+
+export async function fetchKeywordPhrases(): Promise<string[]> {
+  const response = await fetch(`${API_BASE}/discover/get-keyword-phrases`);
+  if (!response.ok) {
+    console.error("Failed to fetch keyword phrases:", response.statusText);
+    throw new Error("Failed to fetch keyword phrases");
+  }
+  const data = await response.json();
+
+  // Store response in window object for debugging
+  if (typeof window !== "undefined") {
+    // @ts-ignore - Adding debug property to window
+    window.__lastKeywordPhrasesResponse = data;
+    console.log(
+      "Keyword phrases API response cached in window.__lastKeywordPhrasesResponse for debugging"
     );
   }
 
@@ -648,4 +741,121 @@ export async function fetchAllStudiesWithUuids(): Promise<
       ) || [];
 
   return studiesWithUuids;
+}
+
+export async function fetchAllDatasetsWithUuids(): Promise<
+  Array<{ slug: string; uuid: string }>
+> {
+  const response = await fetchSearchResults(
+    "*", // Use wildcard to get all results
+    { resource_type: ["dataset"] }, // Filter for datasets only
+    1, // First page
+    1000, // Get a large number of results
+    false, // Use new search endpoint
+    undefined, // hybridWeight
+    undefined, // topLevelIdsSeen
+    undefined, // nextPageOffset
+    false // returnVariablesWithinParent = false to get datasets with slugs
+  );
+
+  const datasetsWithUuids =
+    response.results
+      ?.map((dataset) => ({
+        slug: dataset.extra_data?.slug,
+        uuid: dataset.extra_data?.uuid,
+      }))
+      .filter((dataset): dataset is { slug: string; uuid: string } =>
+        Boolean(dataset.slug && dataset.uuid)
+      ) || [];
+
+  return datasetsWithUuids;
+}
+
+// Types for the cleanup API
+export type CleanupType = "summarise_URL" | "summarise_text";
+
+export interface CleanupRequest {
+  text: string;
+  system_prompt: string;
+}
+
+export interface CleanupResponse {
+  result: string;
+  type: CleanupType;
+}
+
+// System prompts for different types
+const SYSTEM_PROMPTS: Record<CleanupType, string> = {
+  summarise_URL:
+    "You are a helpful assistant that summarizes academic research datasets. You will receive a JSON object containing dataset schema information including metadata and other details. The dataset may include a variableCount field indicating the number of variables measured. Please provide a concise, informative summary that highlights the key aspects of the dataset, including its purpose, scope, the types of variables measured (based on the count and other metadata), and any other relevant information that would help researchers understand what this dataset contains.",
+  summarise_text:
+    "You are a helpful assistant that summarizes academic research datasets. You will receive a JSON object containing dataset schema information including metadata and other details. The dataset may include a variableCount field indicating the number of variables measured. Please provide a concise, informative summary that highlights the key aspects of the dataset, including its purpose, scope, the types of variables measured (based on the count and other metadata), and any other relevant information that would help researchers understand what this dataset contains.",
+};
+
+// Knowledge-based system prompt for when we want AI to use its own knowledge
+const KNOWLEDGE_BASED_PROMPT =
+  "You are a helpful assistant that summarizes academic research studies and datasets based on your knowledge. You will receive the name/title of a study or dataset. Please provide a concise, informative summary based on what you know about this study, including its purpose, scope, methodology, key findings, and significance. IMPORTANT: Only provide a summary if you have specific knowledge about this exact study or dataset. If the name is too generic (like 'Next Steps', 'Study', 'Survey', etc.) or if you are not familiar with the specific study, return an empty response (no text at all). Do not provide general information or explanations about why you cannot help.";
+
+// Cleanup API function
+export async function cleanupText(
+  datasetSchema: any,
+  type: CleanupType
+): Promise<CleanupResponse> {
+  const systemPrompt = SYSTEM_PROMPTS[type];
+
+  // Convert the dataset schema to a JSON string
+  const contentToProcess = JSON.stringify(datasetSchema, null, 2);
+
+  const response = await fetch(
+    "https://harmonyplugincleanuptext.fastdatascience.com/api/cleanup",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text: contentToProcess,
+        system: systemPrompt,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Cleanup API request failed: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+
+  return {
+    result: result.result || result, // Handle different response formats
+    type,
+  };
+}
+
+// Knowledge-based cleanup function that uses AI's existing knowledge
+export async function cleanupTextFromKnowledge(
+  studyName: string
+): Promise<CleanupResponse> {
+  // Create URL with query parameters for CDN caching
+  const url = new URL("https://harmonydatagpt.azureedge.net/api/cleanup");
+  url.searchParams.set("text", studyName);
+  url.searchParams.set("system", KNOWLEDGE_BASED_PROMPT);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Cleanup API request failed: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+
+  return {
+    result: result.result || result, // Handle different response formats
+    type: "summarise_text",
+  };
 }

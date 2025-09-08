@@ -4,6 +4,7 @@ import { transformSearchResultToStudyDetail } from "@/lib/utils/studyTransform";
 import { notFound } from "next/navigation";
 import StudyPageClient from "./StudyPageClient";
 import { fetchAllStudiesWithUuids, fetchResultByUuid } from "@/services/api";
+import { Metadata } from "next";
 
 // This runs at build time for static export
 export async function generateStaticParams() {
@@ -24,6 +25,76 @@ export async function generateStaticParams() {
   } catch (error) {
     console.error("Failed to generate static params:", error);
     return [];
+  }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+
+  try {
+    // Get the study data (same logic as the page component)
+    const studiesWithUuids = await fetchAllStudiesWithUuids();
+    const studyWithUuid = studiesWithUuids.find((study) => study.slug === slug);
+
+    if (!studyWithUuid) {
+      return {
+        title: "Study Not Found",
+        description: "The requested study could not be found.",
+      };
+    }
+
+    const fullStudyResult = await fetchResultByUuid(studyWithUuid.uuid);
+    const study = transformSearchResultToStudyDetail(fullStudyResult);
+
+    // Generate Open Graph and Twitter Card metadata
+    const title = study.title || "Academic Study";
+    const description = study.description || "Academic research study data";
+    const image = study.image || "/harmony.png";
+    const url = `https://discoverynext.vercel.app/studies/${slug}`;
+
+    // Generate structured data (JSON-LD) using the full dataset schema
+    const structuredData = {
+      "@context": "https://schema.org",
+      ...fullStudyResult.dataset_schema,
+      url: url,
+    };
+
+    return {
+      title,
+      description,
+      openGraph: {
+        title,
+        description,
+        url,
+        siteName: "Academic Resource Discovery",
+        images: [
+          {
+            url: image,
+            width: 1200,
+            height: 630,
+            alt: title,
+          },
+        ],
+        locale: "en_US",
+        type: "website",
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: [image],
+      },
+    };
+  } catch (error) {
+    console.error(`Failed to generate metadata for study: ${slug}`, error);
+    return {
+      title: "Study Not Found",
+      description: "The requested study could not be found.",
+    };
   }
 }
 
@@ -60,7 +131,24 @@ export default async function StudyPage({
 
     const study = transformSearchResultToStudyDetail(fullStudyResult);
 
-    return <StudyPageClient study={study} />;
+    // Prepare JSON-LD structured data
+    const structuredData = {
+      "@context": "https://schema.org/",
+      ...fullStudyResult.dataset_schema,
+      url: `https://discoverynext.vercel.app/studies/${slug}`,
+    };
+
+    return (
+      <>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(structuredData),
+          }}
+        />
+        <StudyPageClient study={study} />
+      </>
+    );
   } catch (error) {
     console.error(`Failed to generate static page for study: ${slug}`, error);
     notFound();

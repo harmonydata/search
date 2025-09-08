@@ -134,6 +134,7 @@ export default function CompactResultCard({
         display: "flex",
         width: "100%",
         bgcolor: isSelected ? "rgba(25, 118, 210, 0.08)" : "transparent",
+        borderLeft: isSelected ? "3px solid" : "3px solid transparent",
         borderRight: isSelected ? "3px solid" : "3px solid transparent",
         borderColor: isSelected ? "primary.main" : "transparent",
         "&:hover": {

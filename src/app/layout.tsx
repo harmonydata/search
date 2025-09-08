@@ -12,6 +12,28 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Academic Resource Discovery",
   description: "Discover academic resources and research data",
+  openGraph: {
+    title: "Academic Resource Discovery",
+    description: "Discover academic resources and research data",
+    url: "https://discoverynext.vercel.app",
+    siteName: "Academic Resource Discovery",
+    images: [
+      {
+        url: "/harmony.png",
+        width: 1200,
+        height: 630,
+        alt: "Academic Resource Discovery",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Academic Resource Discovery",
+    description: "Discover academic resources and research data",
+    images: ["/harmony.png"],
+  },
 };
 
 export default function RootLayout({
@@ -21,10 +43,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <meta name="emotion-insertion-point" content="" />
+      </head>
       <body className={inter.className}>
         <ThemeRegistry>
           <Box
-            sx={{ display: "flex", flexDirection: { xs: "column", md: "row" } }}
+            sx={{
+              display: "flex",
+              flexDirection: { xs: "column", md: "row" },
+            }}
           >
             <Sidebar />
             <Box

@@ -24,13 +24,22 @@ import {
   fetchSearchResults,
   fetchAggregateFilters,
   fetchResultByUuid,
+  fetchKeywordPhrases,
   SearchResponse,
   SearchResult,
   AggregateFilter,
 } from "@/services/api";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { Database, File, Book, FileText, Loader2 } from "lucide-react";
+import {
+  Database,
+  File,
+  Book,
+  FileText,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import AdvancedSearchDropdown from "@/components/AdvancedSearchDropdown";
 import { getAssetPrefix } from "@/lib/utils/shared";
 import InfiniteScroll from "react-infinite-scroll-component";
@@ -59,6 +68,9 @@ function DiscoverPageContent() {
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerImageError, setDrawerImageError] = useState(false);
+
+  // Desktop expansion state
+  const [isDetailExpanded, setIsDetailExpanded] = useState(false);
   const [apiOffline, setApiOffline] = useState(false);
   const [similarStudy, setSimilarStudy] = useState<SearchResult | null>(null);
 
@@ -76,6 +88,10 @@ function DiscoverPageContent() {
   const [nextPageOffset, setNextPageOffset] = useState<number | undefined>(
     undefined
   );
+
+  // State for keyword phrases
+  const [keywordPhrases, setKeywordPhrases] = useState<string[]>([]);
+  const [keywordPhrasesLoaded, setKeywordPhrasesLoaded] = useState(false);
 
   const resultsPerPage = 50;
 
@@ -166,28 +182,43 @@ function DiscoverPageContent() {
   // Ref to store the latest next_page_offset immediately for next API call
   const currentNextPageOffsetRef = useRef<number | undefined>(undefined);
 
-  // Calculate dynamic hybrid weight based on query length
-  const calculateDynamicHybridWeight = useCallback((query: string): number => {
-    if (!query || query.trim() === "" || query === "*") {
-      return 0.5; // Default balanced weight for empty queries
-    }
+  // Calculate dynamic hybrid weight based on query length and keyword phrases
+  const calculateDynamicHybridWeight = useCallback(
+    (query: string): number => {
+      if (!query || query.trim() === "" || query === "*") {
+        return 0.5; // Default balanced weight for empty queries
+      }
 
-    const words = query.trim().split(/\s+/);
-    const wordCount = words.length;
+      const trimmedQuery = query.trim();
 
-    // For 1-2 words: weight closer to 0 (more keyword-focused)
-    if (wordCount <= 2) {
-      return 0.1 + (wordCount - 1) * 0.2; // 0.1 for 1 word, 0.3 for 2 words
-    }
+      // Check if query matches any keyword phrases (case-insensitive)
+      const isKeywordPhrase = keywordPhrases.some(
+        (phrase) => trimmedQuery.toLowerCase() === phrase.toLowerCase()
+      );
 
-    // For 3+ words: gradually increase towards 1 (more semantic-focused)
-    // Cap at reasonable maximum to avoid extreme values
-    const maxWords = 10;
-    const normalizedCount = Math.min(wordCount, maxWords);
-    return (
-      0.01 * (10 + Math.round(((normalizedCount - 2) / (maxWords - 2)) * 80))
-    ); // Range from (10 to 90 )/ 100
-  }, []);
+      // If it matches a keyword phrase, use alpha = 0 (pure keyword search)
+      if (isKeywordPhrase) {
+        return 0;
+      }
+
+      const words = trimmedQuery.split(/\s+/);
+      const wordCount = words.length;
+
+      // For 1-2 words: weight closer to 0 (more keyword-focused)
+      if (wordCount <= 2) {
+        return 0.1 + (wordCount - 1) * 0.2; // 0.1 for 1 word, 0.3 for 2 words
+      }
+
+      // For 3+ words: gradually increase towards 1 (more semantic-focused)
+      // Cap at reasonable maximum to avoid extreme values
+      const maxWords = 10;
+      const normalizedCount = Math.min(wordCount, maxWords);
+      return (
+        0.01 * (10 + Math.round(((normalizedCount - 2) / (maxWords - 2)) * 80))
+      ); // Range from (10 to 90 )/ 100
+    },
+    [keywordPhrases]
+  );
 
   // Handlers for advanced search configuration
   const handleEndpointChange = useCallback((newUseSearch2: boolean) => {
@@ -228,6 +259,24 @@ function DiscoverPageContent() {
       clearTimeout(timerId);
     };
   }, [hybridWeight]);
+
+  // Fetch keyword phrases on first visit
+  useEffect(() => {
+    const loadKeywordPhrases = async () => {
+      if (!keywordPhrasesLoaded) {
+        try {
+          const phrases = await fetchKeywordPhrases();
+          setKeywordPhrases(phrases);
+          setKeywordPhrasesLoaded(true);
+        } catch (error) {
+          console.error("Failed to fetch keyword phrases:", error);
+          setKeywordPhrasesLoaded(true); // Set to true even on error to prevent retries
+        }
+      }
+    };
+
+    loadKeywordPhrases();
+  }, [keywordPhrasesLoaded]);
 
   // Debug helper function to log current state to console
   const debugState = useCallback(() => {
@@ -284,23 +333,45 @@ function DiscoverPageContent() {
     topLevelIdsSeen,
   ]);
 
+  // Handle result selection (works in both modes)
+  const handleResultSelect = useCallback(
+    (result: SearchResult) => {
+      setSelectedResult(result);
+      if (isMobile) {
+        setDrawerOpen(true);
+      }
+      // If detail is expanded, just update the content without collapsing
+    },
+    [isMobile]
+  );
+
   // Handle result selection
   const handleSelectResult = useCallback(
     (result: SearchResult) => {
       console.log("Selected result:", result);
-      setSelectedResult(result);
-      // Open drawer on mobile when a result is selected
-      if (isMobile) {
-        setDrawerOpen(true);
-      }
+      handleResultSelect(result);
     },
-    [isMobile]
+    [handleResultSelect]
   );
 
   // Function to close the drawer
   const handleCloseDrawer = useCallback(() => {
     setDrawerOpen(false);
   }, []);
+
+  // Handle detail area click for desktop expansion
+  const handleDetailClick = useCallback(() => {
+    if (!isMobile && selectedResult) {
+      setIsDetailExpanded(true);
+    }
+  }, [isMobile, selectedResult]);
+
+  // Handle collapse button click
+  const handleCollapse = useCallback(() => {
+    if (!isMobile) {
+      setIsDetailExpanded((prev) => !prev);
+    }
+  }, [isMobile]);
 
   // Toggle debug panel
   const toggleDebug = useCallback(() => {
@@ -405,7 +476,9 @@ function DiscoverPageContent() {
 
     if (needsLookup) {
       const fullyPopulatedResult = await fetchResultByUuid(
-        displayResult.extra_data?.uuid || ""
+        displayResult.extra_data?.uuid || "",
+        undefined, // no query
+        undefined // no alpha
       );
       if (isVariableResult) {
         const varibleResult = {
@@ -873,6 +946,7 @@ function DiscoverPageContent() {
       matchedVariables,
       allVariables,
       additionalLinks,
+      child_datasets: displayResult.child_datasets || [],
     };
   }, []);
 
@@ -889,13 +963,20 @@ function DiscoverPageContent() {
         return;
       }
       // Always fetch the full detail from the backend
+      const calculatedAlpha = calculateDynamicHybridWeight(searchQuery);
       const fullResult = await fetchResultByUuid(
         selectedResult.extra_data?.uuid || "",
-        searchQuery
+        searchQuery,
+        calculatedAlpha
       );
-      // Preserve the matched variables from the original search result
-      //fullResult.variables_which_matched =
-      //selectedResult.variables_which_matched;
+      // Preserve the matched variables and child datasets from the original search result
+      if (selectedResult.variables_which_matched) {
+        fullResult.variables_which_matched =
+          selectedResult.variables_which_matched;
+      }
+      if (selectedResult.datasets_which_matched) {
+        fullResult.child_datasets = selectedResult.datasets_which_matched;
+      }
 
       const detail = await mapResultToStudyDetail(fullResult);
 
@@ -926,7 +1007,11 @@ function DiscoverPageContent() {
 
       try {
         setLoading(true);
-        const studyResult = await fetchResultByUuid(similarUid);
+        const studyResult = await fetchResultByUuid(
+          similarUid,
+          undefined,
+          undefined
+        );
         setSimilarStudy(studyResult);
 
         // Get description for similar search
@@ -942,13 +1027,14 @@ function DiscoverPageContent() {
         setDebouncedSearchQuery(description);
 
         // Fetch similar studies
+        const calculatedAlpha = calculateDynamicHybridWeight(description);
         const searchResponse = await fetchSearchResults(
           description,
           {},
           1, // First page
           resultsPerPage,
           useSearch2,
-          debouncedHybridWeight,
+          calculatedAlpha, // Use calculated alpha instead of debouncedHybridWeight
           undefined // First page, no IDs seen yet
         );
 
@@ -1151,6 +1237,9 @@ function DiscoverPageContent() {
         useSearch2,
       });
 
+      // Calculate the alpha to use based on query and keyword phrases
+      const calculatedAlpha = calculateDynamicHybridWeight(query);
+
       // Race the actual API call against the timeout
       const res: SearchResponse = await Promise.race([
         fetchSearchResults(
@@ -1159,7 +1248,7 @@ function DiscoverPageContent() {
           pageToUse, // Use pageToUse instead of currentPage
           resultsPerPage,
           useSearch2,
-          debouncedHybridWeight,
+          calculatedAlpha, // Use calculated alpha instead of debouncedHybridWeight
           idsToExclude, // Use the determined IDs to exclude
           pageToUse > 1 ? currentNextPageOffsetRef.current : undefined // Pass next page offset for subsequent pages
         ),
@@ -1570,7 +1659,7 @@ function DiscoverPageContent() {
     if (!description) {
       // Fetch full result if description is missing
       try {
-        const fullResult = await fetchResultByUuid(uuid);
+        const fullResult = await fetchResultByUuid(uuid, undefined, undefined);
         description =
           fullResult.dataset_schema?.description ||
           fullResult.extra_data?.description;
@@ -1614,13 +1703,16 @@ function DiscoverPageContent() {
         searchQuery = `LIKE:${originalStudyUuid}`;
       }
 
+      // Calculate the alpha to use based on query and keyword phrases
+      const calculatedAlpha = calculateDynamicHybridWeight(searchQuery);
+
       const res: SearchResponse = await fetchSearchResults(
         searchQuery,
         combinedFilters,
         currentPage,
         resultsPerPage,
         useSearch2,
-        debouncedHybridWeight,
+        calculatedAlpha, // Use calculated alpha instead of debouncedHybridWeight
         // For LIKE searches, exclude the original study by passing its UUID in top_level_ids_seen_so_far
         // For regular pagination, use the current ref
         originalStudyUuid
@@ -1824,125 +1916,27 @@ function DiscoverPageContent() {
           </Box>
         )}
 
-        {/* Debug button - only visible in development */}
-        {(true || process.env.NODE_ENV !== "production") && (
-          <Box sx={{ mb: 2, display: "flex", justifyContent: "flex-start" }}>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={toggleDebug}
-              sx={{
-                fontSize: "0.7rem",
-                textTransform: "none",
-                py: 0.5,
-              }}
-            >
-              {showDebug ? "Hide Debug Info" : "Debug API Responses"}
-            </Button>
-          </Box>
-        )}
-
-        {/* Debug panel */}
-        {showDebug && (
-          <Box
-            sx={{
-              mb: 4,
-              p: 2,
-              border: "1px dashed",
-              borderColor: "grey.300",
-              borderRadius: 1,
-            }}
-          >
-            <Typography variant="h6" gutterBottom>
-              Debug Information
-            </Typography>
-            <Typography variant="body2">
-              API responses are saved to:
-              <ul>
-                <li>
-                  <code>window.__lastSearchResponse</code> - Latest search
-                  response
-                </li>
-                <li>
-                  <code>window.__lastAggregateResponse</code> - Latest
-                  aggregations response
-                </li>
-                <li>
-                  <code>window.__debugState</code> - Current component state
-                </li>
-              </ul>
-              <strong>Current Search:</strong>{" "}
-              {debouncedSearchQuery || "(empty)"}
-              <br />
-              <strong>Total hits:</strong> {totalHits}
-              <br />
-              {/* <strong>Page:</strong> {currentPage} of {Math.ceil(totalHits / resultsPerPage)} (Total hits: {totalHits})<br /> */}
-              <strong>Selected Filters:</strong>{" "}
-              {Object.keys(selectedFilters).length > 0
-                ? Object.keys(selectedFilters)
-                    .map((k) => `${k} (${selectedFilters[k].length})`)
-                    .join(", ")
-                : "None"}
-            </Typography>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => {
-                debugState();
-                // Copy debug information to clipboard
-                const debugInfo = JSON.stringify(
-                  {
-                    search: debouncedSearchQuery,
-                    // page: currentPage,
-                    totalHits,
-                    selectedFilters,
-                  },
-                  null,
-                  2
-                );
-                navigator.clipboard.writeText(debugInfo);
-                alert("Debug info copied to clipboard");
-              }}
-              sx={{ mt: 1, mr: 1 }}
-            >
-              Copy Debug Info
-            </Button>
-            <Button
-              variant="outlined"
-              color="error"
-              size="small"
-              onClick={() => {
-                console.clear();
-                performSearch();
-              }}
-              sx={{ mt: 1 }}
-            >
-              Clear & Reload
-            </Button>
-          </Box>
-        )}
-
         {/* Main Content Area - Responsive Layout */}
         <Box
           sx={{
-            display: isMobile ? "block" : "grid",
-            gridTemplateColumns: "1fr 1fr", // Exactly 50-50 split using grid
-            gap: 4,
+            display: isMobile ? "block" : "flex",
             width: "100%",
             flex: 1,
             minHeight: 0, // Important for flex child scrolling
-            overflow: "hidden", // Prevent main container from scrolling
+            overflow: "visible", // Prevent main container from scrolling
+            position: "relative", // For overlay positioning
           }}
         >
-          {/* Search Results Panel - Full width on mobile */}
+          {/* Search Results Panel - Fixed 50% width */}
           <Box
             sx={{
-              width: "100%", // Always 100% of its grid cell
-              minWidth: 0,
+              width: isMobile ? "100%" : "50%",
+              minWidth: isMobile ? "100%" : "300px",
               overflowX: "hidden", // Prevent any content from breaking out
               display: "flex",
               flexDirection: "column",
               height: "100%",
+              position: "relative",
             }}
           >
             {loading ? (
@@ -2061,19 +2055,61 @@ function DiscoverPageContent() {
           </Box>
 
           {/* Study Detail Panel - Only shown on desktop */}
-          {!isMobile && (
+          {!isMobile && (results.length > 0 || totalHits > 0) && (
             <Box
               sx={{
-                width: "100%", // Always 100% of its grid cell
+                position: "absolute",
+                top: 0,
+                right: 0,
+                width: isDetailExpanded ? "calc(100% - 130px)" : "50%",
+                height: "100%",
                 bgcolor: "background.paper",
                 borderLeft: "1px solid",
                 borderColor: "grey.200",
-                height: "100%",
                 display: "flex",
                 flexDirection: "column",
-                overflow: "hidden", // Prevent any content from breaking out
+                overflow: "visible",
+                transition: "width 0.3s ease-in-out",
+                cursor: selectedResult ? "pointer" : "default",
+                zIndex: isDetailExpanded ? 2 : 1,
+                boxShadow: isDetailExpanded
+                  ? "-4px 0 8px rgba(0, 0, 0, 0.1)"
+                  : "none",
               }}
+              onClick={handleDetailClick}
             >
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: -16,
+                  left: -16,
+                  zIndex: 1000,
+                }}
+              >
+                <IconButton
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent triggering detail click
+                    handleCollapse();
+                  }}
+                  sx={{
+                    bgcolor: "primary.main",
+                    color: "white",
+                    "&:hover": {
+                      bgcolor: "primary.dark",
+                    },
+                    boxShadow: 2,
+                    width: 30,
+                    height: 30,
+                  }}
+                >
+                  {!isDetailExpanded ? (
+                    <ChevronLeft size={20} />
+                  ) : (
+                    <ChevronRight size={20} />
+                  )}
+                </IconButton>
+              </Box>
+
               {apiOffline ? (
                 <Box
                   sx={{
@@ -2111,6 +2147,7 @@ function DiscoverPageContent() {
                     onTopicClick={handleTopicClick}
                     onInstrumentClick={handleInstrumentClick}
                     debugData={studyDebugData}
+                    originalSearchResult={studyDebugData?.lookupData}
                   />
                 </Box>
               ) : (
@@ -2228,6 +2265,7 @@ function DiscoverPageContent() {
                 onTopicClick={handleTopicClick}
                 onInstrumentClick={handleInstrumentClick}
                 debugData={studyDebugData}
+                originalSearchResult={studyDebugData?.lookupData}
               />
             ) : (
               <Box

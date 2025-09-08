@@ -56,6 +56,8 @@ const HIDDEN_FILTERS = [
   "start_year",
   "end_year",
   "harmony_id",
+  "resource_type",
+  "country_codes",
 ];
 
 // Mapping for country and language codes
@@ -103,7 +105,8 @@ const NumericFilter: React.FC<{
   filter: AggregateFilter;
   onChange: (selected: string[]) => void;
   initialSelected?: string[];
-}> = ({ filter, onChange, initialSelected = [] }) => {
+  categoryId?: string;
+}> = ({ filter, onChange, initialSelected = [], categoryId }) => {
   // Better parsing of numeric values from filter options
   const numericValues = filter.options
     .map((o) => {
@@ -159,16 +162,42 @@ const NumericFilter: React.FC<{
 
     // Use these defaults or initial values
     const [value, setValue] = useState<number[]>([initialMin, initialMax]);
+    const [lastInitialSelected, setLastInitialSelected] = useState<string[]>(
+      initialSelected || []
+    );
 
-    // Update internal state when initialSelected changes
+    // Update internal state when initialSelected changes, but only when it actually changes
     React.useEffect(() => {
-      if (initialSelected && initialSelected.length === 2) {
-        const [min, max] = initialSelected.map(Number);
-        if (!isNaN(min) && isFinite(min) && !isNaN(max) && isFinite(max)) {
-          setValue([min, max]);
+      const currentInitial = initialSelected || [];
+
+      if (
+        JSON.stringify(currentInitial) !== JSON.stringify(lastInitialSelected)
+      ) {
+        setLastInitialSelected(currentInitial);
+
+        if (currentInitial.length === 2) {
+          const [min, max] = currentInitial.map(Number);
+          if (!isNaN(min) && isFinite(min) && !isNaN(max) && isFinite(max)) {
+            console.log(
+              `Setting value to [${min}, ${max}] for ${filter.id} (defaults)`
+            );
+            setValue([min, max]);
+          }
+        } else if (currentInitial.length === 0) {
+          // Reset to full range when no selection
+          console.log(
+            `Resetting to full range [${defaultMin}, ${defaultMax}] for ${filter.id} (defaults)`
+          );
+          setValue([defaultMin, defaultMax]);
         }
       }
-    }, [initialSelected]);
+    }, [
+      initialSelected,
+      defaultMin,
+      defaultMax,
+      lastInitialSelected,
+      filter.id,
+    ]);
 
     const handleChange = (event: Event, newValue: number | number[]) => {
       if (Array.isArray(newValue)) {
@@ -223,16 +252,34 @@ const NumericFilter: React.FC<{
 
   // Initialize state with the range
   const [value, setValue] = useState<number[]>([initialMin, initialMax]);
+  const [lastInitialSelected, setLastInitialSelected] = useState<string[]>(
+    initialSelected || []
+  );
 
-  // Update internal state when initialSelected changes
+  // Update internal state when initialSelected changes, but only when it actually changes
   React.useEffect(() => {
-    if (initialSelected && initialSelected.length === 2) {
-      const [min, max] = initialSelected.map(Number);
-      if (!isNaN(min) && isFinite(min) && !isNaN(max) && isFinite(max)) {
-        setValue([min, max]);
+    const currentInitial = initialSelected || [];
+
+    if (
+      JSON.stringify(currentInitial) !== JSON.stringify(lastInitialSelected)
+    ) {
+      setLastInitialSelected(currentInitial);
+
+      if (currentInitial.length === 2) {
+        const [min, max] = currentInitial.map(Number);
+        if (!isNaN(min) && isFinite(min) && !isNaN(max) && isFinite(max)) {
+          console.log(`Setting value to [${min}, ${max}] for ${filter.id}`);
+          setValue([min, max]);
+        }
+      } else if (currentInitial.length === 0) {
+        // Reset to full range when no selection
+        console.log(
+          `Resetting to full range [${actualMin}, ${actualMax}] for ${filter.id}`
+        );
+        setValue([actualMin, actualMax]);
       }
     }
-  }, [initialSelected]);
+  }, [initialSelected, actualMin, actualMax, lastInitialSelected, filter.id]);
 
   const handleChange = (event: Event, newValue: number | number[]) => {
     if (Array.isArray(newValue)) {
@@ -376,6 +423,176 @@ const DropdownFilter: React.FC<{
         />
       )}
     />
+  );
+};
+
+// Hybrid filter that shows top 3 as chips and remaining as autocomplete
+const HybridChipsFilter: React.FC<{
+  filter: AggregateFilter;
+  onChange: (selected: string[]) => void;
+  mapping?: Record<string, string>;
+  sourceMapping?: Record<string, { name: string; logo?: string }>;
+  initialSelected?: string[];
+}> = ({ filter, onChange, mapping, sourceMapping, initialSelected = [] }) => {
+  const [selected, setSelected] = useState<string[]>(initialSelected);
+
+  // Update internal state when initialSelected changes
+  React.useEffect(() => {
+    setSelected(initialSelected);
+  }, [initialSelected]);
+
+  // Get formatted label for display
+  const getLabel = (option: string) => {
+    if (sourceMapping && sourceMapping[option]) {
+      return sourceMapping[option].name;
+    }
+    if (mapping && mapping[option]) {
+      return mapping[option];
+    }
+    return formatLabel(option);
+  };
+
+  // Get frequency data and sort options by frequency (descending)
+  const sortedOptions = useMemo(() => {
+    if (!filter.frequencies) {
+      return filter.options;
+    }
+
+    return Object.entries(filter.frequencies)
+      .sort(([, a], [, b]) => b - a) // Sort by frequency descending
+      .map(([option]) => option);
+  }, [filter.options, filter.frequencies]);
+
+  // Get top options for chips (2 for instruments, 3 for others)
+  const topCount = filter.id === "instruments" ? 2 : 3;
+  const topOptions = sortedOptions.slice(0, topCount);
+  // Get remaining options for autocomplete and sort them alphabetically
+  const remainingOptions = useMemo(() => {
+    const remaining = sortedOptions.slice(topCount);
+    return remaining.sort((a, b) => {
+      const labelA = getLabel(a);
+      const labelB = getLabel(b);
+      return labelA.localeCompare(labelB);
+    });
+  }, [sortedOptions, topCount, getLabel, sourceMapping, mapping]);
+
+  const handleToggle = (option: string) => {
+    let newSelected: string[];
+    if (selected.includes(option)) {
+      newSelected = selected.filter((item) => item !== option);
+    } else {
+      newSelected = [...selected, option];
+    }
+    setSelected(newSelected);
+    onChange(newSelected);
+  };
+
+  const handleAutocompleteChange = (
+    event: React.SyntheticEvent,
+    newValue: string[]
+  ) => {
+    // Merge with existing selected items from chips
+    const chipSelected = selected.filter((item) => topOptions.includes(item));
+    const allSelected = [...chipSelected, ...newValue];
+    setSelected(allSelected);
+    onChange(allSelected);
+  };
+
+  // Get logo for source filters
+  const getLogo = (option: string) => {
+    if (sourceMapping && sourceMapping[option]) {
+      return sourceMapping[option].logo;
+    }
+    return undefined;
+  };
+
+  return (
+    <Box
+      sx={{ display: "flex", flexWrap: "wrap", gap: 1, alignItems: "center" }}
+    >
+      {/* Top 3 options as chips */}
+      {topOptions.map((option) => {
+        const logo = getLogo(option);
+        const isSourceFilter = filter.id === "source";
+
+        const chip =
+          isSourceFilter && logo ? (
+            <Box
+              key={option}
+              onClick={() => handleToggle(option)}
+              sx={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: 50,
+                borderRadius: "25px",
+                backgroundColor: selected.includes(option)
+                  ? "primary.main"
+                  : "grey.200",
+                color: selected.includes(option)
+                  ? "primary.contrastText"
+                  : "text.primary",
+                cursor: "pointer",
+                transition: "all 0.2s",
+                "&:hover": {
+                  backgroundColor: selected.includes(option)
+                    ? "primary.dark"
+                    : "grey.300",
+                },
+              }}
+            >
+              <img
+                src={logo}
+                alt={getLabel(option)}
+                style={{
+                  height: "calc(100% - 8px)",
+                  objectFit: "contain",
+                  margin: "0px 12px",
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            </Box>
+          ) : (
+            <Chip
+              key={option}
+              label={getLabel(option)}
+              color={selected.includes(option) ? "primary" : "default"}
+              onClick={() => handleToggle(option)}
+            />
+          );
+
+        return isSourceFilter && logo ? (
+          <Tooltip key={option} title={getLabel(option)}>
+            {chip}
+          </Tooltip>
+        ) : (
+          chip
+        );
+      })}
+
+      {/* Remaining options as autocomplete on the same line */}
+      {remainingOptions.length > 0 && (
+        <Box sx={{ minWidth: 200, flex: 1 }}>
+          <Autocomplete
+            multiple
+            freeSolo
+            options={remainingOptions}
+            getOptionLabel={getLabel}
+            value={selected.filter((item) => remainingOptions.includes(item))}
+            onChange={handleAutocompleteChange}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                placeholder="Others..."
+              />
+            )}
+          />
+        </Box>
+      )}
+    </Box>
   );
 };
 
@@ -622,6 +839,13 @@ export default function FilterPanel({
           onSelectionChange(key, []);
         }
       });
+
+      // Also clear any min/max pairs that might exist
+      Object.keys(selectedFilters).forEach((key) => {
+        if (key.endsWith("_min") || key.endsWith("_max")) {
+          onSelectionChange(key, []);
+        }
+      });
     }
   };
 
@@ -669,7 +893,9 @@ export default function FilterPanel({
         const combinedAgeFilter: AggregateFilter = {
           id: "age_range",
           label: "Age Range",
-          options: [String(minAge), String(maxAge)],
+          options: Array.from({ length: maxAge - minAge + 1 }, (_, i) =>
+            String(minAge + i)
+          ),
         };
 
         // Add the combined filter to updated subfilters
@@ -701,7 +927,9 @@ export default function FilterPanel({
         const combinedTimeFilter: AggregateFilter = {
           id: "time_range",
           label: "Time Coverage",
-          options: [String(minYear), String(maxYear)],
+          options: Array.from({ length: maxYear - minYear + 1 }, (_, i) =>
+            String(minYear + i)
+          ),
         };
 
         // Add the combined filter to updated subfilters
@@ -770,7 +998,9 @@ export default function FilterPanel({
             const combinedAgeFilter: AggregateFilter = {
               id: "age_range",
               label: "Age Range",
-              options: [String(minAge), String(maxAge)],
+              options: Array.from({ length: maxAge - minAge + 1 }, (_, i) =>
+                String(minAge + i)
+              ),
             };
 
             // Add the combined filter to updated subfilters
@@ -802,7 +1032,9 @@ export default function FilterPanel({
             const combinedTimeFilter: AggregateFilter = {
               id: "time_range",
               label: "Time Coverage",
-              options: [String(minYear), String(maxYear)],
+              options: Array.from({ length: maxYear - minYear + 1 }, (_, i) =>
+                String(minYear + i)
+              ),
             };
 
             // Add the combined filter to updated subfilters
@@ -890,7 +1122,7 @@ export default function FilterPanel({
                 ...prev,
                 age_min: [String(minValue)],
                 age_max: [String(maxValue)],
-                [categoryId]: selectedOptions,
+                [categoryId]: selectedOptions, // Store with subfilter key format
               }));
             } else if (filterId === "time_range") {
               // Time range maps to start_year and end_year
@@ -904,7 +1136,7 @@ export default function FilterPanel({
                 ...prev,
                 start_year: [String(minValue)],
                 end_year: [String(maxValue)],
-                [categoryId]: selectedOptions,
+                [categoryId]: selectedOptions, // Store with subfilter key format
               }));
             } else {
               // For all other numeric fields, use {field}_min and {field}_max pattern
@@ -916,12 +1148,12 @@ export default function FilterPanel({
                 onSelectionChange(maxParamName, [String(maxValue)]);
               }
 
-              // Update local state
+              // Update local state - store both the API parameters and the subfilter key
               setInternalSelectedFilters((prev) => ({
                 ...prev,
                 [minParamName]: [String(minValue)],
                 [maxParamName]: [String(maxValue)],
-                [categoryId]: selectedOptions,
+                [categoryId]: selectedOptions, // Store with subfilter key format
               }));
             }
           } else {
@@ -937,6 +1169,7 @@ export default function FilterPanel({
                 const newState = { ...prev };
                 delete newState["age_min"];
                 delete newState["age_max"];
+                delete newState[categoryId]; // Remove subfilter key
                 return {
                   ...newState,
                   [categoryId]: selectedOptions,
@@ -953,6 +1186,7 @@ export default function FilterPanel({
                 const newState = { ...prev };
                 delete newState["start_year"];
                 delete newState["end_year"];
+                delete newState[categoryId]; // Remove subfilter key
                 return {
                   ...newState,
                   [categoryId]: selectedOptions,
@@ -973,6 +1207,7 @@ export default function FilterPanel({
                 const newState = { ...prev };
                 delete newState[minParamName];
                 delete newState[maxParamName];
+                delete newState[categoryId]; // Remove subfilter key
                 return {
                   ...newState,
                   [categoryId]: selectedOptions,
@@ -1057,13 +1292,86 @@ export default function FilterPanel({
               key={filter.id}
               badgeContent={
                 filter.subFilters
-                  ? // Sum selections for merged filter using keys like 'sample_characteristics#subFilterId'
-                    Object.keys(selectedFilters)
-                      .filter((key) => key.startsWith(filter.id + "#"))
-                      .reduce(
-                        (acc, key) => acc + (selectedFilters[key]?.length || 0),
-                        0
-                      )
+                  ? // Count active numeric filters by checking min/max pairs
+                    filter.subFilters.reduce((acc, subFilter) => {
+                      if (NUMERIC_FIELDS.includes(subFilter.id)) {
+                        // Handle special cases for synthetic filters
+                        if (subFilter.id === "age_range") {
+                          const minValue = selectedFilters["age_min"]?.[0];
+                          const maxValue = selectedFilters["age_max"]?.[0];
+                          if (minValue && maxValue) {
+                            const numericValues = subFilter.options
+                              .map((o) => Number(o))
+                              .filter((n) => !isNaN(n) && isFinite(n));
+                            if (numericValues.length > 0) {
+                              const originalMin = Math.min(...numericValues);
+                              const originalMax = Math.max(...numericValues);
+                              const [min, max] = [
+                                Number(minValue),
+                                Number(maxValue),
+                              ];
+                              const isFullRange =
+                                min <= originalMin + 0.1 &&
+                                max >= originalMax - 0.1;
+                              return acc + (isFullRange ? 0 : 1);
+                            }
+                          }
+                          return acc;
+                        } else if (subFilter.id === "time_range") {
+                          const minValue = selectedFilters["start_year"]?.[0];
+                          const maxValue = selectedFilters["end_year"]?.[0];
+                          if (minValue && maxValue) {
+                            const numericValues = subFilter.options
+                              .map((o) => Number(o))
+                              .filter((n) => !isNaN(n) && isFinite(n));
+                            if (numericValues.length > 0) {
+                              const originalMin = Math.min(...numericValues);
+                              const originalMax = Math.max(...numericValues);
+                              const [min, max] = [
+                                Number(minValue),
+                                Number(maxValue),
+                              ];
+                              const isFullRange =
+                                min <= originalMin + 0.1 &&
+                                max >= originalMax - 0.1;
+                              return acc + (isFullRange ? 0 : 1);
+                            }
+                          }
+                          return acc;
+                        } else {
+                          // Handle regular numeric fields
+                          const minKey = `${subFilter.id}_min`;
+                          const maxKey = `${subFilter.id}_max`;
+                          const minValue = selectedFilters[minKey]?.[0];
+                          const maxValue = selectedFilters[maxKey]?.[0];
+
+                          if (minValue && maxValue) {
+                            const numericValues = subFilter.options
+                              .map((o) => Number(o))
+                              .filter((n) => !isNaN(n) && isFinite(n));
+
+                            if (numericValues.length > 0) {
+                              const originalMin = Math.min(...numericValues);
+                              const originalMax = Math.max(...numericValues);
+                              const [min, max] = [
+                                Number(minValue),
+                                Number(maxValue),
+                              ];
+                              const isFullRange =
+                                min <= originalMin + 0.1 &&
+                                max >= originalMax - 0.1;
+                              return acc + (isFullRange ? 0 : 1);
+                            }
+                          }
+                          return acc;
+                        }
+                      } else {
+                        // For non-numeric fields, check if they have values
+                        const subFilterKey = `${filter.id}#${subFilter.id}`;
+                        const values = selectedFilters[subFilterKey] || [];
+                        return acc + (values.length > 0 ? 1 : 0);
+                      }
+                    }, 0)
                   : selectedFilters[filter.id]?.length || 0
               }
               color="primary"
@@ -1141,13 +1449,37 @@ export default function FilterPanel({
                     </Box>
                   );
                 } else if (NUMERIC_FIELDS.includes(sub.id)) {
+                  // Extract the subfilter ID from the key (e.g., "sample_characteristics#num_sweeps" -> "num_sweeps")
+                  const subFilterId = key.split("#")[1];
+
+                  // Handle special cases for synthetic filters
+                  let minValue, maxValue;
+                  if (subFilterId === "age_range") {
+                    minValue = selectedFilters["age_min"]?.[0];
+                    maxValue = selectedFilters["age_max"]?.[0];
+                  } else if (subFilterId === "time_range") {
+                    minValue = selectedFilters["start_year"]?.[0];
+                    maxValue = selectedFilters["end_year"]?.[0];
+                  } else {
+                    // Regular numeric fields
+                    const minKey = `${subFilterId}_min`;
+                    const maxKey = `${subFilterId}_max`;
+                    minValue = selectedFilters[minKey]?.[0];
+                    maxValue = selectedFilters[maxKey]?.[0];
+                  }
+
+                  // Create initialSelected array from min/max values
+                  const initialSelected =
+                    minValue && maxValue ? [minValue, maxValue] : [];
+
                   component = (
                     <NumericFilter
                       filter={sub}
                       onChange={(selected) => {
                         handleFilterSelection(key, selected);
                       }}
-                      initialSelected={selectedFilters[key] || []}
+                      initialSelected={initialSelected}
+                      categoryId={key}
                     />
                   );
                 } else if (
@@ -1235,6 +1567,32 @@ export default function FilterPanel({
                 onChange={(selected) => {
                   handleFilterSelection(activeFilter.id, selected);
                 }}
+                initialSelected={selectedFilters[activeFilter.id] || []}
+                categoryId={activeFilter.id}
+              />
+            </Box>
+          ) : activeFilter.frequencies &&
+            Object.keys(activeFilter.frequencies).length > 3 &&
+            activeFilter.id !== "source" ? (
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                {formatLabel(activeFilter.label)}
+              </Typography>
+              <HybridChipsFilter
+                filter={activeFilter}
+                onChange={(selected) =>
+                  handleFilterSelection(activeFilter.id, selected)
+                }
+                mapping={
+                  activeFilter.id === "country_codes"
+                    ? countryMap
+                    : activeFilter.id === "language_codes"
+                    ? languageMap
+                    : undefined
+                }
+                sourceMapping={
+                  activeFilter.id === "source" ? sourceMapping : undefined
+                }
                 initialSelected={selectedFilters[activeFilter.id] || []}
               />
             </Box>

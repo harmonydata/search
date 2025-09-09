@@ -41,3 +41,4 @@
 - Added UUID detection logic to automatically handle datasets without slugs
 - Fixed static generation issue by adding return_variables_within_parent=false parameter to dataset search API calls
 - Updated generateStaticParams to create pages for both slug and UUID versions of each dataset
+- Fixed UUID detection to recognize hash-based IDs (32 hex characters) in addition to proper UUIDs with dashes

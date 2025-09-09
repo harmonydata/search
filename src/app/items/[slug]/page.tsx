@@ -37,11 +37,18 @@ export async function generateStaticParams() {
   }
 }
 
-// Helper function to check if a string is a UUID
+// Helper function to check if a string is a UUID or hash-based ID
 function isUUID(str: string): boolean {
+  // Check for proper UUID format with dashes
   const uuidRegex =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(str);
+  if (uuidRegex.test(str)) {
+    return true;
+  }
+  
+  // Check for hash-based ID format (32 hex characters)
+  const hashRegex = /^[0-9a-f]{32}$/i;
+  return hashRegex.test(str);
 }
 
 export async function generateMetadata({

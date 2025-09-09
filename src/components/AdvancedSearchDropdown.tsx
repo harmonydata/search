@@ -19,6 +19,8 @@ interface AdvancedSearchDropdownProps {
   onEndpointChange: (useSearch2: boolean) => void;
   hybridWeight: number;
   onHybridWeightChange: (weight: number) => void;
+  maxDistance: number;
+  onMaxDistanceChange: (distance: number) => void;
 }
 
 export default function AdvancedSearchDropdown({
@@ -26,6 +28,8 @@ export default function AdvancedSearchDropdown({
   onEndpointChange,
   hybridWeight,
   onHybridWeightChange,
+  maxDistance,
+  onMaxDistanceChange,
 }: AdvancedSearchDropdownProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -69,6 +73,13 @@ export default function AdvancedSearchDropdown({
     newValue: number | number[]
   ) => {
     onHybridWeightChange(newValue as number);
+  };
+
+  const handleMaxDistanceChange = (
+    event: Event,
+    newValue: number | number[]
+  ) => {
+    onMaxDistanceChange(newValue as number);
   };
 
   return (
@@ -171,6 +182,37 @@ export default function AdvancedSearchDropdown({
                   { value: 0, label: "Keyword" },
                   { value: 0.5, label: "Balanced" },
                   { value: 1, label: "Semantic" },
+                ]}
+              />
+            </Box>
+          </Box>
+
+          {/* Max Distance Slider */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" fontWeight={500} gutterBottom>
+              Max Distance: {maxDistance.toFixed(2)}
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              gutterBottom
+              display="block"
+            >
+              Controls the maximum vector distance for semantic search results
+            </Typography>
+            <Box sx={{ px: 2, mt: 2 }}>
+              <Slider
+                value={maxDistance}
+                onChange={handleMaxDistanceChange}
+                min={0}
+                max={1}
+                step={0.01}
+                valueLabelDisplay="auto"
+                valueLabelFormat={(value) => value.toFixed(2)}
+                marks={[
+                  { value: 0, label: "0" },
+                  { value: 0.4, label: "0.4" },
+                  { value: 1, label: "1" },
                 ]}
               />
             </Box>

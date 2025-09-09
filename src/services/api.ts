@@ -209,7 +209,8 @@ export async function fetchSearchResults(
   hybridWeight?: number,
   topLevelIdsSeen?: string[],
   nextPageOffset?: number,
-  returnVariablesWithinParent?: boolean
+  returnVariablesWithinParent?: boolean,
+  maxVectorDistance?: number
 ): Promise<SearchResponse> {
   // Check if we have any filters
   const hasFilters = filters && Object.keys(filters).length > 0;
@@ -279,6 +280,11 @@ export async function fetchSearchResults(
     // Add return_variables_within_parent parameter if provided
     if (returnVariablesWithinParent !== undefined) {
       requestBody.return_variables_within_parent = returnVariablesWithinParent;
+    }
+
+    // Add max_vector_distance parameter if provided
+    if (maxVectorDistance !== undefined) {
+      requestBody.max_vector_distance = maxVectorDistance;
     }
 
     requestOptions = {
@@ -359,6 +365,11 @@ export async function fetchSearchResults(
       );
     }
 
+    // Add max_vector_distance parameter if provided
+    if (maxVectorDistance !== undefined) {
+      params.set("max_vector_distance", maxVectorDistance.toString());
+    }
+
     url = `${baseUrl}?${params.toString()}`;
     requestOptions = {
       method: "GET",
@@ -414,7 +425,8 @@ export async function fetchSearchResults(
 export async function fetchResultByUuid(
   identifier: string,
   query?: string,
-  alpha?: number
+  alpha?: number,
+  maxVectorDistance?: number
 ): Promise<SearchResult> {
   const params = new URLSearchParams();
 
@@ -440,6 +452,11 @@ export async function fetchResultByUuid(
     params.set("alpha", alpha.toString());
   }
 
+  // Append max_vector_distance parameter if provided
+  if (maxVectorDistance !== undefined) {
+    params.set("max_vector_distance", maxVectorDistance.toString());
+  }
+
   const url = `${API_BASE}/discover/lookup?${params.toString()}`;
   const response = await fetch(url);
 
@@ -458,6 +475,11 @@ export async function fetchResultByUuid(
     // Append alpha parameter if provided
     if (alpha !== undefined) {
       slugParams.set("alpha", alpha.toString());
+    }
+
+    // Append max_vector_distance parameter if provided
+    if (maxVectorDistance !== undefined) {
+      slugParams.set("max_vector_distance", maxVectorDistance.toString());
     }
 
     const slugUrl = `${API_BASE}/discover/lookup?${slugParams.toString()}`;
@@ -570,7 +592,7 @@ export async function fetchVersionInfo(): Promise<VersionInfo> {
 }
 
 export async function fetchKeywordPhrases(): Promise<string[]> {
-  const response = await fetch(`${API_BASE}/discover/get-keyword-phrases`);
+  const response = await fetch(`${API_BASE}/info/get-keyword-search-terms`);
   if (!response.ok) {
     console.error("Failed to fetch keyword phrases:", response.statusText);
     throw new Error("Failed to fetch keyword phrases");

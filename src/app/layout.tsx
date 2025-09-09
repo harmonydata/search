@@ -10,12 +10,13 @@ import "@/app/globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://harmonydata.ac.uk/search/"),
   title: "Academic Resource Discovery",
   description: "Discover academic resources and research data",
   openGraph: {
     title: "Academic Resource Discovery",
     description: "Discover academic resources and research data",
-    url: "https://discoverynext.vercel.app",
+    url: "https://harmonydata.ac.uk/search/",
     siteName: "Academic Resource Discovery",
     images: [
       {

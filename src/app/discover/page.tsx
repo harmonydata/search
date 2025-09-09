@@ -78,6 +78,8 @@ function DiscoverPageContent() {
   const [useSearch2, setUseSearch2] = useState(false);
   const [hybridWeight, setHybridWeight] = useState(0.5);
   const [debouncedHybridWeight, setDebouncedHybridWeight] = useState(0.5);
+  const [maxDistance, setMaxDistance] = useState(0.4);
+  const [debouncedMaxDistance, setDebouncedMaxDistance] = useState(0.4);
 
   // State for tracking search performance
   const [lastSearchTime, setLastSearchTime] = useState<number | null>(null);
@@ -173,6 +175,7 @@ function DiscoverPageContent() {
   const filtersRef = useRef(JSON.stringify(selectedFilters));
   const useSearch2Ref = useRef(useSearch2);
   const hybridWeightRef = useRef(debouncedHybridWeight);
+  const maxDistanceRef = useRef(debouncedMaxDistance);
   const topLevelIdsSeenRef = useRef(topLevelIdsSeen);
   const isResettingPageRef = useRef(false);
 
@@ -201,21 +204,7 @@ function DiscoverPageContent() {
         return 0;
       }
 
-      const words = trimmedQuery.split(/\s+/);
-      const wordCount = words.length;
-
-      // For 1-2 words: weight closer to 0 (more keyword-focused)
-      if (wordCount <= 2) {
-        return 0.1 + (wordCount - 1) * 0.2; // 0.1 for 1 word, 0.3 for 2 words
-      }
-
-      // For 3+ words: gradually increase towards 1 (more semantic-focused)
-      // Cap at reasonable maximum to avoid extreme values
-      const maxWords = 10;
-      const normalizedCount = Math.min(wordCount, maxWords);
-      return (
-        0.01 * (10 + Math.round(((normalizedCount - 2) / (maxWords - 2)) * 80))
-      ); // Range from (10 to 90 )/ 100
+      return 0.5;
     },
     [keywordPhrases]
   );
@@ -227,6 +216,10 @@ function DiscoverPageContent() {
 
   const handleHybridWeightChange = useCallback((newWeight: number) => {
     setHybridWeight(newWeight);
+  }, []);
+
+  const handleMaxDistanceChange = useCallback((newDistance: number) => {
+    setMaxDistance(newDistance);
   }, []);
 
   // Update hybrid weight when search query changes (auto-calculation)
@@ -259,6 +252,17 @@ function DiscoverPageContent() {
       clearTimeout(timerId);
     };
   }, [hybridWeight]);
+
+  // Debounce max distance to prevent firing API calls on every slider movement
+  useEffect(() => {
+    const timerId = setTimeout(() => {
+      setDebouncedMaxDistance(maxDistance);
+    }, 300); // 300ms delay after user stops dragging
+
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [maxDistance]);
 
   // Fetch keyword phrases on first visit
   useEffect(() => {
@@ -468,34 +472,8 @@ function DiscoverPageContent() {
     const displayResult =
       (isVariableResult && hasAncestors && result.ancestors?.[0]) || result;
 
-    // Only fetch additional data if we don't have the required fields
-    const needsLookup =
-      displayResult.dataset_schema?.number_of_variables &&
-      !displayResult.dataset_schema?.variableMeasured?.length &&
-      !displayResult.variables_which_matched?.length;
-
-    if (needsLookup) {
-      const fullyPopulatedResult = await fetchResultByUuid(
-        displayResult.extra_data?.uuid || "",
-        undefined, // no query
-        undefined // no alpha
-      );
-      if (isVariableResult) {
-        const varibleResult = {
-          uuid: result.extra_data?.uuid,
-          name: result.extra_data?.name || "Unnamed Variable",
-          description: result.extra_data?.description,
-          score: result.score || 0,
-        };
-        console.log(
-          "Updating variables which matched:",
-          fullyPopulatedResult,
-          varibleResult
-        );
-        fullyPopulatedResult.variables_which_matched = [varibleResult];
-      }
-      return mapResultToStudyDetail(fullyPopulatedResult);
-    }
+    // Skip immediate lookup - only do lookup when result is actually selected
+    // This prevents instant API calls for every search result
     // Extract data from result
     const title = displayResult.dataset_schema?.name || "Untitled Dataset";
     const description = displayResult.dataset_schema?.description || "";
@@ -967,7 +945,8 @@ function DiscoverPageContent() {
       const fullResult = await fetchResultByUuid(
         selectedResult.extra_data?.uuid || "",
         searchQuery,
-        calculatedAlpha
+        calculatedAlpha,
+        debouncedMaxDistance
       );
       // Preserve the matched variables and child datasets from the original search result
       if (selectedResult.variables_which_matched) {
@@ -1010,7 +989,8 @@ function DiscoverPageContent() {
         const studyResult = await fetchResultByUuid(
           similarUid,
           undefined,
-          undefined
+          undefined,
+          debouncedMaxDistance
         );
         setSimilarStudy(studyResult);
 
@@ -1035,7 +1015,10 @@ function DiscoverPageContent() {
           resultsPerPage,
           useSearch2,
           calculatedAlpha, // Use calculated alpha instead of debouncedHybridWeight
-          undefined // First page, no IDs seen yet
+          undefined, // First page, no IDs seen yet
+          undefined, // nextPageOffset
+          undefined, // returnVariablesWithinParent
+          debouncedMaxDistance // maxVectorDistance
         );
 
         setResults(searchResponse.results || []);
@@ -1058,7 +1041,8 @@ function DiscoverPageContent() {
       debouncedSearchQuery !== searchQueryRef.current ||
       JSON.stringify(selectedFilters) !== filtersRef.current ||
       useSearch2 !== useSearch2Ref.current ||
-      debouncedHybridWeight !== hybridWeightRef.current;
+      debouncedHybridWeight !== hybridWeightRef.current ||
+      debouncedMaxDistance !== maxDistanceRef.current;
 
     // If we're in similar studies mode, use the original description as the query
     const queryToUse = similarUid
@@ -1093,6 +1077,7 @@ function DiscoverPageContent() {
         filtersRef.current = JSON.stringify(selectedFilters);
         useSearch2Ref.current = useSearch2;
         hybridWeightRef.current = debouncedHybridWeight;
+        maxDistanceRef.current = debouncedMaxDistance;
         topLevelIdsSeenRef.current = topLevelIdsSeen;
       });
     }
@@ -1103,6 +1088,7 @@ function DiscoverPageContent() {
     similarStudy,
     useSearch2,
     debouncedHybridWeight,
+    debouncedMaxDistance,
     // Remove currentPage from dependencies - page changes will be handled separately
   ]);
 
@@ -1250,7 +1236,9 @@ function DiscoverPageContent() {
           useSearch2,
           calculatedAlpha, // Use calculated alpha instead of debouncedHybridWeight
           idsToExclude, // Use the determined IDs to exclude
-          pageToUse > 1 ? currentNextPageOffsetRef.current : undefined // Pass next page offset for subsequent pages
+          pageToUse > 1 ? currentNextPageOffsetRef.current : undefined, // Pass next page offset for subsequent pages
+          undefined, // returnVariablesWithinParent
+          debouncedMaxDistance // maxVectorDistance
         ),
         timeoutPromise,
       ]);
@@ -1322,6 +1310,35 @@ function DiscoverPageContent() {
           // If first page already shows we have all results, update totalHits
           if (!hasMore || newResults.length < resultsPerPage) {
             setTotalHits(Math.max(res.num_hits || 0, newResults.length));
+          }
+
+          // Auto-load more pages if we don't have enough results on first page
+          if (newResults.length > 0) {
+            // Define minimum thresholds for first page
+            const minResultsThreshold = Math.min(20, resultsPerPage / 2); // At least 20 results or half the page size
+
+            // If we got fewer than expected results and haven't reached minimum threshold, auto-load next page
+            if (
+              newResults.length < resultsPerPage &&
+              newResults.length < minResultsThreshold
+            ) {
+              console.log(
+                "🔄 Auto-loading next page from first page - insufficient results:",
+                {
+                  gotResults: newResults.length,
+                  requestedResults: resultsPerPage,
+                  minThreshold: minResultsThreshold,
+                  nextPage: 2,
+                }
+              );
+
+              // Auto-trigger next page after a short delay to avoid rapid-fire requests
+              setTimeout(() => {
+                if (!loadingMore && hasMoreResults) {
+                  setCurrentPage(2);
+                }
+              }, 100);
+            }
           }
         } else {
           // Old pagination logic: based on count comparison
@@ -1659,7 +1676,12 @@ function DiscoverPageContent() {
     if (!description) {
       // Fetch full result if description is missing
       try {
-        const fullResult = await fetchResultByUuid(uuid, undefined, undefined);
+        const fullResult = await fetchResultByUuid(
+          uuid,
+          undefined,
+          undefined,
+          debouncedMaxDistance
+        );
         description =
           fullResult.dataset_schema?.description ||
           fullResult.extra_data?.description;
@@ -1720,7 +1742,9 @@ function DiscoverPageContent() {
           : currentPage > 1
           ? currentTopLevelIdsRef.current
           : undefined,
-        currentPage > 1 ? currentNextPageOffsetRef.current : undefined
+        currentPage > 1 ? currentNextPageOffsetRef.current : undefined,
+        undefined, // returnVariablesWithinParent
+        debouncedMaxDistance // maxVectorDistance
       );
       setResults(res.results || []);
       setTotalHits(res.num_hits || 0);
@@ -1877,6 +1901,8 @@ function DiscoverPageContent() {
                   onEndpointChange={handleEndpointChange}
                   hybridWeight={hybridWeight}
                   onHybridWeightChange={handleHybridWeightChange}
+                  maxDistance={maxDistance}
+                  onMaxDistanceChange={handleMaxDistanceChange}
                 />
               </Box>
             </>

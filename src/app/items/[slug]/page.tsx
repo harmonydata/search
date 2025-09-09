@@ -20,18 +20,23 @@ export async function generateStaticParams() {
     for (const study of studiesWithUuids) {
       try {
         // Fetch the full study data to get child datasets
-        const studyData = await fetchResultByUuid(study.uuid);
-        
+        const studyData = await fetchResultByUuid(
+          study.uuid,
+          undefined,
+          undefined,
+          0.4
+        );
+
         // Add study by slug
         if (study.slug) {
           params.push({ slug: study.slug });
         }
-        
+
         // Add study by UUID (will redirect to slug)
         if (study.uuid) {
           params.push({ slug: study.uuid });
         }
-        
+
         // Add child datasets by slug only
         if (studyData.child_datasets) {
           for (const childDataset of studyData.child_datasets) {
@@ -77,7 +82,12 @@ export async function generateMetadata({
 
   try {
     // Always try direct lookup - the API should handle both UUIDs and slugs
-    const fullDatasetResult = await fetchResultByUuid(slug);
+    const fullDatasetResult = await fetchResultByUuid(
+      slug,
+      undefined,
+      undefined,
+      0.4
+    );
 
     const dataset = transformSearchResultToDatasetDetail(fullDatasetResult);
 
@@ -133,8 +143,13 @@ export default async function DatasetPage({
     console.log(`Generating page for dataset: ${slug}`);
 
     // Fetch the data
-    const fullDatasetResult = await fetchResultByUuid(slug);
-    
+    const fullDatasetResult = await fetchResultByUuid(
+      slug,
+      undefined,
+      undefined,
+      0.4
+    );
+
     // Check if this is a study UUID that should redirect to slug
     if (isUUID(slug) && fullDatasetResult.extra_data?.slug) {
       // This is a study UUID, redirect to the slug version
@@ -145,7 +160,13 @@ export default async function DatasetPage({
               __html: `window.location.replace('/items/${fullDatasetResult.extra_data.slug}');`,
             }}
           />
-          <p>Redirecting to <a href={`/items/${fullDatasetResult.extra_data.slug}`}>/items/{fullDatasetResult.extra_data.slug}</a>...</p>
+          <p>
+            Redirecting to{" "}
+            <a href={`/items/${fullDatasetResult.extra_data.slug}`}>
+              /items/{fullDatasetResult.extra_data.slug}
+            </a>
+            ...
+          </p>
         </div>
       );
     }

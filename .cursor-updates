@@ -42,3 +42,5 @@
 - Fixed static generation issue by adding return_variables_within_parent=false parameter to dataset search API calls
 - Updated generateStaticParams to create pages for both slug and UUID versions of each dataset
 - Fixed UUID detection to recognize hash-based IDs (32 hex characters) in addition to proper UUIDs with dashes
+- Optimized static generation to only pre-compile child datasets from studies instead of all datasets
+- Simplified dynamic page rendering to use direct API lookups instead of searching through all studies

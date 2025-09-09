@@ -3,34 +3,45 @@ import DatasetDetail from "@/components/DatasetDetail";
 import { transformSearchResultToDatasetDetail } from "@/lib/utils/datasetTransform";
 import { notFound } from "next/navigation";
 import DatasetPageClient from "./DatasetPageClient";
-import { fetchAllDatasetsWithUuids, fetchResultByUuid } from "@/services/api";
+import { fetchAllStudiesWithUuids, fetchResultByUuid } from "@/services/api";
 import { Metadata } from "next";
 
 // This runs at build time for static export
 export async function generateStaticParams() {
   try {
-    console.log("Fetching all datasets for static generation...");
-
-    // Use the API service to get all datasets with UUIDs
-    const datasetsWithUuids = await fetchAllDatasetsWithUuids();
-
     console.log(
-      `Found ${datasetsWithUuids.length} datasets for static generation`
+      "Fetching studies to find their child datasets for static generation..."
     );
 
-    // Return the params for each dataset - both slug and UUID versions
-    const params = [];
-    for (const dataset of datasetsWithUuids) {
-      // Add slug version if available
-      if (dataset.slug) {
-        params.push({ slug: dataset.slug });
-      }
-      // Add UUID version
-      if (dataset.uuid) {
-        params.push({ slug: dataset.uuid });
+    // Get all studies first
+    const studiesWithUuids = await fetchAllStudiesWithUuids();
+    console.log(`Found ${studiesWithUuids.length} studies`);
+
+    // Collect all child dataset UUIDs from studies
+    const childDatasetUuids = new Set<string>();
+
+    for (const study of studiesWithUuids) {
+      try {
+        // Fetch the full study data to get child datasets
+        const studyData = await fetchResultByUuid(study.uuid);
+        if (studyData.child_datasets) {
+          for (const childDataset of studyData.child_datasets) {
+            if (childDataset.extra_data?.uuid) {
+              childDatasetUuids.add(childDataset.extra_data.uuid);
+            }
+          }
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch study ${study.uuid}:`, error);
       }
     }
-    return params;
+
+    console.log(
+      `Found ${childDatasetUuids.size} child datasets for static generation`
+    );
+
+    // Return the params for each child dataset UUID
+    return Array.from(childDatasetUuids).map((uuid) => ({ slug: uuid }));
   } catch (error) {
     console.error("Failed to generate static params:", error);
     return [];
@@ -45,7 +56,7 @@ function isUUID(str: string): boolean {
   if (uuidRegex.test(str)) {
     return true;
   }
-  
+
   // Check for hash-based ID format (32 hex characters)
   const hashRegex = /^[0-9a-f]{32}$/i;
   return hashRegex.test(str);
@@ -59,27 +70,8 @@ export async function generateMetadata({
   const { slug } = await params;
 
   try {
-    let fullDatasetResult;
-
-    if (isUUID(slug)) {
-      // If it's a UUID, fetch directly
-      fullDatasetResult = await fetchResultByUuid(slug);
-    } else {
-      // If it's a slug, find the dataset and fetch by UUID
-      const datasetsWithUuids = await fetchAllDatasetsWithUuids();
-      const datasetWithUuid = datasetsWithUuids.find(
-        (dataset) => dataset.slug === slug
-      );
-
-      if (!datasetWithUuid) {
-        return {
-          title: "Dataset Not Found",
-          description: "The requested dataset could not be found.",
-        };
-      }
-
-      fullDatasetResult = await fetchResultByUuid(datasetWithUuid.uuid);
-    }
+    // Always try direct lookup - the API should handle both UUIDs and slugs
+    const fullDatasetResult = await fetchResultByUuid(slug);
 
     const dataset = transformSearchResultToDatasetDetail(fullDatasetResult);
 
@@ -134,30 +126,9 @@ export default async function DatasetPage({
   try {
     console.log(`Generating page for dataset: ${slug}`);
 
-    let fullDatasetResult;
-
-    if (isUUID(slug)) {
-      // If it's a UUID, fetch directly
-      console.log(`Fetching dataset by UUID: ${slug}`);
-      fullDatasetResult = await fetchResultByUuid(slug);
-    } else {
-      // If it's a slug, find the dataset and fetch by UUID
-      console.log(`Looking up dataset by slug: ${slug}`);
-      const datasetsWithUuids = await fetchAllDatasetsWithUuids();
-      const datasetWithUuid = datasetsWithUuids.find(
-        (dataset) => dataset.slug === slug
-      );
-
-      if (!datasetWithUuid) {
-        throw new Error(`Dataset with slug "${slug}" not found`);
-      }
-
-      const uuid = datasetWithUuid.uuid;
-      console.log(`Found dataset UUID for ${slug}: ${uuid}`);
-
-      // Use the API service to fetch the full dataset data using the UUID
-      fullDatasetResult = await fetchResultByUuid(uuid);
-    }
+    // Always try direct lookup - the API should handle both UUIDs and slugs
+    console.log(`Fetching dataset by lookup: ${slug}`);
+    const fullDatasetResult = await fetchResultByUuid(slug);
 
     console.log(
       `Found full dataset data for ${slug}:`,

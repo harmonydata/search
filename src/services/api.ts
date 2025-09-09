@@ -722,53 +722,98 @@ export async function fetchAllStudySlugs(): Promise<string[]> {
 export async function fetchAllStudiesWithUuids(): Promise<
   Array<{ slug: string; uuid: string }>
 > {
-  const response = await fetchSearchResults(
-    "*", // Use wildcard to get all results
-    { resource_type: ["study"] }, // Filter for studies only
-    1, // First page
-    1000, // Get a large number of results
-    false // Use new search endpoint
-  );
+  const allStudies: Array<{ slug: string; uuid: string }> = [];
+  let offset = 0;
+  const pageSize = 500;
+  let hasMore = true;
 
-  const studiesWithUuids =
-    response.results
-      ?.map((study) => ({
-        slug: study.extra_data?.slug,
-        uuid: study.extra_data?.uuid,
-      }))
-      .filter((study): study is { slug: string; uuid: string } =>
-        Boolean(study.slug && study.uuid)
-      ) || [];
+  while (hasMore) {
+    try {
+      const response = await fetchSearchResults(
+        "*", // Use wildcard to get all results
+        { resource_type: ["study"] }, // Filter for studies only
+        1, // First page
+        pageSize, // Get 500 results at a time
+        false, // Use new search endpoint
+        undefined, // hybridWeight
+        undefined, // topLevelIdsSeen
+        offset // Use offset for pagination
+      );
 
-  return studiesWithUuids;
+      const studiesWithUuids =
+        response.results
+          ?.map((study) => ({
+            slug: study.extra_data?.slug,
+            uuid: study.extra_data?.uuid,
+          }))
+          .filter((study): study is { slug: string; uuid: string } =>
+            Boolean(study.slug && study.uuid)
+          ) || [];
+
+      allStudies.push(...studiesWithUuids);
+
+      // Check if we got fewer results than requested, meaning we've reached the end
+      hasMore = studiesWithUuids.length === pageSize;
+      offset += pageSize;
+    } catch (error) {
+      console.warn(
+        `Failed to fetch studies at offset ${offset}, stopping pagination:`,
+        error
+      );
+      hasMore = false;
+    }
+  }
+
+  return allStudies;
 }
 
 export async function fetchAllDatasetsWithUuids(): Promise<
   Array<{ slug: string; uuid: string }>
 > {
-  const response = await fetchSearchResults(
-    "*", // Use wildcard to get all results
-    { resource_type: ["dataset"] }, // Filter for datasets only
-    1, // First page
-    1000, // Get a large number of results
-    false, // Use new search endpoint
-    undefined, // hybridWeight
-    undefined, // topLevelIdsSeen
-    undefined, // nextPageOffset
-    false // returnVariablesWithinParent = false to get datasets with slugs
-  );
+  const allDatasets: Array<{ slug: string; uuid: string }> = [];
+  let offset = 0;
+  const pageSize = 500;
+  let hasMore = true;
 
-  const datasetsWithUuids =
-    response.results
-      ?.map((dataset) => ({
-        slug: dataset.extra_data?.slug,
-        uuid: dataset.extra_data?.uuid,
-      }))
-      .filter((dataset): dataset is { slug: string; uuid: string } =>
-        Boolean(dataset.slug && dataset.uuid)
-      ) || [];
+  while (hasMore) {
+    try {
+      const response = await fetchSearchResults(
+        "*", // Use wildcard to get all results
+        { resource_type: ["dataset"] }, // Filter for datasets only
+        1, // First page
+        pageSize, // Get 500 results at a time
+        false, // Use new search endpoint
+        undefined, // hybridWeight
+        undefined, // topLevelIdsSeen
+        offset, // Use offset for pagination
+        false // returnVariablesWithinParent = false to get datasets with slugs
+      );
 
-  return datasetsWithUuids;
+      const datasetsWithUuids =
+        response.results
+          ?.map((dataset) => ({
+            slug: dataset.extra_data?.slug,
+            uuid: dataset.extra_data?.uuid,
+          }))
+          .filter((dataset): dataset is { slug: string; uuid: string } =>
+            Boolean(dataset.slug && dataset.uuid)
+          ) || [];
+
+      allDatasets.push(...datasetsWithUuids);
+
+      // Check if we got fewer results than requested, meaning we've reached the end
+      hasMore = datasetsWithUuids.length === pageSize;
+      offset += pageSize;
+    } catch (error) {
+      console.warn(
+        `Failed to fetch datasets at offset ${offset}, stopping pagination:`,
+        error
+      );
+      hasMore = false;
+    }
+  }
+
+  return allDatasets;
 }
 
 // Types for the cleanup API

@@ -9,25 +9,34 @@ import { Metadata } from "next";
 // This runs at build time for static export
 export async function generateStaticParams() {
   try {
-    console.log(
-      "Fetching studies to find their child datasets for static generation..."
-    );
+    console.log("Fetching studies for static generation...");
 
     // Get all studies first
     const studiesWithUuids = await fetchAllStudiesWithUuids();
     console.log(`Found ${studiesWithUuids.length} studies`);
 
-    // Collect all child dataset UUIDs from studies
-    const childDatasetUuids = new Set<string>();
+    const params = [];
 
     for (const study of studiesWithUuids) {
       try {
         // Fetch the full study data to get child datasets
         const studyData = await fetchResultByUuid(study.uuid);
+        
+        // Add study by slug
+        if (study.slug) {
+          params.push({ slug: study.slug });
+        }
+        
+        // Add study by UUID (will redirect to slug)
+        if (study.uuid) {
+          params.push({ slug: study.uuid });
+        }
+        
+        // Add child datasets by slug only
         if (studyData.child_datasets) {
           for (const childDataset of studyData.child_datasets) {
-            if (childDataset.extra_data?.uuid) {
-              childDatasetUuids.add(childDataset.extra_data.uuid);
+            if (childDataset.extra_data?.slug) {
+              params.push({ slug: childDataset.extra_data.slug });
             }
           }
         }
@@ -36,12 +45,9 @@ export async function generateStaticParams() {
       }
     }
 
-    console.log(
-      `Found ${childDatasetUuids.size} child datasets for static generation`
-    );
+    console.log(`Generated ${params.length} static pages`);
 
-    // Return the params for each child dataset UUID
-    return Array.from(childDatasetUuids).map((uuid) => ({ slug: uuid }));
+    return params;
   } catch (error) {
     console.error("Failed to generate static params:", error);
     return [];
@@ -126,16 +132,31 @@ export default async function DatasetPage({
   try {
     console.log(`Generating page for dataset: ${slug}`);
 
-    // Always try direct lookup - the API should handle both UUIDs and slugs
-    console.log(`Fetching dataset by lookup: ${slug}`);
+    // Fetch the data
     const fullDatasetResult = await fetchResultByUuid(slug);
+    
+    // Check if this is a study UUID that should redirect to slug
+    if (isUUID(slug) && fullDatasetResult.extra_data?.slug) {
+      // This is a study UUID, redirect to the slug version
+      return (
+        <div>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `window.location.replace('/items/${fullDatasetResult.extra_data.slug}');`,
+            }}
+          />
+          <p>Redirecting to <a href={`/items/${fullDatasetResult.extra_data.slug}`}>/items/{fullDatasetResult.extra_data.slug}</a>...</p>
+        </div>
+      );
+    }
 
     console.log(
       `Found full dataset data for ${slug}:`,
       fullDatasetResult.dataset_schema?.name
     );
 
-    const dataset = transformSearchResultToDatasetDetail(fullDatasetResult);
+    // Transform the data for StudyDetail component
+    const studyData = transformSearchResultToDatasetDetail(fullDatasetResult);
 
     // Prepare JSON-LD structured data
     const structuredData = {
@@ -152,7 +173,7 @@ export default async function DatasetPage({
             __html: JSON.stringify(structuredData),
           }}
         />
-        <DatasetPageClient dataset={dataset} />
+        <DatasetPageClient dataset={studyData} />
       </>
     );
   } catch (error) {

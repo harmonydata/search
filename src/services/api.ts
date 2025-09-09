@@ -412,12 +412,23 @@ export async function fetchSearchResults(
 }
 
 export async function fetchResultByUuid(
-  uuid: string,
+  identifier: string,
   query?: string,
   alpha?: number
 ): Promise<SearchResult> {
   const params = new URLSearchParams();
-  params.set("uuid", uuid);
+
+  // Check if identifier is a UUID (with dashes) or hash-based ID (32 hex chars)
+  const isUUID =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      identifier
+    ) || /^[0-9a-f]{32}$/i.test(identifier);
+
+  if (isUUID) {
+    params.set("uuid", identifier);
+  } else {
+    params.set("slug", identifier);
+  }
 
   // Append query parameter if provided
   if (query && query.trim()) {
@@ -431,6 +442,39 @@ export async function fetchResultByUuid(
 
   const url = `${API_BASE}/discover/lookup?${params.toString()}`;
   const response = await fetch(url);
+
+  // If UUID lookup failed with 404, try as slug
+  if (!response.ok && isUUID && response.status === 404) {
+    console.log(`UUID lookup failed for ${identifier}, trying as slug...`);
+
+    const slugParams = new URLSearchParams();
+    slugParams.set("slug", identifier);
+
+    // Append query parameter if provided
+    if (query && query.trim()) {
+      slugParams.set("query", query.trim());
+    }
+
+    // Append alpha parameter if provided
+    if (alpha !== undefined) {
+      slugParams.set("alpha", alpha.toString());
+    }
+
+    const slugUrl = `${API_BASE}/discover/lookup?${slugParams.toString()}`;
+    const slugResponse = await fetch(slugUrl);
+
+    if (slugResponse.ok) {
+      const slugData = await slugResponse.json();
+
+      // Store the response in window for debugging
+      if (typeof window !== "undefined") {
+        // @ts-ignore - Adding debug property to window
+        window.__lastLookupResponse = slugData;
+      }
+
+      return slugData.results[0];
+    }
+  }
 
   if (!response.ok) {
     console.error("Failed to fetch result by UUID:", response.statusText);

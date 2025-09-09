@@ -44,3 +44,6 @@
 - Fixed UUID detection to recognize hash-based IDs (32 hex characters) in addition to proper UUIDs with dashes
 - Optimized static generation to only pre-compile child datasets from studies instead of all datasets
 - Simplified dynamic page rendering to use direct API lookups instead of searching through all studies
+- Enhanced fetchResultByUuid to support both UUID and slug lookups with automatic fallback
+- Simplified static generation to build studies by both slug and UUID (with UUID redirects to slug)
+- Updated child dataset pages to use StudyDetail component with proper data transformation

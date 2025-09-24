@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   DataGrid,
   GridColDef,
@@ -93,6 +93,7 @@ function MatchedVariablesDataGrid({
 
   const [isApiReady, setIsApiReady] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
+  const [selectedCount, setSelectedCount] = useState(0);
   console.log("variables passed:", variables);
 
   useEffect(() => {
@@ -156,7 +157,7 @@ function MatchedVariablesDataGrid({
   }, [apiRef]);
 
   // Check for selection
-  const checkSelection = () => {
+  const checkSelection = useCallback(() => {
     const api = apiRef.current;
     if (!api || !isApiReady) return;
 
@@ -166,38 +167,44 @@ function MatchedVariablesDataGrid({
         selectedRows &&
         typeof selectedRows.size === "number" &&
         selectedRows.size > 0;
+      const count =
+        selectedRows && typeof selectedRows.size === "number"
+          ? selectedRows.size
+          : 0;
       setHasSelection(hasSelection);
+      setSelectedCount(count);
     } catch (e) {
       setHasSelection(false);
+      setSelectedCount(0);
     }
-  };
+  }, [isApiReady]);
 
   // Get number of selected items
   const getSelectedCount = () => {
-    const api = apiRef.current;
-    if (!api || !isApiReady) return 0;
-
-    try {
-      const selectedRows = api.getSelectedRows();
-      return selectedRows && typeof selectedRows.size === "number"
-        ? selectedRows.size
-        : 0;
-    } catch (e) {
-      return 0;
-    }
+    return selectedCount;
   };
 
-  // Listen for selection changes
+  // Listen for selection changes using DataGrid events instead of polling
   useEffect(() => {
-    if (!isApiReady) return;
+    if (!isApiReady || !apiRef.current) return;
 
-    // Check selection periodically
-    const interval = setInterval(() => {
+    const api = apiRef.current;
+
+    // Use DataGrid's built-in selection change event
+    const handleSelectionChange = () => {
       checkSelection();
-    }, 500);
+    };
+
+    // Subscribe to selection changes
+    api.subscribeEvent("selectionChange", handleSelectionChange);
 
     return () => {
-      clearInterval(interval);
+      // Cleanup subscription
+      try {
+        api.unsubscribeEvent("selectionChange", handleSelectionChange);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
     };
   }, [isApiReady]);
 
@@ -308,7 +315,7 @@ function MatchedVariablesDataGrid({
     handleDownloadClose();
   };
 
-  const makeHarmonyExportButton = () => {
+  const makeHarmonyExportButton = useCallback(() => {
     const api = apiRef.current;
     if (!api || !harmonyExportRef.current || !isApiReady) return;
 
@@ -335,7 +342,7 @@ function MatchedVariablesDataGrid({
     harmonyLink.questions = questions;
     harmonyExportRef.current.innerHTML = "";
     harmonyExportRef.current.appendChild(harmonyLink);
-  };
+  }, [isApiReady, studyName]);
 
   // Update harmony export when selection changes
   useEffect(() => {
@@ -348,7 +355,7 @@ function MatchedVariablesDataGrid({
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [isApiReady, hasSelection]);
+  }, [isApiReady, hasSelection, selectedCount]);
 
   return (
     <>

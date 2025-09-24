@@ -160,7 +160,7 @@ export default function CompactResultCard({
       : description;
 
   // Determine if result has image
-  let imageUrl = null;
+  let imageUrl: string | null = null;
   const [imageError, setImageError] = useState(false);
 
   // Use the image directly from the result object if it exists

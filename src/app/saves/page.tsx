@@ -580,12 +580,12 @@ export default function SavesPage() {
                         result={searchResult}
                         onClick={() => {
                           // Navigate to the resource
-                          const url = `/${
+                          const url = `${getAssetPrefix()}${
                             resource.resourceType === "study"
                               ? "studies"
                               : "items"
                           }/${resource.slug || resource.uuid}`;
-                          window.open(url, "_blank");
+                          window.location.href = url;
                         }}
                       />
                       {/* Delete button overlay */}
@@ -689,9 +689,8 @@ export default function SavesPage() {
                             p: 2,
                           }}
                           onClick={() => {
-                            window.open(
-                              getHarmonizationUrl(harmonization.id),
-                              "_blank"
+                            window.location.href = getHarmonizationUrl(
+                              harmonization.id
                             );
                           }}
                         >
@@ -829,9 +828,8 @@ export default function SavesPage() {
                             p: 2,
                           }}
                           onClick={() => {
-                            window.open(
-                              getHarmonizationUrl(harmonization.id),
-                              "_blank"
+                            window.location.href = getHarmonizationUrl(
+                              harmonization.id
                             );
                           }}
                         >

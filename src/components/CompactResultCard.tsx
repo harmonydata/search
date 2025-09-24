@@ -1,6 +1,12 @@
 "use client";
 
-import { Box, CardContent, Typography, IconButton } from "@mui/material";
+import {
+  Box,
+  CardContent,
+  Typography,
+  IconButton,
+  Tooltip,
+} from "@mui/material";
 import { SearchResult } from "@/services/api";
 import Image from "next/image";
 import {
@@ -10,11 +16,15 @@ import {
   Book,
   ExternalLink,
   Bug,
+  Bookmark,
 } from "lucide-react";
 import { useState } from "react";
 import SquareChip from "@/components/SquareChip";
 import JsonTreeDialog from "@/components/JsonTreeDialog";
 import { getAssetPrefix } from "@/lib/utils/shared";
+import { useAuth } from "@/contexts/AuthContext";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore/lite";
+import { db } from "../../firebase";
 
 interface CompactResultCardProps {
   result: SearchResult;
@@ -40,6 +50,47 @@ export default function CompactResultCard({
 
   // State for debug dialog
   const [debugDialogOpen, setDebugDialogOpen] = useState(false);
+
+  // Auth context for bookmark functionality
+  const { currentUser } = useAuth();
+
+  // State for bookmark functionality
+  const [savingBookmark, setSavingBookmark] = useState(false);
+  const [bookmarkSuccess, setBookmarkSuccess] = useState(false);
+
+  // Function to save resource as bookmark
+  const saveBookmark = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the card click
+
+    if (!currentUser || savingBookmark) return;
+
+    setSavingBookmark(true);
+    setBookmarkSuccess(false);
+
+    try {
+      const resourceData = {
+        uuid: result.extra_data?.uuid,
+        title: title,
+        description: description,
+        resourceType: resourceType,
+        image: imageUrl,
+        publisher: displayResult.dataset_schema?.publisher?.[0]?.name,
+        keywords: keywords,
+        uid: currentUser.uid,
+        created: serverTimestamp(),
+      };
+
+      await addDoc(collection(db, "saved_resources"), resourceData);
+      setBookmarkSuccess(true);
+
+      // Reset success state after 2 seconds
+      setTimeout(() => setBookmarkSuccess(false), 2000);
+    } catch (error) {
+      console.error("Error saving bookmark:", error);
+    } finally {
+      setSavingBookmark(false);
+    }
+  };
 
   let result = searchresult;
   let displayResult = searchresult;
@@ -291,6 +342,27 @@ export default function CompactResultCard({
           >
             {title}
           </Typography>
+
+          {/* Bookmark button - only visible when user is logged in */}
+          {currentUser && (
+            <Tooltip title={bookmarkSuccess ? "Saved!" : "Save to bookmarks"}>
+              <IconButton
+                size="small"
+                onClick={saveBookmark}
+                disabled={savingBookmark}
+                sx={{
+                  opacity: 0.6,
+                  "&:hover": { opacity: 1 },
+                  color: bookmarkSuccess ? "success.main" : "text.secondary",
+                }}
+              >
+                <Bookmark
+                  size={16}
+                  fill={bookmarkSuccess ? "currentColor" : "none"}
+                />
+              </IconButton>
+            </Tooltip>
+          )}
 
           {/* Debug button - only visible in development */}
           {(true || process.env.NODE_ENV !== "production") && (

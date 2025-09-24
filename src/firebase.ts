@@ -1,10 +1,9 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore } from "firebase/firestore/lite";
 
-export const apiKey = "AIzaSyBQVkRjbTQD6BXCdo2JeiFfwyvGVT7bOXM";
 const app = initializeApp({
-  apiKey: apiKey,
+  apiKey: "AIzaSyBQVkRjbTQD6BXCdo2JeiFfwyvGVT7bOXM",
   authDomain: "harmony-6bd51.firebaseapp.com",
   projectId: "harmony-6bd51",
   storageBucket: "harmony-6bd51.appspot.com",
@@ -15,5 +14,3 @@ const app = initializeApp({
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-
-export default app;

@@ -79,6 +79,7 @@ export interface SearchResult {
     genetic_data_collected?: boolean;
     num_variables?: number;
     number_of_variables?: number;
+    ai_summary?: string;
   };
   distance?: number;
   cosine_similarity?: number;

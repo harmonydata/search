@@ -8,7 +8,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import Image from "next/image";
-import { ChevronDown, ChevronUp, Bug } from "lucide-react";
+import { ChevronDown, ChevronUp, Bug, Bookmark } from "lucide-react";
 import { useState, memo, useMemo, useEffect } from "react";
 import SquareChip from "@/components/SquareChip";
 import DataCatalogCard from "@/components/DataCatalogCard";
@@ -18,17 +18,26 @@ import LinkPreviewCard from "@/components/LinkPreviewCard";
 import MatchedVariablesDataGrid from "@/components/MatchedVariablesDataGrid";
 import StudyDetailDebugDialog from "@/components/StudyDetailDebugDialog";
 import ChildDatasetsDataGrid from "@/components/ChildDatasetsDataGrid";
+import { useAuth } from "@/contexts/AuthContext";
 import {
-  cleanupText,
-  cleanupTextFromKnowledge,
-  CleanupType,
-} from "@/services/api";
+  collection,
+  addDoc,
+  serverTimestamp,
+  query,
+  where,
+  getDocs,
+  deleteDoc,
+  doc,
+} from "firebase/firestore/lite";
+import { db } from "../firebase";
 
 interface StudyDetailProps {
   study: {
     title: string;
     description: string;
     image?: string;
+    uuid?: string;
+    slug?: string;
     dataOwner?: {
       name: string;
       logo: string;
@@ -49,8 +58,8 @@ interface StudyDetailProps {
     ageCoverage?: string;
     studyDesign?: string[];
     resourceType?: string;
-    topics: string[];
-    instruments: string[];
+    topics?: string[];
+    instruments?: string[];
     dataCatalogs?: Array<{
       name: string;
       url?: string;
@@ -68,6 +77,7 @@ interface StudyDetailProps {
     }>;
     additionalLinks?: string[];
     child_datasets?: Array<any>;
+    aiSummary?: string | null;
   };
   isDrawerView?: boolean;
   isStudyPage?: boolean;
@@ -80,6 +90,8 @@ interface StudyDetailProps {
   };
   // Original search result containing dataset_schema
   originalSearchResult?: any;
+  // Loading state for enhanced data
+  isLoadingEnhancedData?: boolean;
 }
 
 const StudyDetailComponent = ({
@@ -89,103 +101,120 @@ const StudyDetailComponent = ({
   onInstrumentClick,
   debugData,
   originalSearchResult,
+  isLoadingEnhancedData = false,
 }: StudyDetailProps) => {
   const [variablesExpanded, setVariablesExpanded] = useState(false);
-  const [aiSummaryExpanded, setAiSummaryExpanded] = useState(false);
   const [additionalLinksExpanded, setAdditionalLinksExpanded] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [showAiSummary, setShowAiSummary] = useState(true);
+  const [isSaved, setIsSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedResourceId, setSavedResourceId] = useState<string | null>(null);
 
-  // AI Summary state
-  const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
-  const [aiSummaryError, setAiSummaryError] = useState<string | null>(null);
+  const { currentUser } = useAuth();
 
-  // Reset image error when study image changes
+  // Determine if we have AI summary available and what description to show
+  const hasAiSummary = study.aiSummary && study.aiSummary.trim().length > 0;
+  const currentDescription =
+    showAiSummary && hasAiSummary ? study.aiSummary : study.description;
+
+  // Reset image error when study changes or study image changes
   useEffect(() => {
     setImageError(false);
-  }, [study.image]);
+  }, [study.title, study.image]);
 
   // Reset description expanded state when study changes
   useEffect(() => {
     setDescriptionExpanded(false);
   }, [study.title]);
 
-  // Reset AI summary state when study changes
+  // Check if resource is already saved
   useEffect(() => {
-    setAiSummaryExpanded(false);
-    setAiSummary(null);
-    setAiSummaryError(null);
-  }, [study.title]);
+    const checkIfSaved = async () => {
+      if (!currentUser || !study.uuid) return;
 
-  // Generate AI summary when section is expanded
-  const generateAiSummary = async () => {
-    if (aiSummary || aiSummaryLoading) return;
+      try {
+        const q = query(
+          collection(db, "saved_resources"),
+          where("uid", "==", currentUser.uid),
+          where("uuid", "==", study.uuid)
+        );
+        const querySnapshot = await getDocs(q);
 
-    setAiSummaryLoading(true);
-    setAiSummaryError(null);
-
-    try {
-      // First try knowledge-based approach
-      let result = await cleanupTextFromKnowledge(study.title);
-
-      // Check if the response is empty (AI doesn't know the study)
-      let summaryText = "";
-      if (Array.isArray(result.result)) {
-        summaryText = result.result
-          .map((item: any) => item.question_text || item)
-          .join("\n\n");
-      } else {
-        summaryText = result.result || "";
-      }
-
-      // If knowledge-based approach returned empty, try schema-based approach
-      if (!summaryText.trim()) {
-        const datasetSchema =
-          originalSearchResult?.dataset_schema ||
-          debugData?.lookupData?.dataset_schema;
-
-        if (!datasetSchema) {
-          throw new Error("No dataset schema available for AI summary");
+        if (!querySnapshot.empty) {
+          const doc = querySnapshot.docs[0];
+          setIsSaved(true);
+          setSavedResourceId(doc.id);
+        } else {
+          setIsSaved(false);
+          setSavedResourceId(null);
         }
+      } catch (error) {
+        console.error("Error checking if resource is saved:", error);
+      }
+    };
 
-        // Create a filtered version without the large variableMeasured array
-        const filteredSchema = {
-          ...datasetSchema,
-          variableMeasured: undefined, // Remove the large variables array
-          // Keep a count of variables instead
-          variableCount: datasetSchema.variableMeasured?.length || 0,
+    checkIfSaved();
+  }, [currentUser, study.uuid]);
+
+  // Save/unsave resource
+  const toggleSave = async () => {
+    if (!currentUser || !study.uuid || saving) return;
+
+    setSaving(true);
+    try {
+      if (isSaved && savedResourceId) {
+        // Unsave
+        await deleteDoc(doc(db, "saved_resources", savedResourceId));
+        setIsSaved(false);
+        setSavedResourceId(null);
+      } else {
+        // Save
+        const resourceData = {
+          title: study.title,
+          description: study.aiSummary || study.description,
+          image: study.image || null,
+          uuid: study.uuid,
+          slug: study.slug || null,
+          resourceType: study.resourceType || null,
+          // Data for CompactResultCard display - use merged data from lookup
+          keywords: (study as any).topics || [],
+          variablesCount:
+            (study as any).allVariables?.length ||
+            (study as any).dataset_schema?.number_of_variables ||
+            (study as any).dataset_schema?.variableMeasured?.length ||
+            0,
+          datasetsCount: (study as any).child_datasets?.length || 0,
+          hasDataAvailable: !!(study as any).dataset_schema
+            ?.includedInDataCatalog?.length,
+          hasFreeAccess: (study as any).hasFreeAccess || false,
+          hasCohortsAvailable: (study as any).hasCohortsAvailable || false,
+          // User and metadata
+          uid: currentUser.uid,
+          created: serverTimestamp(),
         };
 
-        // Use schema-based approach
-        result = await cleanupText(filteredSchema, "summarise_text");
+        console.log("Saving resource:", resourceData);
 
-        // Handle the schema response format
-        if (Array.isArray(result.result)) {
-          summaryText = result.result
-            .map((item: any) => item.question_text || item)
-            .join("\n\n");
-        } else {
-          summaryText = result.result || "";
-        }
+        const docRef = await addDoc(
+          collection(db, "saved_resources"),
+          resourceData
+        );
+        setIsSaved(true);
+        setSavedResourceId(docRef.id);
       }
-
-      setAiSummary(summaryText);
     } catch (error) {
-      setAiSummaryError(
-        error instanceof Error ? error.message : "Failed to generate AI summary"
-      );
+      console.error("Error saving/unsaving resource:", error);
     } finally {
-      setAiSummaryLoading(false);
+      setSaving(false);
     }
   };
 
-  // Generate AI summary when section is expanded
+  // Reset AI summary toggle when study changes - default to AI summary if available
   useEffect(() => {
-    if (aiSummaryExpanded) {
-      generateAiSummary();
-    }
-  }, [aiSummaryExpanded]);
+    setShowAiSummary(!!hasAiSummary);
+  }, [study.title, hasAiSummary]);
 
   // State for debug dialog
   const [debugDialogOpen, setDebugDialogOpen] = useState(false);
@@ -212,7 +241,7 @@ const StudyDetailComponent = ({
   };
 
   // Filter out malformed keywords/topics that contain HTML fragments
-  const filteredTopics = study.topics.filter(
+  const filteredTopics = (study.topics || []).filter(
     (topic: any) =>
       typeof topic === "string" &&
       !topic.includes("<a title=") &&
@@ -235,23 +264,27 @@ const StudyDetailComponent = ({
 
   // Check if there are any items to show
   const hasTopics = filteredTopics.length > 0;
-  const hasInstruments = study.instruments && study.instruments.length > 0;
+  const hasInstruments = (study.instruments || []).length > 0;
   const hasVariables =
-    (study.matchedVariables && study.matchedVariables.length > 0) ||
-    (study.allVariables && study.allVariables.length > 0);
-  const hasAdditionalLinks =
-    study.additionalLinks && study.additionalLinks.length > 0;
+    (study.matchedVariables || []).length > 0 ||
+    (study.allVariables || []).length > 0;
+  const hasAdditionalLinks = (study.additionalLinks || []).length > 0;
 
   // Debug log for instruments
   console.log("StudyDetail instruments debug:", {
-    instruments: study.instruments,
+    instruments: study.instruments || [],
     hasInstruments,
-    instrumentsLength: study.instruments?.length,
+    instrumentsLength: (study.instruments || []).length,
   });
 
   // Prepare deduped list of all variables for the DataGrid
   const allStudyVariables = useMemo(() => {
-    console.log("study var deduping :", study.matchedVariables, study);
+    console.log("study var deduping :", {
+      matchedVariables: study.matchedVariables,
+      allVariables: study.allVariables,
+      matchedLength: study.matchedVariables?.length,
+      allLength: study.allVariables?.length,
+    });
     const matched = study.matchedVariables || [];
     const allVars = study.allVariables || [];
     // Use uuid if present, else name as key
@@ -280,8 +313,41 @@ const StudyDetailComponent = ({
         flex: 1,
         display: "flex",
         flexDirection: "column",
+        position: "relative", // For absolute positioning of loading indicator
       }}
     >
+      {/* Loading indicator for enhanced data - absolutely positioned */}
+      {isLoadingEnhancedData && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            zIndex: 10,
+            display: "flex",
+            alignItems: "center",
+            gap: 0.5,
+            p: 0.5,
+            bgcolor: "background.paper",
+            borderRadius: 1,
+            boxShadow: 1,
+            border: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          <CircularProgress size={12} />
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              fontSize: { xs: "0.6rem", sm: "0.7rem" },
+            }}
+          >
+            Loading...
+          </Typography>
+        </Box>
+      )}
+
       {/* Debug button for drawer mode - only visible in development */}
       {isDrawerView && (true || process.env.NODE_ENV !== "production") && (
         <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
@@ -323,6 +389,30 @@ const StudyDetailComponent = ({
                 {study.title}
               </Typography>
 
+              {/* Save button - only visible when user is logged in AND enhanced data is loaded */}
+              {currentUser && !isLoadingEnhancedData && (
+                <IconButton
+                  onClick={toggleSave}
+                  disabled={saving}
+                  sx={{
+                    color: isSaved ? "primary.main" : "text.secondary",
+                    "&:hover": {
+                      color: isSaved ? "primary.dark" : "primary.main",
+                    },
+                  }}
+                  title={isSaved ? "Remove from saved" : "Save to my resources"}
+                >
+                  {saving ? (
+                    <CircularProgress size={20} />
+                  ) : (
+                    <Bookmark
+                      size={20}
+                      fill={isSaved ? "currentColor" : "none"}
+                    />
+                  )}
+                </IconButton>
+              )}
+
               {/* Debug button - only visible in development */}
               {(true || process.env.NODE_ENV !== "production") && (
                 <IconButton
@@ -354,6 +444,7 @@ const StudyDetailComponent = ({
               }}
             >
               <Image
+                key={study.title} // Force re-render when study changes
                 src={study.image}
                 alt={study.title}
                 fill
@@ -366,11 +457,63 @@ const StudyDetailComponent = ({
         </Box>
       )}
 
-      {study.description && (
+      {currentDescription && (
         <Box sx={{ mb: 4 }}>
+          {/* Toggle between AI Summary and Original Description */}
+          {hasAiSummary && (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                mb: 2,
+                p: 1,
+                bgcolor: "rgba(0, 0, 0, 0.02)",
+                borderRadius: 1,
+              }}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                Description:
+              </Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: !showAiSummary ? "primary.main" : "text.secondary",
+                    fontWeight: !showAiSummary ? 600 : 400,
+                    cursor: "pointer",
+                  }}
+                  onClick={() => setShowAiSummary(false)}
+                >
+                  Original
+                </Typography>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  |
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: showAiSummary ? "primary.main" : "text.secondary",
+                    fontWeight: showAiSummary ? 600 : 400,
+                    cursor: "pointer",
+                  }}
+                  onClick={() => setShowAiSummary(true)}
+                >
+                  AI Summary
+                </Typography>
+              </Box>
+            </Box>
+          )}
+
           {descriptionExpanded ? (
             <TextWithLinkPreviews
-              text={study.description}
+              text={currentDescription}
               paragraphProps={{
                 variant: "body1",
                 sx: { mb: 2 },
@@ -389,10 +532,10 @@ const StudyDetailComponent = ({
                 mb: 2,
               }}
             >
-              {study.description}
+              {currentDescription}
             </Typography>
           )}
-          {study.description.length > 300 && (
+          {currentDescription.length > 300 && (
             <Box
               onClick={() => setDescriptionExpanded(!descriptionExpanded)}
               sx={{
@@ -442,7 +585,11 @@ const StudyDetailComponent = ({
             sx={{ justifyContent: "space-between", py: 2, height: "auto" }}
             onClick={() => setVariablesExpanded(!variablesExpanded)}
           >
-            Related Variables found within study
+            {study.matchedVariables?.length === 0
+              ? `Variables (${study.allVariables?.length || 0})`
+              : `Related Variables (${study.matchedVariables?.length || 0} / ${
+                  study.allVariables?.length || 0
+                })`}
           </SquareChip>
           <Collapse in={variablesExpanded}>
             <Box
@@ -614,7 +761,7 @@ const StudyDetailComponent = ({
       </Box>
 
       {/* Funders section - only shown if funders exist */}
-      {study.funders && study.funders.length > 0 && (
+      {(study.funders || []).length > 0 && (
         <Box sx={{ mb: 4, flexShrink: 0 }}>
           <Typography variant="subtitle2" gutterBottom>
             Funders:
@@ -634,7 +781,7 @@ const StudyDetailComponent = ({
               },
             }}
           >
-            {study.funders.map((funder, index) => (
+            {(study.funders || []).map((funder, index) => (
               <OrganizationCard
                 key={`${funder.name}-${index}`}
                 name={funder.name}
@@ -647,7 +794,7 @@ const StudyDetailComponent = ({
       )}
 
       {/* Data Catalogs section - only shown if catalogs exist */}
-      {study.dataCatalogs && study.dataCatalogs.length > 0 && (
+      {(study.dataCatalogs || []).length > 0 && (
         <Box sx={{ mb: 4, flexShrink: 0 }}>
           <Typography variant="subtitle2" gutterBottom>
             Available in Data Catalogs:
@@ -667,7 +814,7 @@ const StudyDetailComponent = ({
               },
             }}
           >
-            {study.dataCatalogs.map((catalog, index) => (
+            {(study.dataCatalogs || []).map((catalog, index) => (
               <DataCatalogCard
                 key={`${catalog.name}-${index}`}
                 name={catalog.name}
@@ -785,11 +932,11 @@ const StudyDetailComponent = ({
             }}
             onClick={() => setInstrumentsExpanded((prev) => !prev)}
           >
-            Instruments ({study.instruments.length})
+            Instruments ({(study.instruments || []).length})
           </SquareChip>
           <Collapse in={instrumentsExpanded}>
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1 }}>
-              {study.instruments.map((instrument, idx) => (
+              {(study.instruments || []).map((instrument, idx) => (
                 <SquareChip
                   onClick={(e) => {
                     e.stopPropagation();
@@ -809,7 +956,7 @@ const StudyDetailComponent = ({
 
       {/* Child Datasets section - only if present */}
       {Array.isArray(study.child_datasets) &&
-        study.child_datasets.length > 0 && (
+        (study.child_datasets || []).length > 0 && (
           <Box sx={{ mb: 4 }}>
             <SquareChip
               fullWidth
@@ -830,7 +977,7 @@ const StudyDetailComponent = ({
               sx={{ justifyContent: "space-between", py: 2, height: "auto" }}
               onClick={() => toggleSection("childDatasets")}
             >
-              Related Datasets ({study.child_datasets.length})
+              Related Datasets ({(study.child_datasets || []).length})
             </SquareChip>
             <Collapse in={expandedSections.childDatasets}>
               <Box
@@ -846,81 +993,6 @@ const StudyDetailComponent = ({
             </Collapse>
           </Box>
         )}
-
-      {/* Only show AI Summary for studies */}
-      {study.resourceType === "study" && (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <SquareChip
-            fullWidth
-            chipVariant="secondary"
-            endIcon={
-              aiSummaryExpanded ? (
-                <ChevronUp
-                  size={16}
-                  style={{ fill: "#004735", stroke: "none" }}
-                />
-              ) : (
-                <ChevronDown
-                  size={16}
-                  style={{ fill: "#004735", stroke: "none" }}
-                />
-              )
-            }
-            sx={{ justifyContent: "space-between", py: 2, height: "auto" }}
-            onClick={() => setAiSummaryExpanded(!aiSummaryExpanded)}
-          >
-            AI Summary
-          </SquareChip>
-          <Collapse in={aiSummaryExpanded}>
-            <Box
-              sx={{
-                p: 2,
-                bgcolor: "rgba(0, 0, 0, 0.02)",
-                borderRadius: 2,
-                mb: 2,
-              }}
-            >
-              {aiSummaryLoading && (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <CircularProgress size={20} />
-                  <Typography>Generating AI summary...</Typography>
-                </Box>
-              )}
-
-              {aiSummaryError && (
-                <Typography color="error">Error: {aiSummaryError}</Typography>
-              )}
-
-              {aiSummary && !aiSummaryLoading && (
-                <Box sx={{ "& p": { marginBottom: 2 } }}>
-                  {aiSummary.split("\n\n").map((paragraph, index) => (
-                    <Typography
-                      key={index}
-                      variant="body1"
-                      sx={{
-                        whiteSpace: "pre-wrap",
-                        marginBottom: 2,
-                        "&:last-child": { marginBottom: 0 },
-                        "& strong": { fontWeight: "bold" },
-                      }}
-                      dangerouslySetInnerHTML={{
-                        __html: paragraph.replace(
-                          /\*\*(.*?)\*\*/g,
-                          "<strong>$1</strong>"
-                        ),
-                      }}
-                    />
-                  ))}
-                </Box>
-              )}
-
-              {!aiSummary && !aiSummaryLoading && !aiSummaryError && (
-                <Typography>AI summary not available yet.</Typography>
-              )}
-            </Box>
-          </Collapse>
-        </Box>
-      )}
 
       {/* Debug Dialog */}
       <StudyDetailDebugDialog

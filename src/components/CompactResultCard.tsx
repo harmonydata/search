@@ -84,11 +84,18 @@ export default function CompactResultCard({
       !keyword.startsWith("<")
   );
 
-  // Get the variables count from dataset_schema
-  const variablesCount = result.dataset_schema?.number_of_variables || 0;
+  // Get the variables count from dataset_schema - use either number_of_variables prop or length of variableMeasured array
+  const variablesCount =
+    result.dataset_schema?.number_of_variables ||
+    result.dataset_schema?.variableMeasured?.length ||
+    0;
   const matchedVariablesCount = result.variables_which_matched?.length || 0;
   const hasVariables = variablesCount > 0;
   const hasMatchedVariables = matchedVariablesCount > 0;
+
+  // Get the datasets count from child_datasets
+  const datasetsCount = result.child_datasets?.length || 0;
+  const hasDatasets = datasetsCount > 0;
 
   // Check if data is available - Specifically when includedInDataCatalog exists
   const hasDataAvailable =
@@ -308,7 +315,12 @@ export default function CompactResultCard({
           <Typography variant="body2" sx={{ mb: 1, color: "text.secondary" }}>
             {keywords.slice(0, 5).map((keyword: string, i: number) => (
               <Box key={`${keyword}-${i}`} component="span">
-                <Box component="strong" sx={{ fontSize: "0.85rem" }}>
+                <Box
+                  component="strong"
+                  sx={{
+                    fontSize: { xs: "0.75rem", sm: "0.85rem" },
+                  }}
+                >
                   {keyword}
                 </Box>
                 {i < Math.min(keywords.length, 5) - 1 && (
@@ -360,6 +372,22 @@ export default function CompactResultCard({
               {hasDataAvailable && (
                 <SquareChip chipVariant="secondary" size="small">
                   Data Available
+                </SquareChip>
+              )}
+
+              {hasDatasets && (
+                <SquareChip
+                  chipVariant="secondary"
+                  size="small"
+                  sx={{
+                    backgroundColor: "#444653",
+                    color: "white",
+                    "&:hover": {
+                      backgroundColor: "#3a3d47",
+                    },
+                  }}
+                >
+                  {datasetsCount} Dataset{datasetsCount !== 1 ? "s" : ""}
                 </SquareChip>
               )}
 

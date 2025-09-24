@@ -1,14 +1,25 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Box, Container, Typography, Grid } from "@mui/material";
+import {
+  Box,
+  Container,
+  Typography,
+  Grid,
+  TextField,
+  InputAdornment,
+  Paper,
+} from "@mui/material";
 import { fetchSearchResults, SearchResult } from "@/services/api";
 import StudyCard from "@/components/StudyCard";
+import { getAssetPrefix } from "@/lib/utils/shared";
+import Image from "next/image";
 
 export default function StudiesPage() {
   const [studies, setStudies] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     async function loadStudies() {
@@ -32,6 +43,18 @@ export default function StudiesPage() {
 
     loadStudies();
   }, []);
+
+  // Filter studies based on search term
+  const filteredStudies = studies.filter((study) => {
+    const title = study.dataset_schema?.name || "";
+    const description = study.dataset_schema?.description || "";
+    const searchLower = searchTerm.toLowerCase();
+
+    return (
+      title.toLowerCase().includes(searchLower) ||
+      description.toLowerCase().includes(searchLower)
+    );
+  });
 
   if (loading) {
     return (
@@ -65,8 +88,45 @@ export default function StudiesPage() {
         Browse through all available studies in our database
       </Typography>
 
+      {/* Search Bar */}
+      <Box sx={{ mb: 4 }}>
+        <TextField
+          fullWidth
+          placeholder="Search studies by title or description..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <Image
+                  src={getAssetPrefix() + "icons/discover.svg"}
+                  alt="Search"
+                  width={20}
+                  height={20}
+                />
+              </InputAdornment>
+            ),
+            sx: {
+              height: 48,
+              "& .MuiOutlinedInput-root": { borderRadius: 24 },
+              "& .MuiOutlinedInput-notchedOutline": {
+                borderColor: "grey.200",
+              },
+            },
+          }}
+          sx={{ "& .MuiOutlinedInput-root": { borderRadius: 24 } }}
+        />
+      </Box>
+
+      {/* Results count */}
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {searchTerm
+          ? `Showing ${filteredStudies.length} of ${studies.length} studies`
+          : `${studies.length} studies available`}
+      </Typography>
+
       <Grid container spacing={3}>
-        {studies.map((study) => (
+        {filteredStudies.map((study) => (
           <Grid
             item
             xs={12}
@@ -80,11 +140,18 @@ export default function StudiesPage() {
         ))}
       </Grid>
 
-      {studies.length === 0 && (
+      {filteredStudies.length === 0 && (
         <Box sx={{ textAlign: "center", py: 8 }}>
           <Typography variant="h6" color="text.secondary">
-            No studies found
+            {searchTerm
+              ? "No studies match your search criteria"
+              : "No studies found"}
           </Typography>
+          {searchTerm && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Try adjusting your search terms
+            </Typography>
+          )}
         </Box>
       )}
     </Container>

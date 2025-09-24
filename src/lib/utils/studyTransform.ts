@@ -107,6 +107,9 @@ export function transformSearchResultToStudyDetail(result: SearchResult) {
   // Pass through child_datasets if present
   const child_datasets = (result as any).child_datasets || [];
 
+  // AI Summary from extra_data
+  const aiSummary = result.extra_data?.ai_summary || null;
+
   return {
     title,
     description,
@@ -125,5 +128,6 @@ export function transformSearchResultToStudyDetail(result: SearchResult) {
     allVariables,
     additionalLinks,
     child_datasets,
+    aiSummary,
   };
 }

@@ -121,7 +121,6 @@ function MatchedVariablesDataGrid({
       headerName: "Description / Code",
       flex: 2,
       valueGetter: (value: any, row: any) =>
-        (row.score ? "[MATCHING] " : "") +
         (row.description || row.name) +
         (row.description && row.name ? " (" + row.name + ")" : ""),
       sortable: true,
@@ -134,13 +133,6 @@ function MatchedVariablesDataGrid({
         row.options && Array.isArray(row.options)
           ? row.options.join(" / ")
           : "",
-      sortable: true,
-    },
-    {
-      field: "matched",
-      headerName: "Matched",
-      type: "boolean",
-      flex: 0.5,
       sortable: true,
     },
   ];
@@ -371,11 +363,20 @@ function MatchedVariablesDataGrid({
             checkboxSelection
             disableRowSelectionOnClick
             sortModel={[{ field: "score", sort: "desc" }]}
+            getRowClassName={(params) =>
+              params.row.matched ? "matched-row" : ""
+            }
             sx={{
               background: "white",
               borderRadius: 2,
               fontSize: 14,
               height: "100%",
+              "& .matched-row": {
+                backgroundColor: "#fffae4",
+                "&:hover": {
+                  backgroundColor: "#fff8d1",
+                },
+              },
             }}
             hideFooter
             pageSizeOptions={[20, 50, 100]}

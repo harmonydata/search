@@ -30,7 +30,6 @@
     "react-dom": "^19.0.0",
     "react-infinite-scroll-component": "^6.1.0",
     "react-toastify": "^11.0.3",
-    "react-wordcloud": "^1.2.7",
     "recharts": "^2.15.3",
     "serve": "^14.2.1",
     "vercel": "^41.2.0",

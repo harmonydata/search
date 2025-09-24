@@ -29,6 +29,11 @@ import {
   SearchResult,
   AggregateFilter,
 } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSearch } from "@/contexts/SearchContext";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore/lite";
+import { db } from "../../firebase";
+import { Bookmark } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import {
@@ -49,14 +54,19 @@ import { useRouter } from "next/navigation";
 function DiscoverPageContent() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("lg")); // 1200px breakpoint
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const { searchSettings, updateSearchSettings } = useSearch();
+  const [searchQuery, setSearchQuery] = useState(searchSettings.query);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(
+    searchSettings.query
+  );
   const [results, setResults] = useState<SearchResult[]>([]);
   const [filters, setFilters] = useState<AggregateFilter[]>([]);
   const [selectedFilters, setSelectedFilters] = useState<
     Record<string, string[]>
-  >({});
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  >(searchSettings.selectedFilters);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(
+    searchSettings.selectedCategory
+  );
   const [loading, setLoading] = useState(false);
   const [hasMoreResults, setHasMoreResults] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -75,11 +85,15 @@ function DiscoverPageContent() {
   const [similarStudy, setSimilarStudy] = useState<SearchResult | null>(null);
 
   // New state for advanced search options
-  const [useSearch2, setUseSearch2] = useState(false);
-  const [hybridWeight, setHybridWeight] = useState(0.5);
-  const [debouncedHybridWeight, setDebouncedHybridWeight] = useState(0.5);
-  const [maxDistance, setMaxDistance] = useState(0.4);
-  const [debouncedMaxDistance, setDebouncedMaxDistance] = useState(0.4);
+  const [useSearch2, setUseSearch2] = useState(searchSettings.useSearch2);
+  const [hybridWeight, setHybridWeight] = useState(searchSettings.hybridWeight);
+  const [debouncedHybridWeight, setDebouncedHybridWeight] = useState(
+    searchSettings.hybridWeight
+  );
+  const [maxDistance, setMaxDistance] = useState(searchSettings.maxDistance);
+  const [debouncedMaxDistance, setDebouncedMaxDistance] = useState(
+    searchSettings.maxDistance
+  );
 
   // State for tracking search performance
   const [lastSearchTime, setLastSearchTime] = useState<number | null>(null);
@@ -94,8 +108,66 @@ function DiscoverPageContent() {
   // State for keyword phrases
   const [keywordPhrases, setKeywordPhrases] = useState<string[]>([]);
   const [keywordPhrasesLoaded, setKeywordPhrasesLoaded] = useState(false);
+  const [savingSearch, setSavingSearch] = useState(false);
+  const [saveSearchSuccess, setSaveSearchSuccess] = useState(false);
+  const [hasInitializedFromContext, setHasInitializedFromContext] =
+    useState(false);
 
   const resultsPerPage = 50;
+
+  const { currentUser } = useAuth();
+
+  // Sync local state changes back to context
+  useEffect(() => {
+    updateSearchSettings({
+      query: searchQuery,
+      selectedFilters,
+      selectedCategory,
+      useSearch2,
+      hybridWeight,
+      maxDistance,
+    });
+  }, [
+    searchQuery,
+    selectedFilters,
+    selectedCategory,
+    useSearch2,
+    hybridWeight,
+    maxDistance,
+    updateSearchSettings,
+  ]);
+
+  // Reset save search success state when search query or filters change
+  useEffect(() => {
+    setSaveSearchSuccess(false);
+  }, [
+    searchQuery,
+    selectedFilters,
+    useSearch2,
+    hybridWeight,
+    maxDistance,
+    selectedCategory,
+  ]);
+
+  // Detect when search settings are loaded from context and trigger search
+  useEffect(() => {
+    // Check if we have meaningful search parameters from context
+    const hasSearchQuery =
+      searchSettings.query && searchSettings.query.trim() !== "";
+    const hasFilters = Object.keys(searchSettings.selectedFilters).length > 0;
+
+    // Only trigger if we haven't initialized yet and we have search parameters
+    if (!hasInitializedFromContext && (hasSearchQuery || hasFilters)) {
+      setHasInitializedFromContext(true);
+      // Trigger search with current context settings
+      performSearch(searchSettings.query || "", 1);
+    }
+  }, [searchSettings, hasInitializedFromContext, performSearch]);
+
+  // Reset initialization flag when component mounts to allow fresh loads
+  useEffect(() => {
+    setHasInitializedFromContext(false);
+  }, []);
 
   const searchParams = useSearchParams();
   const resourceType = searchParams.get("resource_type");
@@ -104,6 +176,33 @@ function DiscoverPageContent() {
   const initialTopics = searchParams.getAll("topics");
   const initialInstruments = searchParams.getAll("instruments");
   const initialStudyDesign = searchParams.getAll("study_design");
+
+  // Initialize context from URL parameters on first load
+  useEffect(() => {
+    const hasUrlParams =
+      initialQuery ||
+      initialTopics.length > 0 ||
+      initialInstruments.length > 0 ||
+      initialStudyDesign.length > 0;
+
+    if (hasUrlParams) {
+      const urlFilters: Record<string, string[]> = {};
+      if (initialTopics.length > 0) urlFilters.keywords = initialTopics;
+      if (initialInstruments.length > 0)
+        urlFilters.instruments = initialInstruments;
+      if (initialStudyDesign.length > 0)
+        urlFilters.study_design = initialStudyDesign;
+      if (resourceType) urlFilters.resource_type = [resourceType];
+
+      updateSearchSettings({
+        query: initialQuery || "",
+        selectedFilters: urlFilters,
+        selectedCategory: null,
+        resourceType: resourceType,
+        similarUid: similarUid,
+      });
+    }
+  }, []); // Only run once on mount
 
   const router = useRouter();
 
@@ -464,7 +563,7 @@ function DiscoverPageContent() {
 
   // Convert SearchResult to StudyDetail format
   // This needs to be defined *before* studyDetailForDisplay which uses it
-  const mapResultToStudyDetail = useCallback(async (result: SearchResult) => {
+  const mapResultToStudyDetail = useCallback((result: SearchResult) => {
     const isVariableResult =
       result.extra_data?.resource_type?.includes("variable");
     const hasAncestors =
@@ -906,10 +1005,15 @@ function DiscoverPageContent() {
 
     // console.log("Additional links found:", additionalLinks);
 
+    // AI Summary from extra_data
+    const aiSummary = displayResult.extra_data?.ai_summary || null;
+
     return {
       title,
       description,
       image,
+      uuid: displayResult.extra_data?.uuid,
+      slug: displayResult.extra_data?.slug,
       publisher,
       funders,
       geographicCoverage,
@@ -925,59 +1029,141 @@ function DiscoverPageContent() {
       allVariables,
       additionalLinks,
       child_datasets: displayResult.child_datasets || [],
+      aiSummary,
     };
   }, []);
 
-  // Always fetch the full study detail for the selected result
+  // Save search function
+  const saveSearch = async () => {
+    if (!currentUser || !searchQuery.trim() || savingSearch) return;
+
+    setSavingSearch(true);
+    setSaveSearchSuccess(false);
+    try {
+      const searchData = {
+        query: searchQuery,
+        filters: selectedFilters,
+        useSearch2,
+        hybridWeight,
+        maxDistance,
+        selectedCategory,
+        resultCount: results.length,
+        uid: currentUser.uid,
+        created: serverTimestamp(),
+      };
+      console.log("Saving search:", searchData, db);
+      await addDoc(collection(db, "saved_searches"), searchData);
+      setSaveSearchSuccess(true);
+    } catch (error) {
+      console.error("Error saving search:", error);
+    } finally {
+      setSavingSearch(false);
+    }
+  };
+
+  // Progressive loading: immediate with search data, then enhanced with lookup data
   const [studyDetail, setStudyDetail] = useState<any | null>(null);
   const [studyDebugData, setStudyDebugData] = useState<any | null>(null);
+  const [isLoadingEnhancedData, setIsLoadingEnhancedData] = useState(false);
 
+  // Immediate rendering with search data
+  useEffect(() => {
+    if (!selectedResult) {
+      setStudyDetail(null);
+      setStudyDebugData(null);
+      setIsLoadingEnhancedData(false);
+      return;
+    }
+
+    // Immediately render with search result data
+    const immediateDetail = mapResultToStudyDetail(selectedResult);
+    setStudyDetail(immediateDetail);
+    setIsLoadingEnhancedData(true);
+
+    // Store debug data for immediate rendering
+    const immediateDebugData =
+      true || process.env.NODE_ENV !== "production"
+        ? {
+            originalSearchResult: selectedResult,
+            lookupData: null, // Will be updated when lookup completes
+          }
+        : undefined;
+    setStudyDebugData(immediateDebugData);
+  }, [selectedResult, mapResultToStudyDetail]);
+
+  // Background lookup for enhanced data
   useEffect(() => {
     let cancelled = false;
-    async function loadDetail() {
+    async function loadEnhancedDetail() {
       if (!selectedResult) {
-        setStudyDetail(null);
-        setStudyDebugData(null);
         return;
       }
-      // Always fetch the full detail from the backend
-      const calculatedAlpha = calculateDynamicHybridWeight(searchQuery);
-      const fullResult = await fetchResultByUuid(
-        selectedResult.extra_data?.uuid || "",
-        searchQuery,
-        calculatedAlpha,
-        debouncedMaxDistance
-      );
-      // Preserve the matched variables and child datasets from the original search result
-      if (selectedResult.variables_which_matched) {
-        fullResult.variables_which_matched =
-          selectedResult.variables_which_matched;
-      }
-      if (selectedResult.datasets_which_matched) {
-        fullResult.child_datasets = selectedResult.datasets_which_matched;
-      }
 
-      const detail = await mapResultToStudyDetail(fullResult);
+      try {
+        // Fetch the full detail from the backend
+        const calculatedAlpha = calculateDynamicHybridWeight(searchQuery);
+        const fullResult = await fetchResultByUuid(
+          selectedResult.extra_data?.uuid || "",
+          searchQuery,
+          calculatedAlpha,
+          debouncedMaxDistance
+        );
 
-      // Store debug data in development mode
-      const debugData =
-        true || process.env.NODE_ENV !== "production"
-          ? {
-              originalSearchResult: selectedResult,
-              lookupData: fullResult,
-            }
-          : undefined;
+        // Preserve the matched variables and child datasets from the lookup result (which is complete)
+        // The search result only has incomplete data (1 member), so we use the lookup result
+        // Only override if the lookup result doesn't have these fields
+        if (
+          !fullResult.variables_which_matched &&
+          selectedResult.variables_which_matched
+        ) {
+          fullResult.variables_which_matched =
+            selectedResult.variables_which_matched;
+        }
+        if (
+          !fullResult.child_datasets &&
+          selectedResult.datasets_which_matched
+        ) {
+          fullResult.child_datasets = selectedResult.datasets_which_matched;
+        }
 
-      if (!cancelled) {
-        setStudyDetail(detail);
-        setStudyDebugData(debugData);
+        const enhancedDetail = mapResultToStudyDetail(fullResult);
+
+        // Store enhanced debug data
+        const enhancedDebugData =
+          true || process.env.NODE_ENV !== "production"
+            ? {
+                originalSearchResult: selectedResult,
+                lookupData: fullResult,
+              }
+            : undefined;
+
+        if (!cancelled) {
+          setStudyDetail(enhancedDetail);
+          setStudyDebugData(enhancedDebugData);
+          setIsLoadingEnhancedData(false);
+        }
+      } catch (error) {
+        console.error("Failed to load enhanced study detail:", error);
+        if (!cancelled) {
+          setIsLoadingEnhancedData(false);
+        }
       }
     }
-    loadDetail();
+
+    // Only perform lookup if we have a selected result
+    if (selectedResult) {
+      loadEnhancedDetail();
+    }
+
     return () => {
       cancelled = true;
     };
-  }, [selectedResult, mapResultToStudyDetail, searchQuery]);
+  }, [
+    selectedResult,
+    searchQuery,
+    debouncedMaxDistance,
+    calculateDynamicHybridWeight,
+  ]);
 
   // Effect to load similar study when UID is present
   useEffect(() => {
@@ -1872,7 +2058,9 @@ function DiscoverPageContent() {
                         <Typography
                           variant="caption"
                           color="text.secondary"
-                          sx={{ fontSize: "0.7rem" }}
+                          sx={{
+                            fontSize: { xs: "0.6rem", sm: "0.7rem" },
+                          }}
                         >
                           Typing...
                         </Typography>
@@ -1918,7 +2106,14 @@ function DiscoverPageContent() {
 
         {/* Search Results Summary */}
         {!loading && !apiOffline && (results.length > 0 || totalHits > 0) && (
-          <Box sx={{ mb: 2, display: "flex", justifyContent: "flex-start" }}>
+          <Box
+            sx={{
+              mb: 2,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             <Typography variant="body2" color="text.secondary">
               {(() => {
                 // Smart display logic for results count
@@ -1939,6 +2134,35 @@ function DiscoverPageContent() {
               {lastApiTime && ` (API: ${lastApiTime}ms`}
               {lastSearchTime && lastApiTime && `, Total: ${lastSearchTime}ms)`}
             </Typography>
+
+            {/* Save search button - only visible when user is logged in and has results */}
+            {currentUser && results.length > 0 && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={
+                  saveSearchSuccess ? (
+                    <Bookmark size={16} fill="currentColor" />
+                  ) : (
+                    <Bookmark size={16} />
+                  )
+                }
+                onClick={saveSearch}
+                disabled={savingSearch || !searchQuery.trim()}
+                sx={{
+                  ml: 2,
+                  color: saveSearchSuccess ? "success.main" : "inherit",
+                  borderColor: saveSearchSuccess ? "success.main" : "inherit",
+                }}
+                title="Save this search"
+              >
+                {savingSearch
+                  ? "Saving..."
+                  : saveSearchSuccess
+                  ? "Saved!"
+                  : "Save Search"}
+              </Button>
+            )}
           </Box>
         )}
 
@@ -1981,7 +2205,11 @@ function DiscoverPageContent() {
                 }}
               >
                 <CloudOffIcon
-                  sx={{ fontSize: 64, color: "text.secondary", mb: 2 }}
+                  sx={{
+                    fontSize: { xs: 48, sm: 64 },
+                    color: "text.secondary",
+                    mb: 2,
+                  }}
                 />
                 <Typography variant="h5" color="text.secondary" gutterBottom>
                   The discovery API is currently offline
@@ -2149,7 +2377,11 @@ function DiscoverPageContent() {
                   }}
                 >
                   <CloudOffIcon
-                    sx={{ fontSize: 48, color: "text.secondary", mb: 2 }}
+                    sx={{
+                      fontSize: { xs: 36, sm: 48 },
+                      color: "text.secondary",
+                      mb: 2,
+                    }}
                   />
                   <Typography variant="h6" color="text.secondary" gutterBottom>
                     API Offline
@@ -2174,6 +2406,7 @@ function DiscoverPageContent() {
                     onInstrumentClick={handleInstrumentClick}
                     debugData={studyDebugData}
                     originalSearchResult={studyDebugData?.lookupData}
+                    isLoadingEnhancedData={isLoadingEnhancedData}
                   />
                 </Box>
               ) : (
@@ -2292,6 +2525,7 @@ function DiscoverPageContent() {
                 onInstrumentClick={handleInstrumentClick}
                 debugData={studyDebugData}
                 originalSearchResult={studyDebugData?.lookupData}
+                isLoadingEnhancedData={isLoadingEnhancedData}
               />
             ) : (
               <Box

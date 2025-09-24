@@ -3,20 +3,30 @@ import DatasetDetail from "@/components/DatasetDetail";
 import { transformSearchResultToDatasetDetail } from "@/lib/utils/datasetTransform";
 import { notFound } from "next/navigation";
 import DatasetPageClient from "./DatasetPageClient";
-import { fetchAllStudiesWithUuids, fetchResultByUuid } from "@/services/api";
+import {
+  fetchAllStudiesWithUuids,
+  fetchAllDatasetsWithUuids,
+  fetchResultByUuid,
+} from "@/services/api";
 import { Metadata } from "next";
 
 // This runs at build time for static export
 export async function generateStaticParams() {
   try {
-    console.log("Fetching studies for static generation...");
+    console.log("Fetching studies and datasets for static generation...");
 
-    // Get all studies first
-    const studiesWithUuids = await fetchAllStudiesWithUuids();
+    // Get all studies and datasets
+    const [studiesWithUuids, datasetsWithUuids] = await Promise.all([
+      fetchAllStudiesWithUuids(),
+      fetchAllDatasetsWithUuids(),
+    ]);
+
     console.log(`Found ${studiesWithUuids.length} studies`);
+    console.log(`Found ${datasetsWithUuids.length} standalone datasets`);
 
     const params = [];
 
+    // Process studies and their child datasets
     for (const study of studiesWithUuids) {
       try {
         // Fetch the full study data to get child datasets
@@ -47,6 +57,23 @@ export async function generateStaticParams() {
         }
       } catch (error) {
         console.warn(`Failed to fetch study ${study.uuid}:`, error);
+      }
+    }
+
+    // Process all standalone datasets
+    for (const dataset of datasetsWithUuids) {
+      try {
+        // Add dataset by slug
+        if (dataset.slug) {
+          params.push({ slug: dataset.slug });
+        }
+
+        // Add dataset by UUID (will redirect to slug)
+        if (dataset.uuid) {
+          params.push({ slug: dataset.uuid });
+        }
+      } catch (error) {
+        console.warn(`Failed to process dataset ${dataset.uuid}:`, error);
       }
     }
 

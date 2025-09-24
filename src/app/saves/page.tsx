@@ -579,12 +579,16 @@ export default function SavesPage() {
                       <CompactResultCard
                         result={searchResult}
                         onClick={() => {
-                          // Navigate to the resource
-                          const url = `${getAssetPrefix()}${
+                          // Navigate to the static resource page, with fallback to discover
+                          const resourcePath =
                             resource.resourceType === "study"
                               ? "studies"
-                              : "items"
-                          }/${resource.slug || resource.uuid}`;
+                              : "items";
+                          const identifier = resource.slug || resource.uuid;
+                          const url = `${getAssetPrefix()}${resourcePath}/${identifier}`;
+
+                          // Try to navigate to the static page
+                          // If it doesn't exist (404), the user can manually go to discover
                           window.location.href = url;
                         }}
                       />

@@ -111,6 +111,7 @@ export function transformSearchResultToStudyDetail(result: SearchResult) {
   const aiSummary = result.extra_data?.ai_summary || null;
 
   return {
+    uuid: result.extra_data?.uuid,
     title,
     description,
     image,

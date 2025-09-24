@@ -92,8 +92,6 @@ function MatchedVariablesDataGrid({
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
   const [isApiReady, setIsApiReady] = useState(false);
-  const [hasSelection, setHasSelection] = useState(false);
-  const [selectedCount, setSelectedCount] = useState(0);
   console.log("variables passed:", variables);
 
   useEffect(() => {
@@ -156,57 +154,90 @@ function MatchedVariablesDataGrid({
     return () => clearTimeout(timer);
   }, [apiRef]);
 
-  // Check for selection
-  const checkSelection = useCallback(() => {
+  // Get selected items directly from DataGrid API
+  const getSelectedItems = () => {
     const api = apiRef.current;
-    if (!api || !isApiReady) return;
+    if (!api || !isApiReady) return [];
 
     try {
       const selectedRows = api.getSelectedRows();
-      const hasSelection =
-        selectedRows &&
-        typeof selectedRows.size === "number" &&
-        selectedRows.size > 0;
-      const count =
-        selectedRows && typeof selectedRows.size === "number"
-          ? selectedRows.size
-          : 0;
-      setHasSelection(hasSelection);
-      setSelectedCount(count);
+      return selectedRows ? Array.from(selectedRows.values()) : [];
     } catch (e) {
-      setHasSelection(false);
-      setSelectedCount(0);
+      console.warn("Failed to get selected items:", e);
+      return [];
     }
-  }, [isApiReady]);
+  };
 
   // Get number of selected items
   const getSelectedCount = () => {
-    return selectedCount;
+    return getSelectedItems().length;
   };
 
-  // Listen for selection changes using DataGrid events instead of polling
+  // Check if there's a selection - no state, just return boolean
+  const hasSelection = () => {
+    const api = apiRef.current;
+    if (!api || !isApiReady) return false;
+
+    try {
+      const selectedRows = api.getSelectedRows();
+      return (
+        selectedRows &&
+        typeof selectedRows.size === "number" &&
+        selectedRows.size > 0
+      );
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const makeHarmonyExportButton = useCallback(() => {
+    if (!harmonyExportRef.current || !isApiReady) return;
+
+    const selectedItems = getSelectedItems();
+
+    // Clear the button content
+    harmonyExportRef.current.innerHTML = "";
+
+    if (selectedItems.length === 0) {
+      // Show a placeholder or empty state
+      return;
+    }
+
+    console.log("selectedItems:", selectedItems);
+    const questions = selectedItems.map((row, i) => ({
+      question_no: row.description ? row.name : i,
+      question_text: row.description || row.name,
+    }));
+    const harmonyLink = document.createElement("harmony-export") as any;
+    harmonyLink.size = "32px";
+    harmonyLink.instrument_name = `${
+      studyName || "Selected Variables"
+    } from harmonydata.ac.uk/discover`;
+    harmonyLink.questions = questions;
+    harmonyExportRef.current.appendChild(harmonyLink);
+  }, [isApiReady, studyName]);
+
+  // Listen for selection changes using DataGrid events
   useEffect(() => {
     if (!isApiReady || !apiRef.current) return;
 
     const api = apiRef.current;
 
-    // Use DataGrid's built-in selection change event
     const handleSelectionChange = () => {
-      checkSelection();
+      // Update harmony button with current selection
+      makeHarmonyExportButton();
     };
 
     // Subscribe to selection changes
-    api.subscribeEvent("selectionChange", handleSelectionChange);
+    const unsubscribe = api.subscribeEvent(
+      "rowSelectionChange",
+      handleSelectionChange
+    );
 
     return () => {
-      // Cleanup subscription
-      try {
-        api.unsubscribeEvent("selectionChange", handleSelectionChange);
-      } catch (e) {
-        // Ignore cleanup errors
-      }
+      unsubscribe();
     };
-  }, [isApiReady]);
+  }, [isApiReady, makeHarmonyExportButton]);
 
   const handleDownloadClose = () => {
     onDownloadClose?.();
@@ -315,48 +346,6 @@ function MatchedVariablesDataGrid({
     handleDownloadClose();
   };
 
-  const makeHarmonyExportButton = useCallback(() => {
-    const api = apiRef.current;
-    if (!api || !harmonyExportRef.current || !isApiReady) return;
-
-    // Add comprehensive null checks to prevent TypeError during initial render
-    let selectedIds;
-    try {
-      selectedIds = api.getSelectedRows();
-    } catch (e) {
-      selectedIds = null;
-    }
-
-    if (!selectedIds || typeof selectedIds.size !== "number") return;
-
-    console.log("selectedIds:", selectedIds);
-    const questions = Array.from(selectedIds.values()).map((row, i) => ({
-      question_no: row.description ? row.name : i,
-      question_text: row.description || row.name,
-    }));
-    const harmonyLink = document.createElement("harmony-export") as any;
-    harmonyLink.size = "32px";
-    harmonyLink.instrument_name = `${
-      studyName || "Selected Variables"
-    } from harmonydata.ac.uk/discover`;
-    harmonyLink.questions = questions;
-    harmonyExportRef.current.innerHTML = "";
-    harmonyExportRef.current.appendChild(harmonyLink);
-  }, [isApiReady, studyName]);
-
-  // Update harmony export when selection changes
-  useEffect(() => {
-    // Only run when API is ready
-    if (!isApiReady) return;
-
-    // Small delay to ensure DataGrid API is ready
-    const timer = setTimeout(() => {
-      makeHarmonyExportButton();
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [isApiReady, hasSelection, selectedCount]);
-
   return (
     <>
       <Box sx={{ height: "100%", minHeight: 400 }}>
@@ -368,7 +357,6 @@ function MatchedVariablesDataGrid({
             rows={rows}
             columns={columns}
             checkboxSelection
-            disableRowSelectionOnClick
             sortModel={[{ field: "score", sort: "desc" }]}
             getRowClassName={(params) =>
               params.row.matched ? "matched-row" : ""
@@ -412,25 +400,23 @@ function MatchedVariablesDataGrid({
                       }}
                     />
                   </QuickFilter>
-                  {hasSelection && (
-                    <Tooltip title="Harmonise selected items">
-                      <IconButton size="small" sx={{ width: 40, height: 40 }}>
-                        <Box
-                          ref={harmonyExportRef as any}
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: 20,
-                            height: 20,
-                          }}
-                        />
-                      </IconButton>
-                    </Tooltip>
-                  )}
+                  <Tooltip title="Harmonise selected items">
+                    <IconButton size="small" sx={{ width: 40, height: 40 }}>
+                      <Box
+                        ref={harmonyExportRef as any}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: 20,
+                          height: 20,
+                        }}
+                      />
+                    </IconButton>
+                  </Tooltip>
                   <Tooltip
                     title={
-                      hasSelection
+                      hasSelection()
                         ? `Download ${getSelectedCount()} selected questions`
                         : "Download all questions"
                     }

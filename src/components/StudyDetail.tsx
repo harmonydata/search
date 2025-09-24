@@ -365,6 +365,29 @@ const StudyDetailComponent = ({
         </Box>
       )}
 
+      {/* Bookmark button for drawer mode */}
+      {isDrawerView && currentUser && (
+        <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+          <IconButton
+            onClick={toggleSave}
+            disabled={saving}
+            sx={{
+              color: isSaved ? "primary.main" : "text.secondary",
+              "&:hover": {
+                color: isSaved ? "primary.dark" : "primary.main",
+              },
+            }}
+            title={isSaved ? "Remove from saved" : "Save to my resources"}
+          >
+            {saving ? (
+              <CircularProgress size={20} />
+            ) : (
+              <Bookmark size={20} fill={isSaved ? "currentColor" : "none"} />
+            )}
+          </IconButton>
+        </Box>
+      )}
+
       {/* Only show title in the detail view if not in drawer mode */}
       {!isDrawerView && (
         <Box
@@ -389,8 +412,8 @@ const StudyDetailComponent = ({
                 {study.title}
               </Typography>
 
-              {/* Save button - only visible when user is logged in AND enhanced data is loaded */}
-              {currentUser && !isLoadingEnhancedData && (
+              {/* Save button - only visible when user is logged in */}
+              {currentUser && (
                 <IconButton
                   onClick={toggleSave}
                   disabled={saving}

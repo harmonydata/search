@@ -63,9 +63,14 @@ export async function generateStaticParams() {
     // Process all standalone datasets
     for (const dataset of datasetsWithUuids) {
       try {
-        // Add dataset by slug
+        // Add dataset by slug (use UUID if slug too long)
         if (dataset.slug) {
-          params.push({ slug: dataset.slug });
+          if (dataset.slug.length > 220) {
+            // Use UUID instead of slug if too long
+            params.push({ slug: dataset.uuid });
+          } else {
+            params.push({ slug: dataset.slug });
+          }
         }
 
         // Add dataset by UUID (will redirect to slug)

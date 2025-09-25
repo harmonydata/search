@@ -1,0 +1,587 @@
+1:"$Sreact.fragment"
+2:I[82104,["2992","static/chunks/bc9e92e6-ca3f8a01cbc7cc31.js","9895","static/chunks/f71d1b72-799ff7a6833dc50c.js","6586","static/chunks/6586-1013c110456598c2.js","4889","static/chunks/4889-f0599128dd4090a0.js","9141","static/chunks/9141-d17bf49085d8e296.js","2926","static/chunks/2926-f97573e569b0b5d8.js","8173","static/chunks/8173-30737ce2fc776efb.js","9756","static/chunks/9756-90c6220c809c4148.js","3163","static/chunks/3163-d1a03f172499fcd8.js","7177","static/chunks/app/layout-802ca43371b3eb9d.js"],"default"]
+3:I[10683,["2992","static/chunks/bc9e92e6-ca3f8a01cbc7cc31.js","9895","static/chunks/f71d1b72-799ff7a6833dc50c.js","6586","static/chunks/6586-1013c110456598c2.js","4889","static/chunks/4889-f0599128dd4090a0.js","9141","static/chunks/9141-d17bf49085d8e296.js","2926","static/chunks/2926-f97573e569b0b5d8.js","8173","static/chunks/8173-30737ce2fc776efb.js","9756","static/chunks/9756-90c6220c809c4148.js","3163","static/chunks/3163-d1a03f172499fcd8.js","7177","static/chunks/app/layout-802ca43371b3eb9d.js"],"AuthProvider"]
+4:I[63612,["2992","static/chunks/bc9e92e6-ca3f8a01cbc7cc31.js","9895","static/chunks/f71d1b72-799ff7a6833dc50c.js","6586","static/chunks/6586-1013c110456598c2.js","4889","static/chunks/4889-f0599128dd4090a0.js","9141","static/chunks/9141-d17bf49085d8e296.js","2926","static/chunks/2926-f97573e569b0b5d8.js","8173","static/chunks/8173-30737ce2fc776efb.js","9756","static/chunks/9756-90c6220c809c4148.js","3163","static/chunks/3163-d1a03f172499fcd8.js","7177","static/chunks/app/layout-802ca43371b3eb9d.js"],"SearchProvider"]
+5:I[68998,["2992","static/chunks/bc9e92e6-ca3f8a01cbc7cc31.js","9895","static/chunks/f71d1b72-799ff7a6833dc50c.js","6586","static/chunks/6586-1013c110456598c2.js","4889","static/chunks/4889-f0599128dd4090a0.js","9141","static/chunks/9141-d17bf49085d8e296.js","2926","static/chunks/2926-f97573e569b0b5d8.js","8173","static/chunks/8173-30737ce2fc776efb.js","9756","static/chunks/9756-90c6220c809c4148.js","3163","static/chunks/3163-d1a03f172499fcd8.js","7177","static/chunks/app/layout-802ca43371b3eb9d.js"],"default"]
+6:I[98904,["2992","static/chunks/bc9e92e6-ca3f8a01cbc7cc31.js","9895","static/chunks/f71d1b72-799ff7a6833dc50c.js","6586","static/chunks/6586-1013c110456598c2.js","4889","static/chunks/4889-f0599128dd4090a0.js","9141","static/chunks/9141-d17bf49085d8e296.js","2926","static/chunks/2926-f97573e569b0b5d8.js","8173","static/chunks/8173-30737ce2fc776efb.js","9756","static/chunks/9756-90c6220c809c4148.js","3163","static/chunks/3163-d1a03f172499fcd8.js","7177","static/chunks/app/layout-802ca43371b3eb9d.js"],"default"]
+7:I[15244,[],""]
+8:I[43866,[],""]
+9:I[14046,["2992","static/chunks/bc9e92e6-ca3f8a01cbc7cc31.js","9895","static/chunks/f71d1b72-799ff7a6833dc50c.js","6586","static/chunks/6586-1013c110456598c2.js","4889","static/chunks/4889-f0599128dd4090a0.js","9141","static/chunks/9141-d17bf49085d8e296.js","2926","static/chunks/2926-f97573e569b0b5d8.js","8173","static/chunks/8173-30737ce2fc776efb.js","9756","static/chunks/9756-90c6220c809c4148.js","3163","static/chunks/3163-d1a03f172499fcd8.js","7177","static/chunks/app/layout-802ca43371b3eb9d.js"],"ToastContainer"]
+b:I[86213,[],"OutletBoundary"]
+d:I[86213,[],"MetadataBoundary"]
+f:I[86213,[],"ViewportBoundary"]
+11:I[34835,[],""]
+:HL["/search/_next/static/media/47cbc4e2adbc5db9-s.p.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/search/_next/static/media/e4af272ccee01ff0-s.p.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/search/_next/static/css/2c4d913f25bfc6bf.css","style"]
+:HL["/search/_next/static/css/4921cfd18b262f8c.css","style"]
+0:{"P":null,"b":"s_DTI9faTgGaCM3x3n4Zl","p":"/search","c":["","items","databank-of-information-from-the-aston-programme-of-organization-studies-1962-1973"],"i":false,"f":[[["",{"children":["items",{"children":[["slug","databank-of-information-from-the-aston-programme-of-organization-studies-1962-1973","d"],{"children":["__PAGE__",{}]}]}]},"$undefined","$undefined",true],["",["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/search/_next/static/css/2c4d913f25bfc6bf.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]],["$","html",null,{"lang":"en","children":[["$","head",null,{"children":["$","meta",null,{"name":"emotion-insertion-point","content":""}]}],["$","body",null,{"className":"__className_62a302","children":["$","$L2",null,{"children":["$","$L3",null,{"children":["$","$L4",null,{"children":[["$","$L5",null,{"sx":{"display":"flex","flexDirection":{"xs":"column","md":"row"}},"children":[["$","$L6",null,{}],["$","$L5",null,{"component":"main","sx":{"flexGrow":1,"ml":{"xs":0,"md":"72px"},"mt":{"xs":"64px","md":0},"minHeight":{"xs":"calc(100vh - 64px)","md":"100vh"},"width":{"xs":"100%","md":"calc(100% - 72px)"}},"children":["$","$L7",null,{"parallelRouterKey":"children","segmentPath":["children"],"error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L8",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[[],[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]]}],["$","$L9",null,{"position":"bottom-right"}]]}]}]}]}]]}]]}],{"children":["items",["$","$1","c",{"children":[null,["$","$L7",null,{"parallelRouterKey":"children","segmentPath":["children","items","children"],"error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L8",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],{"children":[["slug","databank-of-information-from-the-aston-programme-of-organization-studies-1962-1973","d"],["$","$1","c",{"children":[null,["$","$L7",null,{"parallelRouterKey":"children","segmentPath":["children","items","children","$0:f:0:1:2:children:2:children:0","children"],"error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L8",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],{"children":["__PAGE__",["$","$1","c",{"children":["$La",[["$","link","0",{"rel":"stylesheet","href":"/search/_next/static/css/4921cfd18b262f8c.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]],["$","$Lb",null,{"children":"$Lc"}]]}],{},null,false]},null,false]},null,false]},null,false],["$","$1","h",{"children":[null,["$","$1","IkKMSR_rDJ6gRhYAjAi3q",{"children":[["$","$Ld",null,{"children":"$Le"}],["$","$Lf",null,{"children":"$L10"}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}]]}],false]],"m":"$undefined","G":["$11","$undefined"],"s":false,"S":true}
+10:[["$","meta","0",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
+13:I[5749,["2992","static/chunks/bc9e92e6-ca3f8a01cbc7cc31.js","9895","static/chunks/f71d1b72-799ff7a6833dc50c.js","2154","static/chunks/834cb1aa-fe75579b2a50baac.js","3524","static/chunks/2170a4aa-66be1631595ccab0.js","6586","static/chunks/6586-1013c110456598c2.js","4889","static/chunks/4889-f0599128dd4090a0.js","1057","static/chunks/1057-d97430463abd6821.js","2282","static/chunks/2282-26bc5318a4471ee9.js","9234","static/chunks/9234-fce85e807baa599f.js","9141","static/chunks/9141-d17bf49085d8e296.js","2926","static/chunks/2926-f97573e569b0b5d8.js","5733","static/chunks/5733-d0ad15157d7394e5.js","8173","static/chunks/8173-30737ce2fc776efb.js","613","static/chunks/613-3467f3d6fe7e6e6a.js","9756","static/chunks/9756-90c6220c809c4148.js","8738","static/chunks/8738-58586275b0d791e8.js","2649","static/chunks/2649-8d5f655ba5d1c168.js","1857","static/chunks/1857-99747bd4076c313b.js","2288","static/chunks/2288-ffb609d77f258e27.js","6387","static/chunks/app/items/%5Bslug%5D/page-38377216d08118bc.js"],"default"]
+12:T1d72,{"@context":"https://schema.org/","@type":"Dataset","name":"Databank of Information from the Aston Programme of Organization Studies, 1962-1973","description":"Variables\nThe Data Archive now contains data from twenty-four studies carried out within the comparative organisational research programme initiated at the University of Aston in 1961. Summary details of each study are listed below, including dates, location and type of organisations investigated. There are six categories of data available from the databank and they are coded on the table as follows:\n01 data on organisational structure and context collected by means of the original and complete Aston schedule, as reported by Pugh et al. (ASQ, June 1968), Pugh et al. (ASQ, March 1969) and Hickson et al. (ASQ, September 1969)-relevant references are available from the Archive.\n02 data of organisational structure and context collected by means of a shortened version of the above schedule, as reported in Inkson et al. (ASQ, September 1970).\n03 data giving total scores on each of the twenty Business Organisational Climate Index (BOCI) scales as defined by Payne and Pheysey (OBHP, January 1971).\n04 data giving individual scores for each of the 160 items in the BOCI questionnaire.\n05 data on managerial attitudes, behaviour and roles collected by means of the 'The Executive in the Organisation' questionnaire as described in Child and Ellis (HR, 1973), Ellis and Child (JMS, October 1973).\n06 data collected by means of adaptations of the above instruments; also data additional to the above, including in some studies organisational performance data (marked 06P - but these are not, as yet, available from the Data Archive). These data are not directly comparable to those in any other study. The Aston Databank has been established under the supervision of Professor John Child, supported by a special grant from the ESRC. Mrs Ruth Goodkin and Mrs Pat Clark of the University of Aston Management Centre Research Unit have checked each study back to its raw data and recoded these where necessary into a standard format.\nA detailed manual for users of the databank has also been prepared, and this is available for consultation at the Archive. The University of Aston will continue to enter new data when available and as time permits. It is believed that the Aston Databank comprises the largest standardised set of comparative organisational data anywhere in the world, available for scholars for secondary analysis or as a point of comparison for future studies. Contact the Archive for further information.\nInterested users are recommended by the depositors to consult the books in the Aston Series (all published by Gower Press):\nThe Aston Programme I: Pugh, D.S. and Hickson, D.J., <i>Organizational Structure in its Context</i>, (1976)\nThe Aston Programme II: Pugh, D.S. and Hinings, C.R., <i>Organizational Structure</i>, (1976)\nThe Aston Programme III: Pugh, D.S. and Payne, R.L., <i>Organizational Behaviour in its Context</i>, (1977)\nThe Aston Programme IV: Hickson, D.J. and McMillan, C.J., <i>Organization and Nation</i>, (1981)\nAston Data Bank\nList of studies included up to end of 1976\nStudy code number: 01\nDate of research: 1962 - 3\nLocation: Birmingham\nType of organisation: Manufacturing, business services, public services\nResearchers: Pugh, Hickson, et al\nCode number of schedules, questionnaire: 01, 02\nStudy code number: 02\nDate of research: 1967 - 8\nLocation: Birmingham\nType of organisation: Manufacturing, business services, public services\nResearchers: Hickson, Inkson\nCode number of schedules, questionnaire: 02, 05, 06\nStudy code number: 03\nDate of research: 1967 - 9\nLocation: Great Britain\nType of organisation: Manufacturing, business services\nResearcher: Child\nCode number of schedules, questionnaire: 01, 02, 05, 06P\nStudy code number: 04\nDate of research: 1966 - 7\nLocation: Coventry\nType of organisation: Engineering, manufacturing\nResearcher: Lee\nCode number of schedules, questionnaire: 01, 02\nStudy code number: 06\nDate of research: 1968\nLocation: Ohio, USA\nType of organisation: Manufacturing\nResearcher: Schwitter\nCode number of schedules, questionnaire: 02, 05\nStudy code number: 07\nDate of research: 1967 - 8\nLocation: Birmingham\nType of organisation: General and mental hospitals\nResearcher: Tauber\nCode number of schedules, questionnaire: 01, 02\nStudy code number: 08\nDate of research: 1967 - 9\nLocation: Birmingham\nType of organisation: Manufacturing\nResearchers: Pheysey, Payne\nCode number of schedules, questionnaire: 01, 02\nStudy code number: 09\nDate of research: 1969 - 70\nLocation: Great Britain\nType of organisation: Manufacturing\nResearchers: Payne, Mansfield\nCode number of schedules, questionnaire: 02, 03, 04\nStudy code number: 10\nDate of research: 1969 - 70\nLocation: Alberta and British Columbia\nType of organisation: Colleges and Technical Institutes\nResearcher: Holdaway\nCode number of schedules, questionnaire: 06\nStudy code number: 11\nDate of research: 1969 - 70\nLocation: Alberta\nType of organisation: Community Colleges\nResearcher: Heron\nCode number of schedules, questionnaire: 06\nStudy code number: 12\nDate of research: 1971\nLocation: Britain\nType of organisation: Business service manufacturing\nResearchers: Pugh, Loveridge\nCode number of schedules, questionnaire: 02, 06\nStudy code number: 13\nDate of research: 1970 - 1\nLocation: NE Ohio, USA\nType of organisation: Manufacturing\nResearcher: Reimann\nCode number of schedules, questionnaire: 02\nStudy code number: 14\nDate of research: 1970 - 1\nLocation: London\nType of organisation: Occupational interest associations\nResearcher: Donaldson\nCode number of schedules, questionnaire: 06\nStudy code number: 15\nDate of research: 1970 - 2\nLocation: West Germany\nType of organisation: Manufacturing\nResearcher: Kieser\nCode number of schedules, questionnaire: 01, 02, 05, 06P\nStudy code number: 16\nDate of research: 1971 - 2\nLocation: Britain\nType of organisation: Manufacturing\nResearcher: Pheysey\nCode number of schedules, questionnaire: 02, 03\nStudy code number: 17\nDate of research: 1972\nLocation: Britain\nType of organisation: Local authority departments\nResearchers: Hinings\nCode number of schedules, questionnaire: 03, 04\nStudy code number: 18\nDate of research: 1972 - 3\nLocation: Japan\nType of organisation: Manufacturing\nResearchers: McMillan\nCode number of schedules, questionnaire: 01, 02\nStudy code number: 19\nDate of research: 1970 - 1\nLocation: Midlands, UK\nType of organisation: Hospitals\nResearcher: Glueck\nCode number of schedules, questionnaire: 02\nStudy code number: 20\nDate of research: 1972\nLocation: Britain\nType of organisation: Churches\nResearcher: Hinings\nCode number of schedules, questionnaire: 01, 02\nStudy code number: 23\nDate of research: 1972\nLocation: Sweden\nType of organisation: Manufacturing\nResearcher: McMillan\nCode number of schedules, questionnaire: 01, 02\nStudy code number: 24\nDate of research: 1971\nLocation: Britain\nType of organisation: Manufacturing\nResearcher: McMillan\nCode number of schedules, questionnaire: 01, 02","url":"https://discoverynext.vercel.app/items/databank-of-information-from-the-aston-programme-of-organization-studies-1962-1973","keywords":[],"identifier":["http://dx.doi.org/10.5255/UKDA-SN-922-1"],"includedInDataCatalog":[{"@type":"DataCatalog","name":"UK Data Service","url":"https://beta.ukdataservice.ac.uk/datacatalogue/studies/study?id=922"}]}14:T1ae3,Variables
+The Data Archive now contains data from twenty-four studies carried out within the comparative organisational research programme initiated at the University of Aston in 1961. Summary details of each study are listed below, including dates, location and type of organisations investigated. There are six categories of data available from the databank and they are coded on the table as follows:
+01 data on organisational structure and context collected by means of the original and complete Aston schedule, as reported by Pugh et al. (ASQ, June 1968), Pugh et al. (ASQ, March 1969) and Hickson et al. (ASQ, September 1969)-relevant references are available from the Archive.
+02 data of organisational structure and context collected by means of a shortened version of the above schedule, as reported in Inkson et al. (ASQ, September 1970).
+03 data giving total scores on each of the twenty Business Organisational Climate Index (BOCI) scales as defined by Payne and Pheysey (OBHP, January 1971).
+04 data giving individual scores for each of the 160 items in the BOCI questionnaire.
+05 data on managerial attitudes, behaviour and roles collected by means of the 'The Executive in the Organisation' questionnaire as described in Child and Ellis (HR, 1973), Ellis and Child (JMS, October 1973).
+06 data collected by means of adaptations of the above instruments; also data additional to the above, including in some studies organisational performance data (marked 06P - but these are not, as yet, available from the Data Archive). These data are not directly comparable to those in any other study. The Aston Databank has been established under the supervision of Professor John Child, supported by a special grant from the ESRC. Mrs Ruth Goodkin and Mrs Pat Clark of the University of Aston Management Centre Research Unit have checked each study back to its raw data and recoded these where necessary into a standard format.
+A detailed manual for users of the databank has also been prepared, and this is available for consultation at the Archive. The University of Aston will continue to enter new data when available and as time permits. It is believed that the Aston Databank comprises the largest standardised set of comparative organisational data anywhere in the world, available for scholars for secondary analysis or as a point of comparison for future studies. Contact the Archive for further information.
+Interested users are recommended by the depositors to consult the books in the Aston Series (all published by Gower Press):
+The Aston Programme I: Pugh, D.S. and Hickson, D.J., <i>Organizational Structure in its Context</i>, (1976)
+The Aston Programme II: Pugh, D.S. and Hinings, C.R., <i>Organizational Structure</i>, (1976)
+The Aston Programme III: Pugh, D.S. and Payne, R.L., <i>Organizational Behaviour in its Context</i>, (1977)
+The Aston Programme IV: Hickson, D.J. and McMillan, C.J., <i>Organization and Nation</i>, (1981)
+Aston Data Bank
+List of studies included up to end of 1976
+Study code number: 01
+Date of research: 1962 - 3
+Location: Birmingham
+Type of organisation: Manufacturing, business services, public services
+Researchers: Pugh, Hickson, et al
+Code number of schedules, questionnaire: 01, 02
+Study code number: 02
+Date of research: 1967 - 8
+Location: Birmingham
+Type of organisation: Manufacturing, business services, public services
+Researchers: Hickson, Inkson
+Code number of schedules, questionnaire: 02, 05, 06
+Study code number: 03
+Date of research: 1967 - 9
+Location: Great Britain
+Type of organisation: Manufacturing, business services
+Researcher: Child
+Code number of schedules, questionnaire: 01, 02, 05, 06P
+Study code number: 04
+Date of research: 1966 - 7
+Location: Coventry
+Type of organisation: Engineering, manufacturing
+Researcher: Lee
+Code number of schedules, questionnaire: 01, 02
+Study code number: 06
+Date of research: 1968
+Location: Ohio, USA
+Type of organisation: Manufacturing
+Researcher: Schwitter
+Code number of schedules, questionnaire: 02, 05
+Study code number: 07
+Date of research: 1967 - 8
+Location: Birmingham
+Type of organisation: General and mental hospitals
+Researcher: Tauber
+Code number of schedules, questionnaire: 01, 02
+Study code number: 08
+Date of research: 1967 - 9
+Location: Birmingham
+Type of organisation: Manufacturing
+Researchers: Pheysey, Payne
+Code number of schedules, questionnaire: 01, 02
+Study code number: 09
+Date of research: 1969 - 70
+Location: Great Britain
+Type of organisation: Manufacturing
+Researchers: Payne, Mansfield
+Code number of schedules, questionnaire: 02, 03, 04
+Study code number: 10
+Date of research: 1969 - 70
+Location: Alberta and British Columbia
+Type of organisation: Colleges and Technical Institutes
+Researcher: Holdaway
+Code number of schedules, questionnaire: 06
+Study code number: 11
+Date of research: 1969 - 70
+Location: Alberta
+Type of organisation: Community Colleges
+Researcher: Heron
+Code number of schedules, questionnaire: 06
+Study code number: 12
+Date of research: 1971
+Location: Britain
+Type of organisation: Business service manufacturing
+Researchers: Pugh, Loveridge
+Code number of schedules, questionnaire: 02, 06
+Study code number: 13
+Date of research: 1970 - 1
+Location: NE Ohio, USA
+Type of organisation: Manufacturing
+Researcher: Reimann
+Code number of schedules, questionnaire: 02
+Study code number: 14
+Date of research: 1970 - 1
+Location: London
+Type of organisation: Occupational interest associations
+Researcher: Donaldson
+Code number of schedules, questionnaire: 06
+Study code number: 15
+Date of research: 1970 - 2
+Location: West Germany
+Type of organisation: Manufacturing
+Researcher: Kieser
+Code number of schedules, questionnaire: 01, 02, 05, 06P
+Study code number: 16
+Date of research: 1971 - 2
+Location: Britain
+Type of organisation: Manufacturing
+Researcher: Pheysey
+Code number of schedules, questionnaire: 02, 03
+Study code number: 17
+Date of research: 1972
+Location: Britain
+Type of organisation: Local authority departments
+Researchers: Hinings
+Code number of schedules, questionnaire: 03, 04
+Study code number: 18
+Date of research: 1972 - 3
+Location: Japan
+Type of organisation: Manufacturing
+Researchers: McMillan
+Code number of schedules, questionnaire: 01, 02
+Study code number: 19
+Date of research: 1970 - 1
+Location: Midlands, UK
+Type of organisation: Hospitals
+Researcher: Glueck
+Code number of schedules, questionnaire: 02
+Study code number: 20
+Date of research: 1972
+Location: Britain
+Type of organisation: Churches
+Researcher: Hinings
+Code number of schedules, questionnaire: 01, 02
+Study code number: 23
+Date of research: 1972
+Location: Sweden
+Type of organisation: Manufacturing
+Researcher: McMillan
+Code number of schedules, questionnaire: 01, 02
+Study code number: 24
+Date of research: 1971
+Location: Britain
+Type of organisation: Manufacturing
+Researcher: McMillan
+Code number of schedules, questionnaire: 01, 02a:[["$","script",null,{"type":"application/ld+json","dangerouslySetInnerHTML":{"__html":"$12"}}],["$","$L13",null,{"dataset":{"title":"Databank of Information from the Aston Programme of Organization Studies, 1962-1973","description":"$14","image":"$undefined","publisher":"$undefined","funders":"$undefined","geographicCoverage":"DE, GB, JP, SE, US","temporalCoverage":"$undefined","ageCoverage":"$undefined","studyDesign":[],"resourceType":"dataset","topics":[],"instruments":[],"dataCatalogs":[{"name":"UK Data Service","url":"https://beta.ukdataservice.ac.uk/datacatalogue/studies/study?id=922","logo":"$undefined"}],"matchedVariables":[],"allVariables":[],"additionalLinks":["https://beta.ukdataservice.ac.uk/datacatalogue/studies/study?id=922","http://dx.doi.org/10.5255/UKDA-SN-922-1","http://dx.doi.org/10.5255/UKDA-SN-922-1"],"child_datasets":[],"aiSummary":null}}]]
+15:T1ae3,Variables
+The Data Archive now contains data from twenty-four studies carried out within the comparative organisational research programme initiated at the University of Aston in 1961. Summary details of each study are listed below, including dates, location and type of organisations investigated. There are six categories of data available from the databank and they are coded on the table as follows:
+01 data on organisational structure and context collected by means of the original and complete Aston schedule, as reported by Pugh et al. (ASQ, June 1968), Pugh et al. (ASQ, March 1969) and Hickson et al. (ASQ, September 1969)-relevant references are available from the Archive.
+02 data of organisational structure and context collected by means of a shortened version of the above schedule, as reported in Inkson et al. (ASQ, September 1970).
+03 data giving total scores on each of the twenty Business Organisational Climate Index (BOCI) scales as defined by Payne and Pheysey (OBHP, January 1971).
+04 data giving individual scores for each of the 160 items in the BOCI questionnaire.
+05 data on managerial attitudes, behaviour and roles collected by means of the 'The Executive in the Organisation' questionnaire as described in Child and Ellis (HR, 1973), Ellis and Child (JMS, October 1973).
+06 data collected by means of adaptations of the above instruments; also data additional to the above, including in some studies organisational performance data (marked 06P - but these are not, as yet, available from the Data Archive). These data are not directly comparable to those in any other study. The Aston Databank has been established under the supervision of Professor John Child, supported by a special grant from the ESRC. Mrs Ruth Goodkin and Mrs Pat Clark of the University of Aston Management Centre Research Unit have checked each study back to its raw data and recoded these where necessary into a standard format.
+A detailed manual for users of the databank has also been prepared, and this is available for consultation at the Archive. The University of Aston will continue to enter new data when available and as time permits. It is believed that the Aston Databank comprises the largest standardised set of comparative organisational data anywhere in the world, available for scholars for secondary analysis or as a point of comparison for future studies. Contact the Archive for further information.
+Interested users are recommended by the depositors to consult the books in the Aston Series (all published by Gower Press):
+The Aston Programme I: Pugh, D.S. and Hickson, D.J., <i>Organizational Structure in its Context</i>, (1976)
+The Aston Programme II: Pugh, D.S. and Hinings, C.R., <i>Organizational Structure</i>, (1976)
+The Aston Programme III: Pugh, D.S. and Payne, R.L., <i>Organizational Behaviour in its Context</i>, (1977)
+The Aston Programme IV: Hickson, D.J. and McMillan, C.J., <i>Organization and Nation</i>, (1981)
+Aston Data Bank
+List of studies included up to end of 1976
+Study code number: 01
+Date of research: 1962 - 3
+Location: Birmingham
+Type of organisation: Manufacturing, business services, public services
+Researchers: Pugh, Hickson, et al
+Code number of schedules, questionnaire: 01, 02
+Study code number: 02
+Date of research: 1967 - 8
+Location: Birmingham
+Type of organisation: Manufacturing, business services, public services
+Researchers: Hickson, Inkson
+Code number of schedules, questionnaire: 02, 05, 06
+Study code number: 03
+Date of research: 1967 - 9
+Location: Great Britain
+Type of organisation: Manufacturing, business services
+Researcher: Child
+Code number of schedules, questionnaire: 01, 02, 05, 06P
+Study code number: 04
+Date of research: 1966 - 7
+Location: Coventry
+Type of organisation: Engineering, manufacturing
+Researcher: Lee
+Code number of schedules, questionnaire: 01, 02
+Study code number: 06
+Date of research: 1968
+Location: Ohio, USA
+Type of organisation: Manufacturing
+Researcher: Schwitter
+Code number of schedules, questionnaire: 02, 05
+Study code number: 07
+Date of research: 1967 - 8
+Location: Birmingham
+Type of organisation: General and mental hospitals
+Researcher: Tauber
+Code number of schedules, questionnaire: 01, 02
+Study code number: 08
+Date of research: 1967 - 9
+Location: Birmingham
+Type of organisation: Manufacturing
+Researchers: Pheysey, Payne
+Code number of schedules, questionnaire: 01, 02
+Study code number: 09
+Date of research: 1969 - 70
+Location: Great Britain
+Type of organisation: Manufacturing
+Researchers: Payne, Mansfield
+Code number of schedules, questionnaire: 02, 03, 04
+Study code number: 10
+Date of research: 1969 - 70
+Location: Alberta and British Columbia
+Type of organisation: Colleges and Technical Institutes
+Researcher: Holdaway
+Code number of schedules, questionnaire: 06
+Study code number: 11
+Date of research: 1969 - 70
+Location: Alberta
+Type of organisation: Community Colleges
+Researcher: Heron
+Code number of schedules, questionnaire: 06
+Study code number: 12
+Date of research: 1971
+Location: Britain
+Type of organisation: Business service manufacturing
+Researchers: Pugh, Loveridge
+Code number of schedules, questionnaire: 02, 06
+Study code number: 13
+Date of research: 1970 - 1
+Location: NE Ohio, USA
+Type of organisation: Manufacturing
+Researcher: Reimann
+Code number of schedules, questionnaire: 02
+Study code number: 14
+Date of research: 1970 - 1
+Location: London
+Type of organisation: Occupational interest associations
+Researcher: Donaldson
+Code number of schedules, questionnaire: 06
+Study code number: 15
+Date of research: 1970 - 2
+Location: West Germany
+Type of organisation: Manufacturing
+Researcher: Kieser
+Code number of schedules, questionnaire: 01, 02, 05, 06P
+Study code number: 16
+Date of research: 1971 - 2
+Location: Britain
+Type of organisation: Manufacturing
+Researcher: Pheysey
+Code number of schedules, questionnaire: 02, 03
+Study code number: 17
+Date of research: 1972
+Location: Britain
+Type of organisation: Local authority departments
+Researchers: Hinings
+Code number of schedules, questionnaire: 03, 04
+Study code number: 18
+Date of research: 1972 - 3
+Location: Japan
+Type of organisation: Manufacturing
+Researchers: McMillan
+Code number of schedules, questionnaire: 01, 02
+Study code number: 19
+Date of research: 1970 - 1
+Location: Midlands, UK
+Type of organisation: Hospitals
+Researcher: Glueck
+Code number of schedules, questionnaire: 02
+Study code number: 20
+Date of research: 1972
+Location: Britain
+Type of organisation: Churches
+Researcher: Hinings
+Code number of schedules, questionnaire: 01, 02
+Study code number: 23
+Date of research: 1972
+Location: Sweden
+Type of organisation: Manufacturing
+Researcher: McMillan
+Code number of schedules, questionnaire: 01, 02
+Study code number: 24
+Date of research: 1971
+Location: Britain
+Type of organisation: Manufacturing
+Researcher: McMillan
+Code number of schedules, questionnaire: 01, 0216:T1ae3,Variables
+The Data Archive now contains data from twenty-four studies carried out within the comparative organisational research programme initiated at the University of Aston in 1961. Summary details of each study are listed below, including dates, location and type of organisations investigated. There are six categories of data available from the databank and they are coded on the table as follows:
+01 data on organisational structure and context collected by means of the original and complete Aston schedule, as reported by Pugh et al. (ASQ, June 1968), Pugh et al. (ASQ, March 1969) and Hickson et al. (ASQ, September 1969)-relevant references are available from the Archive.
+02 data of organisational structure and context collected by means of a shortened version of the above schedule, as reported in Inkson et al. (ASQ, September 1970).
+03 data giving total scores on each of the twenty Business Organisational Climate Index (BOCI) scales as defined by Payne and Pheysey (OBHP, January 1971).
+04 data giving individual scores for each of the 160 items in the BOCI questionnaire.
+05 data on managerial attitudes, behaviour and roles collected by means of the 'The Executive in the Organisation' questionnaire as described in Child and Ellis (HR, 1973), Ellis and Child (JMS, October 1973).
+06 data collected by means of adaptations of the above instruments; also data additional to the above, including in some studies organisational performance data (marked 06P - but these are not, as yet, available from the Data Archive). These data are not directly comparable to those in any other study. The Aston Databank has been established under the supervision of Professor John Child, supported by a special grant from the ESRC. Mrs Ruth Goodkin and Mrs Pat Clark of the University of Aston Management Centre Research Unit have checked each study back to its raw data and recoded these where necessary into a standard format.
+A detailed manual for users of the databank has also been prepared, and this is available for consultation at the Archive. The University of Aston will continue to enter new data when available and as time permits. It is believed that the Aston Databank comprises the largest standardised set of comparative organisational data anywhere in the world, available for scholars for secondary analysis or as a point of comparison for future studies. Contact the Archive for further information.
+Interested users are recommended by the depositors to consult the books in the Aston Series (all published by Gower Press):
+The Aston Programme I: Pugh, D.S. and Hickson, D.J., <i>Organizational Structure in its Context</i>, (1976)
+The Aston Programme II: Pugh, D.S. and Hinings, C.R., <i>Organizational Structure</i>, (1976)
+The Aston Programme III: Pugh, D.S. and Payne, R.L., <i>Organizational Behaviour in its Context</i>, (1977)
+The Aston Programme IV: Hickson, D.J. and McMillan, C.J., <i>Organization and Nation</i>, (1981)
+Aston Data Bank
+List of studies included up to end of 1976
+Study code number: 01
+Date of research: 1962 - 3
+Location: Birmingham
+Type of organisation: Manufacturing, business services, public services
+Researchers: Pugh, Hickson, et al
+Code number of schedules, questionnaire: 01, 02
+Study code number: 02
+Date of research: 1967 - 8
+Location: Birmingham
+Type of organisation: Manufacturing, business services, public services
+Researchers: Hickson, Inkson
+Code number of schedules, questionnaire: 02, 05, 06
+Study code number: 03
+Date of research: 1967 - 9
+Location: Great Britain
+Type of organisation: Manufacturing, business services
+Researcher: Child
+Code number of schedules, questionnaire: 01, 02, 05, 06P
+Study code number: 04
+Date of research: 1966 - 7
+Location: Coventry
+Type of organisation: Engineering, manufacturing
+Researcher: Lee
+Code number of schedules, questionnaire: 01, 02
+Study code number: 06
+Date of research: 1968
+Location: Ohio, USA
+Type of organisation: Manufacturing
+Researcher: Schwitter
+Code number of schedules, questionnaire: 02, 05
+Study code number: 07
+Date of research: 1967 - 8
+Location: Birmingham
+Type of organisation: General and mental hospitals
+Researcher: Tauber
+Code number of schedules, questionnaire: 01, 02
+Study code number: 08
+Date of research: 1967 - 9
+Location: Birmingham
+Type of organisation: Manufacturing
+Researchers: Pheysey, Payne
+Code number of schedules, questionnaire: 01, 02
+Study code number: 09
+Date of research: 1969 - 70
+Location: Great Britain
+Type of organisation: Manufacturing
+Researchers: Payne, Mansfield
+Code number of schedules, questionnaire: 02, 03, 04
+Study code number: 10
+Date of research: 1969 - 70
+Location: Alberta and British Columbia
+Type of organisation: Colleges and Technical Institutes
+Researcher: Holdaway
+Code number of schedules, questionnaire: 06
+Study code number: 11
+Date of research: 1969 - 70
+Location: Alberta
+Type of organisation: Community Colleges
+Researcher: Heron
+Code number of schedules, questionnaire: 06
+Study code number: 12
+Date of research: 1971
+Location: Britain
+Type of organisation: Business service manufacturing
+Researchers: Pugh, Loveridge
+Code number of schedules, questionnaire: 02, 06
+Study code number: 13
+Date of research: 1970 - 1
+Location: NE Ohio, USA
+Type of organisation: Manufacturing
+Researcher: Reimann
+Code number of schedules, questionnaire: 02
+Study code number: 14
+Date of research: 1970 - 1
+Location: London
+Type of organisation: Occupational interest associations
+Researcher: Donaldson
+Code number of schedules, questionnaire: 06
+Study code number: 15
+Date of research: 1970 - 2
+Location: West Germany
+Type of organisation: Manufacturing
+Researcher: Kieser
+Code number of schedules, questionnaire: 01, 02, 05, 06P
+Study code number: 16
+Date of research: 1971 - 2
+Location: Britain
+Type of organisation: Manufacturing
+Researcher: Pheysey
+Code number of schedules, questionnaire: 02, 03
+Study code number: 17
+Date of research: 1972
+Location: Britain
+Type of organisation: Local authority departments
+Researchers: Hinings
+Code number of schedules, questionnaire: 03, 04
+Study code number: 18
+Date of research: 1972 - 3
+Location: Japan
+Type of organisation: Manufacturing
+Researchers: McMillan
+Code number of schedules, questionnaire: 01, 02
+Study code number: 19
+Date of research: 1970 - 1
+Location: Midlands, UK
+Type of organisation: Hospitals
+Researcher: Glueck
+Code number of schedules, questionnaire: 02
+Study code number: 20
+Date of research: 1972
+Location: Britain
+Type of organisation: Churches
+Researcher: Hinings
+Code number of schedules, questionnaire: 01, 02
+Study code number: 23
+Date of research: 1972
+Location: Sweden
+Type of organisation: Manufacturing
+Researcher: McMillan
+Code number of schedules, questionnaire: 01, 02
+Study code number: 24
+Date of research: 1971
+Location: Britain
+Type of organisation: Manufacturing
+Researcher: McMillan
+Code number of schedules, questionnaire: 01, 0217:T1ae3,Variables
+The Data Archive now contains data from twenty-four studies carried out within the comparative organisational research programme initiated at the University of Aston in 1961. Summary details of each study are listed below, including dates, location and type of organisations investigated. There are six categories of data available from the databank and they are coded on the table as follows:
+01 data on organisational structure and context collected by means of the original and complete Aston schedule, as reported by Pugh et al. (ASQ, June 1968), Pugh et al. (ASQ, March 1969) and Hickson et al. (ASQ, September 1969)-relevant references are available from the Archive.
+02 data of organisational structure and context collected by means of a shortened version of the above schedule, as reported in Inkson et al. (ASQ, September 1970).
+03 data giving total scores on each of the twenty Business Organisational Climate Index (BOCI) scales as defined by Payne and Pheysey (OBHP, January 1971).
+04 data giving individual scores for each of the 160 items in the BOCI questionnaire.
+05 data on managerial attitudes, behaviour and roles collected by means of the 'The Executive in the Organisation' questionnaire as described in Child and Ellis (HR, 1973), Ellis and Child (JMS, October 1973).
+06 data collected by means of adaptations of the above instruments; also data additional to the above, including in some studies organisational performance data (marked 06P - but these are not, as yet, available from the Data Archive). These data are not directly comparable to those in any other study. The Aston Databank has been established under the supervision of Professor John Child, supported by a special grant from the ESRC. Mrs Ruth Goodkin and Mrs Pat Clark of the University of Aston Management Centre Research Unit have checked each study back to its raw data and recoded these where necessary into a standard format.
+A detailed manual for users of the databank has also been prepared, and this is available for consultation at the Archive. The University of Aston will continue to enter new data when available and as time permits. It is believed that the Aston Databank comprises the largest standardised set of comparative organisational data anywhere in the world, available for scholars for secondary analysis or as a point of comparison for future studies. Contact the Archive for further information.
+Interested users are recommended by the depositors to consult the books in the Aston Series (all published by Gower Press):
+The Aston Programme I: Pugh, D.S. and Hickson, D.J., <i>Organizational Structure in its Context</i>, (1976)
+The Aston Programme II: Pugh, D.S. and Hinings, C.R., <i>Organizational Structure</i>, (1976)
+The Aston Programme III: Pugh, D.S. and Payne, R.L., <i>Organizational Behaviour in its Context</i>, (1977)
+The Aston Programme IV: Hickson, D.J. and McMillan, C.J., <i>Organization and Nation</i>, (1981)
+Aston Data Bank
+List of studies included up to end of 1976
+Study code number: 01
+Date of research: 1962 - 3
+Location: Birmingham
+Type of organisation: Manufacturing, business services, public services
+Researchers: Pugh, Hickson, et al
+Code number of schedules, questionnaire: 01, 02
+Study code number: 02
+Date of research: 1967 - 8
+Location: Birmingham
+Type of organisation: Manufacturing, business services, public services
+Researchers: Hickson, Inkson
+Code number of schedules, questionnaire: 02, 05, 06
+Study code number: 03
+Date of research: 1967 - 9
+Location: Great Britain
+Type of organisation: Manufacturing, business services
+Researcher: Child
+Code number of schedules, questionnaire: 01, 02, 05, 06P
+Study code number: 04
+Date of research: 1966 - 7
+Location: Coventry
+Type of organisation: Engineering, manufacturing
+Researcher: Lee
+Code number of schedules, questionnaire: 01, 02
+Study code number: 06
+Date of research: 1968
+Location: Ohio, USA
+Type of organisation: Manufacturing
+Researcher: Schwitter
+Code number of schedules, questionnaire: 02, 05
+Study code number: 07
+Date of research: 1967 - 8
+Location: Birmingham
+Type of organisation: General and mental hospitals
+Researcher: Tauber
+Code number of schedules, questionnaire: 01, 02
+Study code number: 08
+Date of research: 1967 - 9
+Location: Birmingham
+Type of organisation: Manufacturing
+Researchers: Pheysey, Payne
+Code number of schedules, questionnaire: 01, 02
+Study code number: 09
+Date of research: 1969 - 70
+Location: Great Britain
+Type of organisation: Manufacturing
+Researchers: Payne, Mansfield
+Code number of schedules, questionnaire: 02, 03, 04
+Study code number: 10
+Date of research: 1969 - 70
+Location: Alberta and British Columbia
+Type of organisation: Colleges and Technical Institutes
+Researcher: Holdaway
+Code number of schedules, questionnaire: 06
+Study code number: 11
+Date of research: 1969 - 70
+Location: Alberta
+Type of organisation: Community Colleges
+Researcher: Heron
+Code number of schedules, questionnaire: 06
+Study code number: 12
+Date of research: 1971
+Location: Britain
+Type of organisation: Business service manufacturing
+Researchers: Pugh, Loveridge
+Code number of schedules, questionnaire: 02, 06
+Study code number: 13
+Date of research: 1970 - 1
+Location: NE Ohio, USA
+Type of organisation: Manufacturing
+Researcher: Reimann
+Code number of schedules, questionnaire: 02
+Study code number: 14
+Date of research: 1970 - 1
+Location: London
+Type of organisation: Occupational interest associations
+Researcher: Donaldson
+Code number of schedules, questionnaire: 06
+Study code number: 15
+Date of research: 1970 - 2
+Location: West Germany
+Type of organisation: Manufacturing
+Researcher: Kieser
+Code number of schedules, questionnaire: 01, 02, 05, 06P
+Study code number: 16
+Date of research: 1971 - 2
+Location: Britain
+Type of organisation: Manufacturing
+Researcher: Pheysey
+Code number of schedules, questionnaire: 02, 03
+Study code number: 17
+Date of research: 1972
+Location: Britain
+Type of organisation: Local authority departments
+Researchers: Hinings
+Code number of schedules, questionnaire: 03, 04
+Study code number: 18
+Date of research: 1972 - 3
+Location: Japan
+Type of organisation: Manufacturing
+Researchers: McMillan
+Code number of schedules, questionnaire: 01, 02
+Study code number: 19
+Date of research: 1970 - 1
+Location: Midlands, UK
+Type of organisation: Hospitals
+Researcher: Glueck
+Code number of schedules, questionnaire: 02
+Study code number: 20
+Date of research: 1972
+Location: Britain
+Type of organisation: Churches
+Researcher: Hinings
+Code number of schedules, questionnaire: 01, 02
+Study code number: 23
+Date of research: 1972
+Location: Sweden
+Type of organisation: Manufacturing
+Researcher: McMillan
+Code number of schedules, questionnaire: 01, 02
+Study code number: 24
+Date of research: 1971
+Location: Britain
+Type of organisation: Manufacturing
+Researcher: McMillan
+Code number of schedules, questionnaire: 01, 02e:[["$","meta","0",{"charSet":"utf-8"}],["$","title","1",{"children":"Databank of Information from the Aston Programme of Organization Studies, 1962-1973"}],["$","meta","2",{"name":"description","content":"$15"}],["$","meta","3",{"property":"og:title","content":"Databank of Information from the Aston Programme of Organization Studies, 1962-1973"}],["$","meta","4",{"property":"og:description","content":"$16"}],["$","meta","5",{"property":"og:url","content":"https://discoverynext.vercel.app/items/databank-of-information-from-the-aston-programme-of-organization-studies-1962-1973"}],["$","meta","6",{"property":"og:site_name","content":"Academic Resource Discovery"}],["$","meta","7",{"property":"og:locale","content":"en_US"}],["$","meta","8",{"property":"og:image","content":"https://harmonydata.ac.uk/search/harmony.png"}],["$","meta","9",{"property":"og:image:width","content":"1200"}],["$","meta","10",{"property":"og:image:height","content":"630"}],["$","meta","11",{"property":"og:image:alt","content":"Databank of Information from the Aston Programme of Organization Studies, 1962-1973"}],["$","meta","12",{"property":"og:type","content":"website"}],["$","meta","13",{"name":"twitter:card","content":"summary_large_image"}],["$","meta","14",{"name":"twitter:title","content":"Databank of Information from the Aston Programme of Organization Studies, 1962-1973"}],["$","meta","15",{"name":"twitter:description","content":"$17"}],["$","meta","16",{"name":"twitter:image","content":"https://harmonydata.ac.uk/search/harmony.png"}],["$","link","17",{"rel":"icon","href":"/search/favicon.ico","type":"image/x-icon","sizes":"16x16"}]]
+c:null

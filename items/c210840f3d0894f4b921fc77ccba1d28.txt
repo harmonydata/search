@@ -15,10 +15,10 @@ f:I[86213,[],"ViewportBoundary"]
 :HL["/search/_next/static/media/e4af272ccee01ff0-s.p.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
 :HL["/search/_next/static/css/2c4d913f25bfc6bf.css","style"]
 :HL["/search/_next/static/css/4921cfd18b262f8c.css","style"]
-0:{"P":null,"b":"s_DTI9faTgGaCM3x3n4Zl","p":"/search","c":["","items","c210840f3d0894f4b921fc77ccba1d28"],"i":false,"f":[[["",{"children":["items",{"children":[["slug","c210840f3d0894f4b921fc77ccba1d28","d"],{"children":["__PAGE__",{}]}]}]},"$undefined","$undefined",true],["",["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/search/_next/static/css/2c4d913f25bfc6bf.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]],["$","html",null,{"lang":"en","children":[["$","head",null,{"children":["$","meta",null,{"name":"emotion-insertion-point","content":""}]}],["$","body",null,{"className":"__className_62a302","children":["$","$L2",null,{"children":["$","$L3",null,{"children":["$","$L4",null,{"children":[["$","$L5",null,{"sx":{"display":"flex","flexDirection":{"xs":"column","md":"row"}},"children":[["$","$L6",null,{}],["$","$L5",null,{"component":"main","sx":{"flexGrow":1,"ml":{"xs":0,"md":"72px"},"mt":{"xs":"64px","md":0},"minHeight":{"xs":"calc(100vh - 64px)","md":"100vh"},"width":{"xs":"100%","md":"calc(100% - 72px)"}},"children":["$","$L7",null,{"parallelRouterKey":"children","segmentPath":["children"],"error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L8",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[[],[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]]}],["$","$L9",null,{"position":"bottom-right"}]]}]}]}]}]]}]]}],{"children":["items",["$","$1","c",{"children":[null,["$","$L7",null,{"parallelRouterKey":"children","segmentPath":["children","items","children"],"error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L8",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],{"children":[["slug","c210840f3d0894f4b921fc77ccba1d28","d"],["$","$1","c",{"children":[null,["$","$L7",null,{"parallelRouterKey":"children","segmentPath":["children","items","children","$0:f:0:1:2:children:2:children:0","children"],"error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L8",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],{"children":["__PAGE__",["$","$1","c",{"children":["$La",[["$","link","0",{"rel":"stylesheet","href":"/search/_next/static/css/4921cfd18b262f8c.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]],["$","$Lb",null,{"children":"$Lc"}]]}],{},null,false]},null,false]},null,false]},null,false],["$","$1","h",{"children":[null,["$","$1","h09GwtLXX5I7iMjse2jtK",{"children":[["$","$Ld",null,{"children":"$Le"}],["$","$Lf",null,{"children":"$L10"}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}]]}],false]],"m":"$undefined","G":["$11","$undefined"],"s":false,"S":true}
+0:{"P":null,"b":"8r-g2-FTTcZL6JFFobnJN","p":"/search","c":["","items","c210840f3d0894f4b921fc77ccba1d28"],"i":false,"f":[[["",{"children":["items",{"children":[["slug","c210840f3d0894f4b921fc77ccba1d28","d"],{"children":["__PAGE__",{}]}]}]},"$undefined","$undefined",true],["",["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/search/_next/static/css/2c4d913f25bfc6bf.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]],["$","html",null,{"lang":"en","children":[["$","head",null,{"children":["$","meta",null,{"name":"emotion-insertion-point","content":""}]}],["$","body",null,{"className":"__className_62a302","children":["$","$L2",null,{"children":["$","$L3",null,{"children":["$","$L4",null,{"children":[["$","$L5",null,{"sx":{"display":"flex","flexDirection":{"xs":"column","md":"row"}},"children":[["$","$L6",null,{}],["$","$L5",null,{"component":"main","sx":{"flexGrow":1,"ml":{"xs":0,"md":"72px"},"mt":{"xs":"64px","md":0},"minHeight":{"xs":"calc(100vh - 64px)","md":"100vh"},"width":{"xs":"100%","md":"calc(100% - 72px)"}},"children":["$","$L7",null,{"parallelRouterKey":"children","segmentPath":["children"],"error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L8",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[[],[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]]}],["$","$L9",null,{"position":"bottom-right"}]]}]}]}]}]]}]]}],{"children":["items",["$","$1","c",{"children":[null,["$","$L7",null,{"parallelRouterKey":"children","segmentPath":["children","items","children"],"error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L8",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],{"children":[["slug","c210840f3d0894f4b921fc77ccba1d28","d"],["$","$1","c",{"children":[null,["$","$L7",null,{"parallelRouterKey":"children","segmentPath":["children","items","children","$0:f:0:1:2:children:2:children:0","children"],"error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L8",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],{"children":["__PAGE__",["$","$1","c",{"children":["$La",[["$","link","0",{"rel":"stylesheet","href":"/search/_next/static/css/4921cfd18b262f8c.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]],["$","$Lb",null,{"children":"$Lc"}]]}],{},null,false]},null,false]},null,false]},null,false],["$","$1","h",{"children":[null,["$","$1","BWLFHJBwqAqHjFDss1t7k",{"children":[["$","$Ld",null,{"children":"$Le"}],["$","$Lf",null,{"children":"$L10"}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}]]}],false]],"m":"$undefined","G":["$11","$undefined"],"s":false,"S":true}
 10:[["$","meta","0",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
 a:["$","div",null,{"children":[["$","script",null,{"dangerouslySetInnerHTML":{"__html":"window.location.replace('/items/british-household-panel-survey-waves-1-18-1991-2009-secure-access-national-grid-reference-easting-northing-osgrdind');"}}],["$","p",null,{"children":["Redirecting to"," ",["$","a",null,{"href":"/items/british-household-panel-survey-waves-1-18-1991-2009-secure-access-national-grid-reference-easting-northing-osgrdind","children":["/items/","british-household-panel-survey-waves-1-18-1991-2009-secure-access-national-grid-reference-easting-northing-osgrdind"]}],"..."]}]]}]
-12:T1a44,The British Household Panel Survey (BHPS) ran for 18 waves, from 
+12:T1293,The British Household Panel Survey (BHPS) ran for 18 waves, from 
 1991-2009, and was conducted by the ESRC UK Longitudinal Studies Centre 
 (ULSC), together with the Institute for Social and Economic Research
  (ISER) at the University of Essex. The ULSC, established in 1999, was a
@@ -57,36 +57,7 @@ The Secure Access version includes all files in the Special Licence version (see
  supplied alongside grid reference files instead of the End User Licence
  versions for all waves. Minor changes to waves 1 to 18 have been 
 incorporated. The grid reference files remain unchanged. A new full 
-dates of birth file is included with the BHPS waves for the first time. 
-See Appendix 4 of the User Guide and other documentation for further 
-details. The questionnaire package consists of the following elements:a household coversheeta
- household composition form comprising a complete listing of all 
-household members, together with some brief summary data of their 
-gender, date of birth, marital and employment status and their 
-relationship to the household reference persona short household
- questionnaire containing questions about the accommodation and tenure 
-and some household-level measures of consumption an individual 
-schedule asked of every adult member of the household (aged 16 or over),
- covering: neighbourhood; individual demographics; residential mobility;
- health and caring; current employment and earnings; employment changes 
-over the past year; lifetime childbirth, marital and relationship 
-history (Wave 2 for the main sample, supplemented for new entrants from 
-Wave 8 onwards); employment status history (Wave 2 only); values and 
-opinions; household finances and organisationa self-completion 
-questionnaire including subjective or attitudinal questions particularly
- vulnerable to the influence of other people's presence during 
-completion, or potentially sensitive questions requiring additional 
-privacy. It also contains attitudinal items and questions on social 
-supporta proxy schedule: the questionnaire is a much shortened 
-version of the individual questionnaire, collecting some demographic, 
-health, and employment details, as well as a summary income measurea
- telephone questionnaire, developed from the proxy schedule, for use 
-when all other efforts to achieve a face-to-face interview have failedfrom
- Wave 4 to Wave 11, the youth questionnaire (aged 11-16 years) was 
-administered using a 'Walkman' personal cassette tape player and a blank
- self-completion answer grid, as some of the questions cover sensitive 
-issues. From Wave 12 onwards, a normal self-completion script has been 
-used13:T1a44,The British Household Panel Survey (BHPS) ran for 18 waves, from 
+dates of birth file is included with the BHPS waves for the first time.13:T1293,The British Household Panel Survey (BHPS) ran for 18 waves, from 
 1991-2009, and was conducted by the ESRC UK Longitudinal Studies Centre 
 (ULSC), together with the Institute for Social and Economic Research
  (ISER) at the University of Essex. The ULSC, established in 1999, was a
@@ -125,36 +96,7 @@ The Secure Access version includes all files in the Special Licence version (see
  supplied alongside grid reference files instead of the End User Licence
  versions for all waves. Minor changes to waves 1 to 18 have been 
 incorporated. The grid reference files remain unchanged. A new full 
-dates of birth file is included with the BHPS waves for the first time. 
-See Appendix 4 of the User Guide and other documentation for further 
-details. The questionnaire package consists of the following elements:a household coversheeta
- household composition form comprising a complete listing of all 
-household members, together with some brief summary data of their 
-gender, date of birth, marital and employment status and their 
-relationship to the household reference persona short household
- questionnaire containing questions about the accommodation and tenure 
-and some household-level measures of consumption an individual 
-schedule asked of every adult member of the household (aged 16 or over),
- covering: neighbourhood; individual demographics; residential mobility;
- health and caring; current employment and earnings; employment changes 
-over the past year; lifetime childbirth, marital and relationship 
-history (Wave 2 for the main sample, supplemented for new entrants from 
-Wave 8 onwards); employment status history (Wave 2 only); values and 
-opinions; household finances and organisationa self-completion 
-questionnaire including subjective or attitudinal questions particularly
- vulnerable to the influence of other people's presence during 
-completion, or potentially sensitive questions requiring additional 
-privacy. It also contains attitudinal items and questions on social 
-supporta proxy schedule: the questionnaire is a much shortened 
-version of the individual questionnaire, collecting some demographic, 
-health, and employment details, as well as a summary income measurea
- telephone questionnaire, developed from the proxy schedule, for use 
-when all other efforts to achieve a face-to-face interview have failedfrom
- Wave 4 to Wave 11, the youth questionnaire (aged 11-16 years) was 
-administered using a 'Walkman' personal cassette tape player and a blank
- self-completion answer grid, as some of the questions cover sensitive 
-issues. From Wave 12 onwards, a normal self-completion script has been 
-used14:T1a44,The British Household Panel Survey (BHPS) ran for 18 waves, from 
+dates of birth file is included with the BHPS waves for the first time.14:T1293,The British Household Panel Survey (BHPS) ran for 18 waves, from 
 1991-2009, and was conducted by the ESRC UK Longitudinal Studies Centre 
 (ULSC), together with the Institute for Social and Economic Research
  (ISER) at the University of Essex. The ULSC, established in 1999, was a
@@ -193,34 +135,5 @@ The Secure Access version includes all files in the Special Licence version (see
  supplied alongside grid reference files instead of the End User Licence
  versions for all waves. Minor changes to waves 1 to 18 have been 
 incorporated. The grid reference files remain unchanged. A new full 
-dates of birth file is included with the BHPS waves for the first time. 
-See Appendix 4 of the User Guide and other documentation for further 
-details. The questionnaire package consists of the following elements:a household coversheeta
- household composition form comprising a complete listing of all 
-household members, together with some brief summary data of their 
-gender, date of birth, marital and employment status and their 
-relationship to the household reference persona short household
- questionnaire containing questions about the accommodation and tenure 
-and some household-level measures of consumption an individual 
-schedule asked of every adult member of the household (aged 16 or over),
- covering: neighbourhood; individual demographics; residential mobility;
- health and caring; current employment and earnings; employment changes 
-over the past year; lifetime childbirth, marital and relationship 
-history (Wave 2 for the main sample, supplemented for new entrants from 
-Wave 8 onwards); employment status history (Wave 2 only); values and 
-opinions; household finances and organisationa self-completion 
-questionnaire including subjective or attitudinal questions particularly
- vulnerable to the influence of other people's presence during 
-completion, or potentially sensitive questions requiring additional 
-privacy. It also contains attitudinal items and questions on social 
-supporta proxy schedule: the questionnaire is a much shortened 
-version of the individual questionnaire, collecting some demographic, 
-health, and employment details, as well as a summary income measurea
- telephone questionnaire, developed from the proxy schedule, for use 
-when all other efforts to achieve a face-to-face interview have failedfrom
- Wave 4 to Wave 11, the youth questionnaire (aged 11-16 years) was 
-administered using a 'Walkman' personal cassette tape player and a blank
- self-completion answer grid, as some of the questions cover sensitive 
-issues. From Wave 12 onwards, a normal self-completion script has been 
-usede:[["$","meta","0",{"charSet":"utf-8"}],["$","title","1",{"children":"British Household Panel Survey, Waves 1-18, 1991-2009: Secure Access, National Grid Reference (Easting, Northing, OSGRDIND)"}],["$","meta","2",{"name":"description","content":"$12"}],["$","meta","3",{"property":"og:title","content":"British Household Panel Survey, Waves 1-18, 1991-2009: Secure Access, National Grid Reference (Easting, Northing, OSGRDIND)"}],["$","meta","4",{"property":"og:description","content":"$13"}],["$","meta","5",{"property":"og:url","content":"https://discoverynext.vercel.app/items/c210840f3d0894f4b921fc77ccba1d28"}],["$","meta","6",{"property":"og:site_name","content":"Academic Resource Discovery"}],["$","meta","7",{"property":"og:locale","content":"en_US"}],["$","meta","8",{"property":"og:image","content":"https://harmonydata.ac.uk/search/harmony.png"}],["$","meta","9",{"property":"og:image:width","content":"1200"}],["$","meta","10",{"property":"og:image:height","content":"630"}],["$","meta","11",{"property":"og:image:alt","content":"British Household Panel Survey, Waves 1-18, 1991-2009: Secure Access, National Grid Reference (Easting, Northing, OSGRDIND)"}],["$","meta","12",{"property":"og:type","content":"website"}],["$","meta","13",{"name":"twitter:card","content":"summary_large_image"}],["$","meta","14",{"name":"twitter:title","content":"British Household Panel Survey, Waves 1-18, 1991-2009: Secure Access, National Grid Reference (Easting, Northing, OSGRDIND)"}],["$","meta","15",{"name":"twitter:description","content":"$14"}],["$","meta","16",{"name":"twitter:image","content":"https://harmonydata.ac.uk/search/harmony.png"}],["$","link","17",{"rel":"icon","href":"/search/favicon.ico","type":"image/x-icon","sizes":"16x16"}]]
+dates of birth file is included with the BHPS waves for the first time.e:[["$","meta","0",{"charSet":"utf-8"}],["$","title","1",{"children":"British Household Panel Survey, Waves 1-18, 1991-2009: Secure Access, National Grid Reference (Easting, Northing, OSGRDIND)"}],["$","meta","2",{"name":"description","content":"$12"}],["$","meta","3",{"property":"og:title","content":"British Household Panel Survey, Waves 1-18, 1991-2009: Secure Access, National Grid Reference (Easting, Northing, OSGRDIND)"}],["$","meta","4",{"property":"og:description","content":"$13"}],["$","meta","5",{"property":"og:url","content":"https://discoverynext.vercel.app/items/c210840f3d0894f4b921fc77ccba1d28"}],["$","meta","6",{"property":"og:site_name","content":"Academic Resource Discovery"}],["$","meta","7",{"property":"og:locale","content":"en_US"}],["$","meta","8",{"property":"og:image","content":"https://harmonydata.ac.uk/search/harmony.png"}],["$","meta","9",{"property":"og:image:width","content":"1200"}],["$","meta","10",{"property":"og:image:height","content":"630"}],["$","meta","11",{"property":"og:image:alt","content":"British Household Panel Survey, Waves 1-18, 1991-2009: Secure Access, National Grid Reference (Easting, Northing, OSGRDIND)"}],["$","meta","12",{"property":"og:type","content":"website"}],["$","meta","13",{"name":"twitter:card","content":"summary_large_image"}],["$","meta","14",{"name":"twitter:title","content":"British Household Panel Survey, Waves 1-18, 1991-2009: Secure Access, National Grid Reference (Easting, Northing, OSGRDIND)"}],["$","meta","15",{"name":"twitter:description","content":"$14"}],["$","meta","16",{"name":"twitter:image","content":"https://harmonydata.ac.uk/search/harmony.png"}],["$","link","17",{"rel":"icon","href":"/search/favicon.ico","type":"image/x-icon","sizes":"16x16"}]]
 c:null

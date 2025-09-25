@@ -5,6 +5,7 @@ env:
   CI: false
 
 on:
+  repository_dispatch:
   push:
     branches: ["main"]
   pull_request:

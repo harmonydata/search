@@ -1,7 +1,7 @@
 import {
-  fetchAllStudiesWithUuids,
-  fetchAllDatasetsWithUuids,
-} from "@/services/api";
+  getCachedStudiesWithUuids,
+  getCachedDatasetsWithUuids,
+} from "@/services/cachedData";
 
 // Required for static export
 export const dynamic = "force-static";
@@ -10,8 +10,8 @@ export default async function sitemap() {
   const baseUrl = "https://harmonydata.ac.uk/search";
 
   // Get all studies and datasets for the sitemap
-  const studiesWithUuids = await fetchAllStudiesWithUuids();
-  const datasetsWithUuids = await fetchAllDatasetsWithUuids();
+  const studiesWithUuids = getCachedStudiesWithUuids();
+  const datasetsWithUuids = getCachedDatasetsWithUuids();
 
   // Main navigation pages
   const mainPages = [
@@ -61,13 +61,18 @@ export default async function sitemap() {
     priority: 0.6,
   }));
 
-  // Generate dataset pages
-  const datasetPages = datasetsWithUuids.map((dataset) => ({
-    url: `${baseUrl}/items/${dataset.slug}`,
-    lastModified: new Date(),
-    changeFrequency: "monthly" as const,
-    priority: 0.6,
-  }));
+  // Generate dataset pages (use UUID if slug too long, matches static generation)
+  const datasetPages = datasetsWithUuids.map((dataset) => {
+    const identifier =
+      dataset.slug && dataset.slug.length > 220 ? dataset.uuid : dataset.slug;
+
+    return {
+      url: `${baseUrl}/items/${identifier}`,
+      lastModified: new Date(),
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    };
+  });
 
   return [...mainPages, ...studyPages, ...datasetPages];
 }

@@ -6,9 +6,15 @@ import { getAssetPrefix } from "@/lib/utils/shared";
 
 interface StudyPageClientProps {
   study: any;
+  isLoadingEnhancedData?: boolean;
+  originalSearchResult?: any;
 }
 
-export default function StudyPageClient({ study }: StudyPageClientProps) {
+export default function StudyPageClient({
+  study,
+  isLoadingEnhancedData = false,
+  originalSearchResult,
+}: StudyPageClientProps) {
   return (
     <Container
       maxWidth={false}
@@ -30,6 +36,8 @@ export default function StudyPageClient({ study }: StudyPageClientProps) {
         <StudyDetail
           study={study}
           isDrawerView={false}
+          isLoadingEnhancedData={isLoadingEnhancedData}
+          originalSearchResult={originalSearchResult}
           onTopicClick={(topic) => {
             // Handle topic clicks - navigate to search with topic
             window.location.href = `${getAssetPrefix()}discover?topics=${encodeURIComponent(

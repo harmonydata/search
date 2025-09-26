@@ -429,6 +429,7 @@ export async function fetchResultByUuid(
   alpha?: number,
   maxVectorDistance?: number
 ): Promise<SearchResult> {
+  console.log(`🔗 API CALL: fetchResultByUuid(${identifier})`);
   const params = new URLSearchParams();
 
   // Check if identifier is a UUID (with dashes) or hash-based ID (32 hex chars)
@@ -789,6 +790,7 @@ export async function fetchAllStudySlugs(): Promise<string[]> {
 export async function fetchAllStudiesWithUuids(): Promise<
   Array<{ slug: string; uuid: string }>
 > {
+  console.log(`🔗 API CALL: fetchAllStudiesWithUuids()`);
   const allStudies: Array<{ slug: string; uuid: string }> = [];
   let offset = 0;
   const pageSize = 500;
@@ -837,6 +839,7 @@ export async function fetchAllStudiesWithUuids(): Promise<
 export async function fetchAllDatasetsWithUuids(): Promise<
   Array<{ slug: string; uuid: string }>
 > {
+  console.log(`🔗 API CALL: fetchAllDatasetsWithUuids()`);
   const allDatasets: Array<{ slug: string; uuid: string }> = [];
   let offset = 0;
   const pageSize = 500;

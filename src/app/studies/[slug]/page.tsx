@@ -1,9 +1,12 @@
-import { Container, Box, Typography } from "@mui/material";
-import StudyDetail from "@/components/StudyDetail";
 import { transformSearchResultToStudyDetail } from "@/lib/utils/studyTransform";
 import { notFound } from "next/navigation";
+import Script from "next/script";
 import StudyPageClient from "./StudyPageClient";
 import { fetchAllStudiesWithUuids, fetchResultByUuid } from "@/services/api";
+import {
+  getCachedStudiesWithUuids,
+  getCachedStudyBySlug,
+} from "@/services/cachedData";
 import { Metadata } from "next";
 
 // This runs at build time for static export
@@ -11,14 +14,21 @@ export async function generateStaticParams() {
   try {
     console.log("Fetching all studies for static generation...");
 
-    // Use the API service to get all studies with UUIDs
-    const studiesWithUuids = await fetchAllStudiesWithUuids();
+    // Try to use cached data first, fallback to API
+    let studiesWithUuids;
+    try {
+      studiesWithUuids = getCachedStudiesWithUuids();
+      console.log(`Using cached data: ${studiesWithUuids.length} studies`);
+    } catch (error) {
+      console.log("Cached data not available, falling back to API...");
+      studiesWithUuids = await fetchAllStudiesWithUuids();
+    }
 
     console.log(
       `Found ${studiesWithUuids.length} studies for static generation`
     );
 
-    // Return the params for each study
+    // Return the params for each study (slug only)
     return studiesWithUuids.map((study) => ({
       slug: study.slug,
     }));
@@ -36,32 +46,20 @@ export async function generateMetadata({
   const { slug } = await params;
 
   try {
-    // Get the study data (same logic as the page component)
-    const studiesWithUuids = await fetchAllStudiesWithUuids();
-    const studyWithUuid = studiesWithUuids.find((study) => study.slug === slug);
-
-    if (!studyWithUuid) {
-      return {
-        title: "Study Not Found",
-        description: "The requested study could not be found.",
-      };
+    // Try to use cached data first, fallback to API
+    let fullStudyResult;
+    try {
+      fullStudyResult = getCachedStudyBySlug(slug);
+    } catch (error) {
+      fullStudyResult = await fetchResultByUuid(slug);
     }
-
-    const fullStudyResult = await fetchResultByUuid(studyWithUuid.uuid);
     const study = transformSearchResultToStudyDetail(fullStudyResult);
 
     // Generate Open Graph and Twitter Card metadata
     const title = study.title || "Academic Study";
     const description = study.description || "Academic research study data";
     const image = study.image || "/harmony.png";
-    const url = `https://discoverynext.vercel.app/studies/${slug}`;
-
-    // Generate structured data (JSON-LD) using the full dataset schema
-    const structuredData = {
-      "@context": "https://schema.org",
-      ...fullStudyResult.dataset_schema,
-      url: url,
-    };
+    const url = `https://harmonydata.ac.uk/search/studies/${slug}`;
 
     return {
       title,
@@ -108,45 +106,66 @@ export default async function StudyPage({
   try {
     console.log(`Generating static page for study: ${slug}`);
 
-    // Use the API service to get all studies and find the matching one
-    const studiesWithUuids = await fetchAllStudiesWithUuids();
-
-    // Find the study with the matching slug
-    const studyWithUuid = studiesWithUuids.find((study) => study.slug === slug);
-
-    if (!studyWithUuid) {
-      throw new Error(`Study with slug "${slug}" not found`);
+    // Try to use cached data first, fallback to API
+    let fullStudyResult;
+    try {
+      fullStudyResult = getCachedStudyBySlug(slug);
+    } catch (error) {
+      console.log(`Fetching study from API ${slug}`);
+      fullStudyResult = await fetchResultByUuid(slug);
     }
-
-    const uuid = studyWithUuid.uuid;
-    console.log(`Found study UUID for ${slug}: ${uuid}`);
-
-    // Use the API service to fetch the full study data using the UUID
-    const fullStudyResult = await fetchResultByUuid(uuid);
 
     console.log(
       `Found full study data for ${slug}:`,
       fullStudyResult.dataset_schema?.name
     );
 
+    // Create a stripped-down study object without variables for static generation
+    // This will make the static files much smaller, and StudyDetail will handle
+    // fetching the full data with variables via API
     const study = transformSearchResultToStudyDetail(fullStudyResult);
 
-    // Prepare JSON-LD structured data
+    // Remove variables data to reduce static file size
+    const strippedStudy = {
+      ...study,
+      allVariables: undefined,
+      matchedVariables: undefined,
+    };
+
+    // Prepare JSON-LD structured data (only include main study info, not child datasets)
     const structuredData = {
       "@context": "https://schema.org/",
-      ...fullStudyResult.dataset_schema,
-      url: `https://discoverynext.vercel.app/studies/${slug}`,
+      "@type": "Dataset",
+      name: fullStudyResult.dataset_schema?.name,
+      description: fullStudyResult.dataset_schema?.description,
+      url: `https://harmonydata.ac.uk/search/studies/${slug}`,
+      identifier: fullStudyResult.dataset_schema?.identifier,
+      keywords: fullStudyResult.dataset_schema?.keywords,
+      temporalCoverage: fullStudyResult.dataset_schema?.temporalCoverage,
+      spatialCoverage: fullStudyResult.dataset_schema?.spatialCoverage,
+      publisher: fullStudyResult.dataset_schema?.publisher,
+      creator: fullStudyResult.dataset_schema?.creator,
+      dateCreated: fullStudyResult.dataset_schema?.dateCreated,
+      dateModified: fullStudyResult.dataset_schema?.dateModified,
+      license: fullStudyResult.dataset_schema?.license,
+      distribution: fullStudyResult.dataset_schema?.distribution,
     };
 
     return (
       <>
-        <script
+        <Script
+          strategy="beforeInteractive"
+          id="structured-data"
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(structuredData),
           }}
         />
-        <StudyPageClient study={study} />
+        <StudyPageClient
+          study={strippedStudy}
+          isLoadingEnhancedData={true}
+          originalSearchResult={fullStudyResult}
+        />
       </>
     );
   } catch (error) {

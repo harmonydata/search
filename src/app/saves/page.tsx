@@ -585,15 +585,17 @@ export default function SavesPage() {
                               ? "studies"
                               : "items";
 
-                          let identifier = resource.slug || resource.uuid;
+                          let identifier;
 
-                          // For items, use UUID if slug is too long (matches static generation)
-                          if (
-                            resourcePath === "items" &&
-                            resource.slug &&
-                            resource.slug.length > 220
-                          ) {
-                            identifier = resource.uuid;
+                          if (resourcePath === "studies") {
+                            // For studies, only use slug (no UUID fallback)
+                            identifier = resource.slug;
+                          } else {
+                            // For items, use slug or UUID, with length check
+                            identifier = resource.slug || resource.uuid;
+                            if (resource.slug && resource.slug.length > 220) {
+                              identifier = resource.uuid;
+                            }
                           }
 
                           const url = `${getAssetPrefix()}${resourcePath}/${identifier}`;

@@ -9,7 +9,7 @@ import {
 } from "@mui/material";
 import Image from "next/image";
 import { ChevronDown, ChevronUp, Bug, Bookmark } from "lucide-react";
-import { useState, memo, useMemo, useEffect } from "react";
+import { useState, memo, useMemo, useEffect, useRef } from "react";
 import SquareChip from "@/components/SquareChip";
 import DataCatalogCard from "@/components/DataCatalogCard";
 import OrganizationCard from "@/components/OrganizationCard";
@@ -19,6 +19,7 @@ import MatchedVariablesDataGrid from "@/components/MatchedVariablesDataGrid";
 import StudyDetailDebugDialog from "@/components/StudyDetailDebugDialog";
 import ChildDatasetsDataGrid from "@/components/ChildDatasetsDataGrid";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSearch } from "@/contexts/SearchContext";
 import {
   collection,
   addDoc,
@@ -30,57 +31,12 @@ import {
   doc,
 } from "firebase/firestore/lite";
 import { db } from "../firebase";
+import { SearchResult, fetchResultByUuid } from "@/services/api";
 
 interface StudyDetailProps {
-  study: {
-    title: string;
-    description: string;
-    image?: string;
-    uuid?: string;
-    slug?: string;
-    dataOwner?: {
-      name: string;
-      logo: string;
-    };
-    publisher?: {
-      name: string;
-      url?: string;
-      logo?: string;
-    };
-    funders?: Array<{
-      name: string;
-      url?: string;
-      logo?: string;
-    }>;
-    geographicCoverage?: string;
-    temporalCoverage?: string;
-    sampleSize?: string;
-    ageCoverage?: string;
-    studyDesign?: string[];
-    resourceType?: string;
-    topics?: string[];
-    instruments?: string[];
-    dataCatalogs?: Array<{
-      name: string;
-      url?: string;
-      logo?: string;
-    }>;
-    matchedVariables?: Array<{
-      name: string;
-      description?: string;
-      uuid?: string;
-    }>;
-    allVariables?: Array<{
-      name: string;
-      description?: string;
-      uuid?: string;
-    }>;
-    additionalLinks?: string[];
-    child_datasets?: Array<any>;
-    aiSummary?: string | null;
-  };
+  study: SearchResult;
   isDrawerView?: boolean;
-  isStudyPage?: boolean;
+  studyDataComplete?: boolean;
   onTopicClick?: (topic: string) => void;
   onInstrumentClick?: (instrument: string) => void;
   // Debug data - only available in development mode
@@ -88,20 +44,15 @@ interface StudyDetailProps {
     originalSearchResult?: any;
     lookupData?: any;
   };
-  // Original search result containing dataset_schema
-  originalSearchResult?: any;
-  // Loading state for enhanced data
-  isLoadingEnhancedData?: boolean;
 }
 
 const StudyDetailComponent = ({
   study,
   isDrawerView = false,
+  studyDataComplete = false,
   onTopicClick,
   onInstrumentClick,
   debugData,
-  originalSearchResult,
-  isLoadingEnhancedData = false,
 }: StudyDetailProps) => {
   const [variablesExpanded, setVariablesExpanded] = useState(false);
   const [additionalLinksExpanded, setAdditionalLinksExpanded] = useState(false);
@@ -112,33 +63,66 @@ const StudyDetailComponent = ({
   const [saving, setSaving] = useState(false);
   const [savedResourceId, setSavedResourceId] = useState<string | null>(null);
 
-  const { currentUser } = useAuth();
+  // Internal lookup state
+  const [enhancedStudy, setEnhancedStudy] = useState<SearchResult | null>(null);
+  const [isLoadingEnhancedData, setIsLoadingEnhancedData] = useState(false);
 
-  // Determine if we have AI summary available and what description to show
-  const hasAiSummary = study.aiSummary && study.aiSummary.trim().length > 0;
+  // Ref for scroll container
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const { currentUser } = useAuth();
+  const { searchSettings } = useSearch();
+
+  // Use enhanced study data if available, otherwise fall back to original study
+  const displayStudy = enhancedStudy || study;
+
+  // Extract data directly from SearchResult structure
+  const title =
+    displayStudy.dataset_schema?.name ||
+    displayStudy.extra_data?.name ||
+    "Untitled Dataset";
+  const description =
+    displayStudy.dataset_schema?.description ||
+    displayStudy.extra_data?.description ||
+    "";
+  const aiSummary = displayStudy.extra_data?.ai_summary || null;
+  const hasAiSummary = aiSummary && aiSummary.trim().length > 0;
   const currentDescription =
-    showAiSummary && hasAiSummary ? study.aiSummary : study.description;
+    showAiSummary && hasAiSummary ? aiSummary : description;
+
+  // Extract image from SearchResult
+  const image =
+    (displayStudy.dataset_schema as any)?.image ||
+    (displayStudy as any).image ||
+    undefined;
 
   // Reset image error when study changes or study image changes
   useEffect(() => {
     setImageError(false);
-  }, [study.title, study.image]);
+  }, [title, image]);
 
   // Reset description expanded state when study changes
   useEffect(() => {
     setDescriptionExpanded(false);
-  }, [study.title]);
+  }, [title]);
+
+  // Scroll to top when study changes
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [study.extra_data?.uuid]); // Trigger when the study UUID changes
 
   // Check if resource is already saved
   useEffect(() => {
     const checkIfSaved = async () => {
-      if (!currentUser || !study.uuid) return;
+      if (!currentUser || !study.extra_data?.uuid) return;
 
       try {
         const q = query(
           collection(db, "saved_resources"),
           where("uid", "==", currentUser.uid),
-          where("uuid", "==", study.uuid)
+          where("uuid", "==", study.extra_data.uuid)
         );
         const querySnapshot = await getDocs(q);
 
@@ -156,11 +140,11 @@ const StudyDetailComponent = ({
     };
 
     checkIfSaved();
-  }, [currentUser, study.uuid]);
+  }, [currentUser, study.extra_data?.uuid]);
 
   // Save/unsave resource
   const toggleSave = async () => {
-    if (!currentUser || !study.uuid || saving) return;
+    if (!currentUser || !study.extra_data?.uuid || saving) return;
 
     setSaving(true);
     try {
@@ -172,24 +156,23 @@ const StudyDetailComponent = ({
       } else {
         // Save
         const resourceData = {
-          title: study.title,
-          description: study.aiSummary || study.description,
-          image: study.image || null,
-          uuid: study.uuid,
-          slug: study.slug || null,
-          resourceType: study.resourceType || null,
-          // Data for CompactResultCard display - use merged data from lookup
-          keywords: (study as any).topics || [],
+          title: title,
+          description: aiSummary || description,
+          image: image || null,
+          uuid: study.extra_data.uuid,
+          slug: study.extra_data.slug || null,
+          resourceType: study.extra_data.resource_type || null,
+          // Data for CompactResultCard display
+          keywords: study.dataset_schema?.keywords || [],
           variablesCount:
-            (study as any).allVariables?.length ||
-            (study as any).dataset_schema?.number_of_variables ||
-            (study as any).dataset_schema?.variableMeasured?.length ||
+            study.dataset_schema?.variableMeasured?.length ||
+            study.dataset_schema?.number_of_variables ||
             0,
-          datasetsCount: (study as any).child_datasets?.length || 0,
-          hasDataAvailable: !!(study as any).dataset_schema
-            ?.includedInDataCatalog?.length,
-          hasFreeAccess: (study as any).hasFreeAccess || false,
-          hasCohortsAvailable: (study as any).hasCohortsAvailable || false,
+          datasetsCount: study.child_datasets?.length || 0,
+          hasDataAvailable:
+            !!study.dataset_schema?.includedInDataCatalog?.length,
+          hasFreeAccess: study.hasFreeAccess || false,
+          hasCohortsAvailable: study.hasCohortsAvailable || false,
           // User and metadata
           uid: currentUser.uid,
           created: serverTimestamp(),
@@ -214,7 +197,60 @@ const StudyDetailComponent = ({
   // Reset AI summary toggle when study changes - default to AI summary if available
   useEffect(() => {
     setShowAiSummary(!!hasAiSummary);
-  }, [study.title, hasAiSummary]);
+  }, [title, hasAiSummary]);
+
+  // Lookup for enhanced data - only happens within this component when needed
+  useEffect(() => {
+    let cancelled = false;
+
+    // Reset enhanced study when study changes
+    setEnhancedStudy(null);
+
+    // Skip lookup if study data is already complete
+    if (studyDataComplete) {
+      return;
+    }
+
+    if (!study?.extra_data?.uuid) {
+      return;
+    }
+
+    setIsLoadingEnhancedData(true);
+
+    const fetchData = async () => {
+      try {
+        // Fetch enhanced data immediately with search context
+        const enhancedData = await fetchResultByUuid(
+          study.extra_data.uuid!,
+          searchSettings.query,
+          searchSettings.hybridWeight,
+          searchSettings.maxDistance
+        );
+
+        if (!cancelled) {
+          setEnhancedStudy(enhancedData);
+          setIsLoadingEnhancedData(false);
+        }
+      } catch (error) {
+        console.error("Failed to load enhanced study data:", error);
+        if (!cancelled) {
+          setIsLoadingEnhancedData(false);
+        }
+      }
+    };
+
+    fetchData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    study?.extra_data?.uuid,
+    studyDataComplete,
+    searchSettings.query,
+    searchSettings.hybridWeight,
+    searchSettings.maxDistance,
+  ]);
 
   // State for debug dialog
   const [debugDialogOpen, setDebugDialogOpen] = useState(false);
@@ -240,8 +276,9 @@ const StudyDetailComponent = ({
     }));
   };
 
-  // Filter out malformed keywords/topics that contain HTML fragments
-  const filteredTopics = (study.topics || []).filter(
+  // Extract topics/keywords from SearchResult
+  const unfilteredTopics = displayStudy.dataset_schema?.keywords || [];
+  const filteredTopics = unfilteredTopics.filter(
     (topic: any) =>
       typeof topic === "string" &&
       !topic.includes("<a title=") &&
@@ -264,47 +301,80 @@ const StudyDetailComponent = ({
 
   // Check if there are any items to show
   const hasTopics = filteredTopics.length > 0;
-  const hasInstruments = (study.instruments || []).length > 0;
+  const hasInstruments =
+    (displayStudy.extra_data?.instruments || []).length > 0;
   const hasVariables =
-    (study.matchedVariables || []).length > 0 ||
-    (study.allVariables || []).length > 0;
-  const hasAdditionalLinks = (study.additionalLinks || []).length > 0;
+    (displayStudy.variables_which_matched || []).length > 0 ||
+    (displayStudy.dataset_schema?.variableMeasured || []).length > 0 ||
+    (displayStudy.dataset_schema?.number_of_variables || 0) > 0;
+
+  // Extract additional links from identifiers and url fields
+  const additionalLinks: string[] = [];
+  if (
+    displayStudy.dataset_schema?.identifier &&
+    Array.isArray(displayStudy.dataset_schema.identifier)
+  ) {
+    const validUrls = displayStudy.dataset_schema.identifier
+      .filter((id) => {
+        if (id.startsWith("http://") || id.startsWith("https://")) return true;
+        if (id.startsWith("10.") && id.includes("/")) return true;
+        return false;
+      })
+      .map((id) => {
+        if (id.startsWith("10.") && id.includes("/")) {
+          return `https://doi.org/${id}`;
+        }
+        return id;
+      });
+    additionalLinks.push(...validUrls);
+  }
+  if (
+    displayStudy.dataset_schema?.url &&
+    Array.isArray(displayStudy.dataset_schema.url)
+  ) {
+    additionalLinks.push(...displayStudy.dataset_schema.url);
+  }
+  const hasAdditionalLinks = additionalLinks.length > 0;
 
   // Debug log for instruments
   console.log("StudyDetail instruments debug:", {
-    instruments: study.instruments || [],
+    instruments: displayStudy.extra_data?.instruments || [],
     hasInstruments,
-    instrumentsLength: (study.instruments || []).length,
+    instrumentsLength: (displayStudy.extra_data?.instruments || []).length,
   });
 
   // Prepare deduped list of all variables for the DataGrid
   const allStudyVariables = useMemo(() => {
     console.log("study var deduping :", {
-      matchedVariables: study.matchedVariables,
-      allVariables: study.allVariables,
-      matchedLength: study.matchedVariables?.length,
-      allLength: study.allVariables?.length,
+      matchedVariables: displayStudy.variables_which_matched,
+      allVariables: displayStudy.dataset_schema?.variableMeasured,
+      matchedLength: displayStudy.variables_which_matched?.length,
+      allLength: displayStudy.dataset_schema?.variableMeasured?.length,
     });
-    const matched = study.matchedVariables || [];
-    const allVars = study.allVariables || [];
-    // Use uuid if present, else name as key
+    const matched = displayStudy.variables_which_matched || [];
+    const allVars = displayStudy.dataset_schema?.variableMeasured || [];
+    // Use name as key since VariableSchema doesn't have uuid
     const matchedMap = new Map<string, any>();
     matched.forEach((v) => {
-      const key = v.uuid || v.name;
+      const key = v.name;
       if (key) matchedMap.set(key, { ...v, matched: true });
     });
     // Add unmatched variables
     allVars.forEach((v) => {
-      const key = v.uuid || v.name;
+      const key = v.name;
       if (!key || matchedMap.has(key)) return;
       matchedMap.set(key, v);
     });
     // Return as array
     return Array.from(matchedMap.values());
-  }, [study.matchedVariables, study.allVariables]);
+  }, [
+    displayStudy.variables_which_matched,
+    displayStudy.dataset_schema?.variableMeasured,
+  ]);
 
   return (
     <Box
+      ref={scrollContainerRef}
       sx={{
         p: 3,
         width: "100%",
@@ -409,7 +479,7 @@ const StudyDetailComponent = ({
               }}
             >
               <Typography variant="h4" gutterBottom sx={{ flex: 1, mr: 1 }}>
-                {study.title}
+                {title}
               </Typography>
 
               {/* Save button - only visible when user is logged in */}
@@ -455,7 +525,7 @@ const StudyDetailComponent = ({
           </Box>
 
           {/* Image beside the title if available */}
-          {study.image && !imageError && (
+          {image && !imageError && (
             <Box
               sx={{
                 width: 100,
@@ -467,9 +537,9 @@ const StudyDetailComponent = ({
               }}
             >
               <Image
-                key={study.title} // Force re-render when study changes
-                src={study.image}
-                alt={study.title}
+                key={title} // Force re-render when study changes
+                src={image}
+                alt={title}
                 fill
                 style={{ objectFit: "contain" }}
                 onError={() => setImageError(true)}
@@ -482,58 +552,6 @@ const StudyDetailComponent = ({
 
       {currentDescription && (
         <Box sx={{ mb: 4 }}>
-          {/* Toggle between AI Summary and Original Description */}
-          {hasAiSummary && (
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                mb: 2,
-                p: 1,
-                bgcolor: "rgba(0, 0, 0, 0.02)",
-                borderRadius: 1,
-              }}
-            >
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                Description:
-              </Typography>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 0.5,
-                }}
-              >
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: !showAiSummary ? "primary.main" : "text.secondary",
-                    fontWeight: !showAiSummary ? 600 : 400,
-                    cursor: "pointer",
-                  }}
-                  onClick={() => setShowAiSummary(false)}
-                >
-                  Original
-                </Typography>
-                <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                  |
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: showAiSummary ? "primary.main" : "text.secondary",
-                    fontWeight: showAiSummary ? 600 : 400,
-                    cursor: "pointer",
-                  }}
-                  onClick={() => setShowAiSummary(true)}
-                >
-                  AI Summary
-                </Typography>
-              </Box>
-            </Box>
-          )}
-
           {descriptionExpanded ? (
             <TextWithLinkPreviews
               text={currentDescription}
@@ -557,6 +575,26 @@ const StudyDetailComponent = ({
             >
               {currentDescription}
             </Typography>
+          )}
+
+          {/* AI Summary toggle link - only show if there's an AI summary */}
+          {hasAiSummary && descriptionExpanded && (
+            <Box sx={{ mt: 2, mb: 1 }}>
+              <Typography
+                variant="body2"
+                color="primary"
+                sx={{
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  "&:hover": { textDecoration: "none" },
+                }}
+                onClick={() => setShowAiSummary(!showAiSummary)}
+              >
+                {showAiSummary
+                  ? "Showing AI summary, click to see original"
+                  : "Showing original, click to see AI summary"}
+              </Typography>
+            </Box>
           )}
           {currentDescription.length > 300 && (
             <Box
@@ -608,10 +646,18 @@ const StudyDetailComponent = ({
             sx={{ justifyContent: "space-between", py: 2, height: "auto" }}
             onClick={() => setVariablesExpanded(!variablesExpanded)}
           >
-            {study.matchedVariables?.length === 0
-              ? `Variables (${study.allVariables?.length || 0})`
-              : `Related Variables (${study.matchedVariables?.length || 0} / ${
-                  study.allVariables?.length || 0
+            {!displayStudy.variables_which_matched?.length
+              ? `Variables (${
+                  displayStudy.dataset_schema?.variableMeasured?.length ||
+                  displayStudy.dataset_schema?.number_of_variables ||
+                  0
+                })`
+              : `Related Variables (${
+                  displayStudy.variables_which_matched.length
+                } / ${
+                  displayStudy.dataset_schema?.variableMeasured?.length ||
+                  displayStudy.dataset_schema?.number_of_variables ||
+                  0
                 })`}
           </SquareChip>
           <Collapse in={variablesExpanded}>
@@ -625,7 +671,7 @@ const StudyDetailComponent = ({
             >
               <MatchedVariablesDataGrid
                 variables={allStudyVariables}
-                studyName={study.title}
+                studyName={title}
               />
             </Box>
           </Collapse>
@@ -672,7 +718,7 @@ const StudyDetailComponent = ({
               }}
             >
               {/* Publisher section - if available */}
-              {study.publisher && (
+              {study.dataset_schema?.publisher?.[0] && (
                 <Box
                   sx={{
                     display: "flex",
@@ -682,15 +728,19 @@ const StudyDetailComponent = ({
                 >
                   <Typography variant="subtitle2">Publisher:</Typography>
                   <OrganizationCard
-                    name={study.publisher.name}
-                    url={study.publisher.url}
-                    logo={study.publisher.logo}
+                    name={
+                      study.dataset_schema.publisher[0].name ||
+                      "Unknown Publisher"
+                    }
+                    url={(study.dataset_schema.publisher[0] as any)?.url}
+                    logo={(study.dataset_schema.publisher[0] as any)?.logo}
                   />
                 </Box>
               )}
 
               {/* Geographic Coverage - only if available */}
-              {study.geographicCoverage && (
+              {(study.extra_data?.geographic_coverage ||
+                study.extra_data?.country_codes) && (
                 <Box
                   sx={{
                     display: "flex",
@@ -701,12 +751,17 @@ const StudyDetailComponent = ({
                   <Typography variant="subtitle2">
                     Geographic Coverage:
                   </Typography>
-                  <Typography>{study.geographicCoverage}</Typography>
+                  <Typography>
+                    {study.extra_data.geographic_coverage ||
+                      study.extra_data.country_codes?.join(", ")}
+                  </Typography>
                 </Box>
               )}
 
               {/* Temporal Coverage - only if available */}
-              {study.temporalCoverage && (
+              {(study.dataset_schema?.temporalCoverage ||
+                (study.extra_data?.start_year &&
+                  study.extra_data?.end_year)) && (
                 <Box
                   sx={{
                     display: "flex",
@@ -718,13 +773,16 @@ const StudyDetailComponent = ({
                     Temporal Coverage:
                   </Typography>
                   <Typography>
-                    {formatTemporalCoverage(study.temporalCoverage)}
+                    {formatTemporalCoverage(
+                      study.dataset_schema?.temporalCoverage ||
+                        `${study.extra_data.start_year}..${study.extra_data.end_year}`
+                    )}
                   </Typography>
                 </Box>
               )}
 
               {/* Sample Size - only if available */}
-              {study.sampleSize && study.sampleSize !== "Not specified" && (
+              {study.extra_data?.sample_size && (
                 <Box
                   sx={{
                     display: "flex",
@@ -733,12 +791,12 @@ const StudyDetailComponent = ({
                   }}
                 >
                   <Typography variant="subtitle2">Sample Size:</Typography>
-                  <Typography>{study.sampleSize}</Typography>
+                  <Typography>{study.extra_data.sample_size}</Typography>
                 </Box>
               )}
 
               {/* Age Coverage - only if available */}
-              {study.ageCoverage && (
+              {(study.extra_data?.age_lower || study.extra_data?.age_upper) && (
                 <Box
                   sx={{
                     display: "flex",
@@ -747,12 +805,18 @@ const StudyDetailComponent = ({
                   }}
                 >
                   <Typography variant="subtitle2">Age Coverage:</Typography>
-                  <Typography>{study.ageCoverage}</Typography>
+                  <Typography>
+                    {study.extra_data.age_lower && study.extra_data.age_upper
+                      ? `${study.extra_data.age_lower} - ${study.extra_data.age_upper} years`
+                      : study.extra_data.age_lower
+                      ? `${study.extra_data.age_lower}+ years`
+                      : `0 - ${study.extra_data.age_upper} years`}
+                  </Typography>
                 </Box>
               )}
 
               {/* Resource Type - only if available */}
-              {study.resourceType && (
+              {study.extra_data?.resource_type && (
                 <Box
                   sx={{
                     display: "flex",
@@ -761,93 +825,100 @@ const StudyDetailComponent = ({
                   }}
                 >
                   <Typography variant="subtitle2">Resource Type:</Typography>
-                  <Typography>{study.resourceType}</Typography>
+                  <Typography>{study.extra_data.resource_type}</Typography>
                 </Box>
               )}
 
               {/* Study Design - only if available */}
-              {study.studyDesign && study.studyDesign.length > 0 && (
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Typography variant="subtitle2">Study Design:</Typography>
-                  <Typography>{study.studyDesign.join(", ")}</Typography>
-                </Box>
-              )}
+              {study.extra_data?.study_design &&
+                study.extra_data.study_design.length > 0 && (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Typography variant="subtitle2">Study Design:</Typography>
+                    <Typography>
+                      {study.extra_data.study_design.join(", ")}
+                    </Typography>
+                  </Box>
+                )}
             </Box>
           </Box>
         </Collapse>
       </Box>
 
       {/* Funders section - only shown if funders exist */}
-      {(study.funders || []).length > 0 && (
-        <Box sx={{ mb: 4, flexShrink: 0 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            Funders:
-          </Typography>
-          <Box
-            sx={{
-              display: "flex",
-              overflowX: "auto",
-              gap: 2,
-              pb: 1, // Add padding to show scrollbar
-              "&::-webkit-scrollbar": {
-                height: 6,
-              },
-              "&::-webkit-scrollbar-thumb": {
-                backgroundColor: "rgba(0,0,0,0.2)",
-                borderRadius: 3,
-              },
-            }}
-          >
-            {(study.funders || []).map((funder, index) => (
-              <OrganizationCard
-                key={`${funder.name}-${index}`}
-                name={funder.name}
-                url={funder.url}
-                logo={funder.logo}
-              />
-            ))}
+      {study.dataset_schema?.funder &&
+        study.dataset_schema.funder.length > 0 && (
+          <Box sx={{ mb: 4, flexShrink: 0 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Funders:
+            </Typography>
+            <Box
+              sx={{
+                display: "flex",
+                overflowX: "auto",
+                gap: 2,
+                pb: 1, // Add padding to show scrollbar
+                "&::-webkit-scrollbar": {
+                  height: 6,
+                },
+                "&::-webkit-scrollbar-thumb": {
+                  backgroundColor: "rgba(0,0,0,0.2)",
+                  borderRadius: 3,
+                },
+              }}
+            >
+              {study.dataset_schema.funder.map((funder, index) => (
+                <OrganizationCard
+                  key={`${funder.name}-${index}`}
+                  name={funder.name || "Funding Organization"}
+                  url={(funder as any)?.url}
+                  logo={(funder as any)?.logo}
+                />
+              ))}
+            </Box>
           </Box>
-        </Box>
-      )}
+        )}
 
       {/* Data Catalogs section - only shown if catalogs exist */}
-      {(study.dataCatalogs || []).length > 0 && (
-        <Box sx={{ mb: 4, flexShrink: 0 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            Available in Data Catalogs:
-          </Typography>
-          <Box
-            sx={{
-              display: "flex",
-              overflowX: "auto",
-              gap: 2,
-              pb: 1, // Add padding to show scrollbar
-              "&::-webkit-scrollbar": {
-                height: 6,
-              },
-              "&::-webkit-scrollbar-thumb": {
-                backgroundColor: "rgba(0,0,0,0.2)",
-                borderRadius: 3,
-              },
-            }}
-          >
-            {(study.dataCatalogs || []).map((catalog, index) => (
-              <DataCatalogCard
-                key={`${catalog.name}-${index}`}
-                name={catalog.name}
-                url={catalog.url}
-                logo={catalog.logo}
-              />
-            ))}
+      {study.dataset_schema?.includedInDataCatalog &&
+        study.dataset_schema.includedInDataCatalog.length > 0 && (
+          <Box sx={{ mb: 4, flexShrink: 0 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Available in Data Catalogs:
+            </Typography>
+            <Box
+              sx={{
+                display: "flex",
+                overflowX: "auto",
+                gap: 2,
+                pb: 1, // Add padding to show scrollbar
+                "&::-webkit-scrollbar": {
+                  height: 6,
+                },
+                "&::-webkit-scrollbar-thumb": {
+                  backgroundColor: "rgba(0,0,0,0.2)",
+                  borderRadius: 3,
+                },
+              }}
+            >
+              {study.dataset_schema.includedInDataCatalog.map(
+                (catalog, index) => (
+                  <DataCatalogCard
+                    key={`${catalog.name}-${index}`}
+                    name={catalog.name || "Data Catalog"}
+                    url={catalog.url}
+                    logo={catalog.image}
+                  />
+                )
+              )}
+            </Box>
           </Box>
-        </Box>
-      )}
+        )}
       {/* Topics section - only shown if topics exist */}
       {hasTopics && (
         <Box sx={{ mb: 4 }}>
@@ -914,7 +985,7 @@ const StudyDetailComponent = ({
                   alignItems: "flex-start",
                 }}
               >
-                {study.additionalLinks?.map((link, index) => (
+                {additionalLinks?.map((link, index) => (
                   <Box
                     key={`link-${index}`}
                     sx={{ flex: "1 1 350px", minWidth: 300, maxWidth: 500 }}
@@ -955,11 +1026,11 @@ const StudyDetailComponent = ({
             }}
             onClick={() => setInstrumentsExpanded((prev) => !prev)}
           >
-            Instruments ({(study.instruments || []).length})
+            Instruments ({(study.extra_data?.instruments || []).length})
           </SquareChip>
           <Collapse in={instrumentsExpanded}>
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1 }}>
-              {(study.instruments || []).map((instrument, idx) => (
+              {(study.extra_data?.instruments || []).map((instrument, idx) => (
                 <SquareChip
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1021,7 +1092,7 @@ const StudyDetailComponent = ({
       <StudyDetailDebugDialog
         open={debugDialogOpen}
         onClose={() => setDebugDialogOpen(false)}
-        title={study.title}
+        title={title}
         originalSearchResult={debugData?.originalSearchResult}
         lookupData={debugData?.lookupData}
         finalProcessedData={study}

@@ -53,7 +53,8 @@ import { useRouter } from "next/navigation";
 // Create a new component for the search functionality
 function DiscoverPageContent() {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("lg")); // 1200px breakpoint
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm")); // 600px breakpoint
+  const isTablet = useMediaQuery(theme.breakpoints.down("lg")); // 1200px breakpoint
   const { searchSettings, updateSearchSettings } = useSearch();
   const [searchQuery, setSearchQuery] = useState(searchSettings.query);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(
@@ -442,8 +443,10 @@ function DiscoverPageContent() {
       setSelectedResult(result);
       if (isMobile) {
         setDrawerOpen(true);
+      } else {
+        // For tablet and desktop, expand the detail panel
+        setIsDetailExpanded(true);
       }
-      // If detail is expanded, just update the content without collapsing
     },
     [isMobile]
   );
@@ -462,7 +465,7 @@ function DiscoverPageContent() {
     setDrawerOpen(false);
   }, []);
 
-  // Handle detail area click for desktop expansion
+  // Handle detail area click for tablet/desktop expansion
   const handleDetailClick = useCallback(() => {
     if (!isMobile && selectedResult) {
       setIsDetailExpanded(true);
@@ -561,476 +564,15 @@ function DiscoverPageContent() {
     setDrawerImageError(false);
   }, [selectedResult]);
 
-  // Convert SearchResult to StudyDetail format
-  // This needs to be defined *before* studyDetailForDisplay which uses it
-  const mapResultToStudyDetail = useCallback((result: SearchResult) => {
+  // Helper function to determine which result to display (for variable results with ancestors)
+  const getDisplayResult = useCallback((result: SearchResult) => {
     const isVariableResult =
       result.extra_data?.resource_type?.includes("variable");
     const hasAncestors =
       Array.isArray(result.ancestors) && result.ancestors.length > 0;
-    const displayResult =
-      (isVariableResult && hasAncestors && result.ancestors?.[0]) || result;
-
-    // Skip immediate lookup - only do lookup when result is actually selected
-    // This prevents instant API calls for every search result
-    // Extract data from result
-    const title = displayResult.dataset_schema?.name || "Untitled Dataset";
-    const description = displayResult.dataset_schema?.description || "";
-
-    // Extract image - using type assertion to handle possible undefined
-    const image =
-      (displayResult.dataset_schema as any)?.image ||
-      (displayResult as any).image ||
-      undefined;
-
-    // Extract publisher with type safety
-    let publisher: { name: string; url?: string; logo?: string } | undefined =
-      undefined;
-    if (displayResult.dataset_schema?.publisher?.[0]?.name) {
-      publisher = {
-        name: displayResult.dataset_schema.publisher[0].name,
-        url: (displayResult.dataset_schema.publisher[0] as any)?.url,
-        logo: (displayResult.dataset_schema.publisher[0] as any)?.logo,
-      };
-    }
-
-    // Extract funders with type safety - handling both array and space-delimited string formats
-    let funders:
-      | Array<{ name: string; url?: string; logo?: string }>
-      | undefined = undefined;
-
-    // Check if this is from the Catalogue of Mental Health
-    const isFromCMHM =
-      displayResult.dataset_schema?.includedInDataCatalog?.some(
-        (catalog) =>
-          catalog.name?.includes("Mental Health") ||
-          catalog.name?.includes("CMHM")
-      );
-
-    // Additional check for catalogues that might have similar funder formats
-    const hasMentalHealthTopics = (displayResult as any).topics?.some(
-      (topic: string) =>
-        topic.toLowerCase().includes("mental health") ||
-        topic.toLowerCase().includes("psychiatry") ||
-        topic.toLowerCase().includes("psychology")
+    return (
+      (isVariableResult && hasAncestors && result.ancestors?.[0]) || result
     );
-
-    // console.log("Is from CMHM:", isFromCMHM, "Has mental health topics:", hasMentalHealthTopics);
-
-    // Helper function to detect if a string appears to be a space-delimited list of abbreviations
-    const isAbbreviationList = (str: string): boolean => {
-      // If it has spaces and no commas or semicolons, it might be a list
-      if (!str.includes(" ") || /[,.;]/.test(str)) return false;
-
-      // Split by spaces and check if parts look like abbreviations
-      const parts = str
-        .split(" ")
-        .map((p) => p.trim())
-        .filter((p) => p.length > 0);
-
-      // Is each part likely to be an abbreviation?
-      // Check if most parts are short (<=8 chars) or contain uppercase characters
-      const abbreviationCount = parts.filter(
-        (part) =>
-          part.length <= 8 ||
-          part.toUpperCase() === part ||
-          /[A-Z]{2,}/.test(part)
-      ).length;
-
-      // If most parts (>60%) look like abbreviations, consider it an abbreviation list
-      return abbreviationCount / parts.length > 0.6;
-    };
-
-    // First check if we have funders as an array in dataset_schema
-    if (
-      displayResult.dataset_schema?.funder &&
-      Array.isArray(displayResult.dataset_schema.funder) &&
-      displayResult.dataset_schema.funder.length > 0
-    ) {
-      // console.log("Processing funders from dataset_schema.funder array:", displayResult.dataset_schema.funder);
-      funders = displayResult.dataset_schema.funder.map((funder) => ({
-        name: funder.name || "Funding Organization",
-        url: (funder as any)?.url,
-        logo: (funder as any)?.logo,
-      }));
-    }
-    // Then check for funders as a property in the result or extra_data
-    else if (
-      (displayResult as any).funders ||
-      (displayResult.extra_data as any)?.funders
-    ) {
-      const resultFunders =
-        (displayResult as any).funders ||
-        (displayResult.extra_data as any)?.funders;
-      // console.log("Processing funders from result.funders or extra_data.funders:", resultFunders);
-
-      if (Array.isArray(resultFunders)) {
-        // Handle array of funders
-        funders = resultFunders.map((funder) => {
-          if (typeof funder === "string") {
-            return { name: funder };
-          } else if (typeof funder === "object" && funder !== null) {
-            return {
-              name: funder.name || "Funding Organization",
-              url: funder.url,
-              logo: funder.logo,
-            };
-          }
-          return { name: String(funder) };
-        });
-      } else if (typeof resultFunders === "string") {
-        // Handle string of funders (potentially space-delimited)
-        if (resultFunders.trim()) {
-          // For Catalogue of Mental Health or strings that look like abbreviation lists,
-          // split by spaces and treat each part as a separate funder
-          if (
-            (isFromCMHM ||
-              hasMentalHealthTopics ||
-              isAbbreviationList(resultFunders)) &&
-            resultFunders.includes(" ")
-          ) {
-            // console.log("Processing potential abbreviation list:", resultFunders);
-            // Split the space-delimited list into individual abbreviations
-            const funderAbbreviations = resultFunders
-              .split(" ")
-              .map((part) => part.trim())
-              .filter((part) => part.length > 0);
-
-            // console.log("Split into abbreviations:", funderAbbreviations);
-
-            // Create a separate funder entry for each abbreviation
-            funders = funderAbbreviations.map((abbr) => ({
-              name: abbr,
-            }));
-          }
-          // For other sources, check if it's a space-delimited list without punctuation
-          else if (
-            resultFunders.includes(" ") &&
-            !/[,.;]/.test(resultFunders)
-          ) {
-            const funderNames = resultFunders
-              .split(" ")
-              .filter((part) => part.trim().length > 0);
-            funders = funderNames.map((name) => ({ name }));
-          } else {
-            // Just use the string as a single funder name
-            funders = [{ name: resultFunders }];
-          }
-        }
-      }
-    }
-
-    // Try more checks for CMHM-specific funders if we still don't have any
-    if (
-      !funders ||
-      funders.length === 0 ||
-      isFromCMHM ||
-      hasMentalHealthTopics
-    ) {
-      // Check various fields that might contain funder information
-      const possibleFunderFields = [
-        (displayResult as any).cmhm_funders,
-        (displayResult.extra_data as any)?.cmhm_funders,
-        (displayResult as any).funding_bodies,
-        (displayResult.extra_data as any)?.funding_bodies,
-        (displayResult as any).funding,
-        (displayResult.extra_data as any)?.funding,
-        (displayResult as any).funder,
-        (displayResult.extra_data as any)?.funder,
-      ];
-
-      // Find the first non-empty field
-      const additionalFunders = possibleFunderFields.find(
-        (field) => field !== undefined && field !== null
-      );
-
-      if (additionalFunders) {
-        // console.log("Found additional funders in alternative field:", additionalFunders);
-
-        let newFunders: Array<{ name: string; url?: string; logo?: string }> =
-          [];
-
-        if (typeof additionalFunders === "string" && additionalFunders.trim()) {
-          // If it looks like an abbreviation list, split it
-          if (isAbbreviationList(additionalFunders)) {
-            const funderAbbreviations = additionalFunders
-              .split(" ")
-              .map((part) => part.trim())
-              .filter((part) => part.length > 0);
-
-            newFunders = funderAbbreviations.map((abbr) => ({ name: abbr }));
-          } else {
-            // Just use the string as a single funder name
-            newFunders = [{ name: additionalFunders }];
-          }
-        } else if (Array.isArray(additionalFunders)) {
-          newFunders = additionalFunders.map((funder) =>
-            typeof funder === "string"
-              ? { name: funder }
-              : {
-                  name: funder.name || String(funder),
-                  url: funder.url,
-                  logo: funder.logo,
-                }
-          );
-        }
-
-        // If we already had funders, merge with new ones, otherwise use new ones
-        if (funders && funders.length > 0) {
-          // console.log("Merging with existing funders");
-          // Merge but avoid duplicates
-          const existingNames = new Set(funders.map((f) => f.name));
-          const uniqueNewFunders = newFunders.filter(
-            (f) => !existingNames.has(f.name)
-          );
-          funders = [...funders, ...uniqueNewFunders];
-        } else {
-          funders = newFunders;
-        }
-      }
-    }
-
-    // Handle special case for raw funder string when we couldn't parse it previously
-    if (
-      (!funders || funders.length === 1) &&
-      funders?.[0]?.name &&
-      isAbbreviationList(funders[0].name)
-    ) {
-      // console.log("Re-processing single funder that looks like an abbreviation list:", funders[0].name);
-
-      const funderAbbreviations = funders[0].name
-        .split(" ")
-        .map((part) => part.trim())
-        .filter((part) => part.length > 0);
-
-      funders = funderAbbreviations.map((abbr) => ({ name: abbr }));
-    }
-
-    // Geographic coverage
-    const geographicCoverage =
-      (displayResult as any).geographic_coverage ||
-      displayResult.extra_data?.country_codes?.join(", ") ||
-      (displayResult as any).country_codes?.join(", ") ||
-      undefined;
-
-    // Temporal coverage (from dataset_schema or start/end years)
-    const temporalCoverage =
-      displayResult.dataset_schema?.temporalCoverage ||
-      ((displayResult as any).start_year &&
-        `${(displayResult as any).start_year}${
-          (displayResult as any).end_year
-            ? `..${(displayResult as any).end_year}`
-            : ""
-        }`);
-
-    // Sample size
-    const sampleSize =
-      (displayResult as any).sample_size?.toString() ||
-      (displayResult.dataset_schema as any)?.size?.toString() ||
-      undefined;
-
-    // Age coverage
-    const ageLower =
-      displayResult.extra_data?.age_lower || (displayResult as any).age_lower;
-    const ageUpper =
-      displayResult.extra_data?.age_upper || (displayResult as any).age_upper;
-    const ageCoverage =
-      ageLower !== undefined && ageUpper !== undefined
-        ? `${ageLower} - ${ageUpper} years`
-        : ageLower !== undefined
-        ? `${ageLower}+ years`
-        : ageUpper !== undefined
-        ? `0 - ${ageUpper} years`
-        : undefined;
-
-    // Study design
-    const studyDesign =
-      displayResult.extra_data?.study_design ||
-      (displayResult as any).study_design ||
-      [];
-
-    // Resource type
-    const resourceType =
-      displayResult.extra_data?.resource_type ||
-      displayResult.dataset_schema?.["@type"] ||
-      undefined;
-
-    // Topics and instruments
-    const unfilteredTopics =
-      displayResult.dataset_schema?.keywords ||
-      (displayResult as any).topics ||
-      [];
-
-    // Filter out malformed keywords/topics that contain HTML fragments
-    const topics = unfilteredTopics.filter(
-      (topic: any) =>
-        typeof topic === "string" &&
-        !topic.includes("<a title=") &&
-        !topic.startsWith("<")
-    );
-
-    const instruments = (displayResult as any).extra_data?.instruments || [];
-
-    // Extract variables that matched the search query
-    const matchedVariables = displayResult.variables_which_matched || [];
-
-    // Extract all variables from dataset schema
-    const allVariables = displayResult.dataset_schema?.variableMeasured || [];
-
-    // Data catalogs from includedInDataCatalog
-    let dataCatalogs:
-      | Array<{ name: string; url?: string; logo?: string }>
-      | undefined;
-
-    // Keep track of all URLs that are already linked via dataCatalogs
-    const usedUrls = new Set<string>();
-
-    if (
-      displayResult.dataset_schema?.includedInDataCatalog &&
-      displayResult.dataset_schema.includedInDataCatalog.length > 0
-    ) {
-      // Get dataset URLs if available
-      const datasetUrls = displayResult.dataset_schema.url || [];
-
-      dataCatalogs = displayResult.dataset_schema.includedInDataCatalog.map(
-        (catalog) => {
-          let catalogUrl = catalog.url;
-
-          // Check if there's a more specific URL in the dataset's URL array that matches this catalog
-          if (Array.isArray(datasetUrls) && catalogUrl) {
-            try {
-              // Extract the catalog domain
-              const catalogDomain = new URL(catalogUrl).hostname;
-
-              // Find a URL in datasetUrls that has the same domain
-              const matchingUrl = datasetUrls.find((urlStr) => {
-                try {
-                  const urlDomain = new URL(urlStr).hostname;
-                  return urlDomain === catalogDomain;
-                } catch (e) {
-                  return false;
-                }
-              });
-
-              // If found a matching URL, use that instead
-              if (matchingUrl) {
-                catalogUrl = matchingUrl;
-              }
-            } catch (e) {
-              // If URL parsing fails, just use the original catalog URL
-              console.warn("Failed to parse catalog URL", e);
-            }
-          }
-
-          // Add to used URLs set
-          if (catalogUrl) {
-            usedUrls.add(catalogUrl);
-          }
-
-          return {
-            name: catalog.name || "Data Catalog",
-            url: catalogUrl || undefined,
-            logo: catalog.image, // Fallback to a default logo
-          };
-        }
-      );
-    }
-
-    // Extract additional URLs from identifiers and url fields that aren't already covered by data catalogs
-    let additionalLinks: string[] = [];
-
-    // Process identifiers (URLs to papers, DOIs, etc.)
-    if (
-      displayResult.dataset_schema?.identifier &&
-      Array.isArray(displayResult.dataset_schema.identifier)
-    ) {
-      // Filter valid URLs and DOIs
-      const validUrls = displayResult.dataset_schema.identifier
-        .filter((id) => {
-          // Check if it's a URL
-          if (id.startsWith("http://") || id.startsWith("https://")) {
-            return true;
-          }
-          // Check if it's a DOI
-          if (id.startsWith("10.") && id.includes("/")) {
-            return true;
-          }
-          return false;
-        })
-        .map((id) => {
-          // Convert DOIs to URLs if needed
-          if (id.startsWith("10.") && id.includes("/")) {
-            return `https://doi.org/${id}`;
-          }
-          return id;
-        });
-
-      // Filter out URLs that are already in dataCatalogs
-      additionalLinks = [
-        ...additionalLinks,
-        ...validUrls.filter((url) => !usedUrls.has(url)),
-      ];
-    }
-
-    // Process direct URL field
-    if (
-      displayResult.dataset_schema?.url &&
-      Array.isArray(displayResult.dataset_schema.url)
-    ) {
-      // Filter out URLs that are already in dataCatalogs
-      const newUrls = displayResult.dataset_schema.url.filter(
-        (url) => !usedUrls.has(url)
-      );
-      additionalLinks = [...additionalLinks, ...newUrls];
-    }
-
-    // Add any other potential URL fields
-    const otherUrlFields = [
-      (displayResult as any).url,
-      (displayResult as any).original_source_url,
-      (displayResult as any).doi?.startsWith("10.")
-        ? `https://doi.org/${(displayResult as any).doi}`
-        : null,
-    ].filter(Boolean) as string[];
-
-    // Add these URLs if they're not already included
-    otherUrlFields.forEach((url) => {
-      if (url && !usedUrls.has(url) && !additionalLinks.includes(url)) {
-        additionalLinks.push(url);
-      }
-    });
-
-    // Ensure we have unique URLs
-    additionalLinks = Array.from(new Set(additionalLinks));
-
-    // console.log("Additional links found:", additionalLinks);
-
-    // AI Summary from extra_data
-    const aiSummary = displayResult.extra_data?.ai_summary || null;
-
-    return {
-      title,
-      description,
-      image,
-      uuid: displayResult.extra_data?.uuid,
-      slug: displayResult.extra_data?.slug,
-      publisher,
-      funders,
-      geographicCoverage,
-      temporalCoverage,
-      sampleSize,
-      ageCoverage,
-      studyDesign,
-      resourceType,
-      topics,
-      instruments,
-      dataCatalogs,
-      matchedVariables,
-      allVariables,
-      additionalLinks,
-      child_datasets: displayResult.child_datasets || [],
-      aiSummary,
-    };
   }, []);
 
   // Save search function
@@ -1061,109 +603,20 @@ function DiscoverPageContent() {
     }
   };
 
-  // Progressive loading: immediate with search data, then enhanced with lookup data
-  const [studyDetail, setStudyDetail] = useState<any | null>(null);
-  const [studyDebugData, setStudyDebugData] = useState<any | null>(null);
-  const [isLoadingEnhancedData, setIsLoadingEnhancedData] = useState(false);
+  // Simple state for study detail - no lookup logic here
+  const [studyDetail, setStudyDetail] = useState<SearchResult | null>(null);
 
-  // Immediate rendering with search data
+  // Update study detail when selected result changes - just pass the raw data
   useEffect(() => {
     if (!selectedResult) {
       setStudyDetail(null);
-      setStudyDebugData(null);
-      setIsLoadingEnhancedData(false);
       return;
     }
 
-    // Immediately render with search result data
-    const immediateDetail = mapResultToStudyDetail(selectedResult);
-    setStudyDetail(immediateDetail);
-    setIsLoadingEnhancedData(true);
-
-    // Store debug data for immediate rendering
-    const immediateDebugData =
-      true || process.env.NODE_ENV !== "production"
-        ? {
-            originalSearchResult: selectedResult,
-            lookupData: null, // Will be updated when lookup completes
-          }
-        : undefined;
-    setStudyDebugData(immediateDebugData);
-  }, [selectedResult, mapResultToStudyDetail]);
-
-  // Background lookup for enhanced data
-  useEffect(() => {
-    let cancelled = false;
-    async function loadEnhancedDetail() {
-      if (!selectedResult) {
-        return;
-      }
-
-      try {
-        // Fetch the full detail from the backend
-        const calculatedAlpha = calculateDynamicHybridWeight(searchQuery);
-        const fullResult = await fetchResultByUuid(
-          selectedResult.extra_data?.uuid || "",
-          searchQuery,
-          calculatedAlpha,
-          debouncedMaxDistance
-        );
-
-        // Preserve the matched variables and child datasets from the lookup result (which is complete)
-        // The search result only has incomplete data (1 member), so we use the lookup result
-        // Only override if the lookup result doesn't have these fields
-        if (
-          !fullResult.variables_which_matched &&
-          selectedResult.variables_which_matched
-        ) {
-          fullResult.variables_which_matched =
-            selectedResult.variables_which_matched;
-        }
-        if (
-          !fullResult.child_datasets &&
-          selectedResult.datasets_which_matched
-        ) {
-          fullResult.child_datasets = selectedResult.datasets_which_matched;
-        }
-
-        const enhancedDetail = mapResultToStudyDetail(fullResult);
-
-        // Store enhanced debug data
-        const enhancedDebugData =
-          true || process.env.NODE_ENV !== "production"
-            ? {
-                originalSearchResult: selectedResult,
-                lookupData: fullResult,
-              }
-            : undefined;
-
-        if (!cancelled) {
-          setStudyDetail(enhancedDetail);
-          setStudyDebugData(enhancedDebugData);
-          setIsLoadingEnhancedData(false);
-        }
-      } catch (error) {
-        console.error("Failed to load enhanced study detail:", error);
-        if (!cancelled) {
-          setIsLoadingEnhancedData(false);
-        }
-      }
-    }
-
-    // Only perform lookup if we have a selected result
-    if (selectedResult) {
-      loadEnhancedDetail();
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    selectedResult,
-    searchQuery,
-    debouncedMaxDistance,
-    calculateDynamicHybridWeight,
-  ]);
+    // Just pass the raw search result - StudyDetail component will handle its own lookup
+    const displayResult = getDisplayResult(selectedResult);
+    setStudyDetail(displayResult);
+  }, [selectedResult, getDisplayResult]);
 
   // Effect to load similar study when UID is present
   useEffect(() => {
@@ -1857,29 +1310,20 @@ function DiscoverPageContent() {
     // Set the search query with study name first and UUID in brackets
     setSearchQuery(`LIKE:${studyName} (${uuid})`);
 
-    let description =
+    const description =
       result.dataset_schema?.description || result.extra_data?.description;
-    if (!description) {
-      // Fetch full result if description is missing
-      try {
-        const fullResult = await fetchResultByUuid(
-          uuid,
-          undefined,
-          undefined,
-          debouncedMaxDistance
-        );
-        description =
-          fullResult.dataset_schema?.description ||
-          fullResult.extra_data?.description;
-      } catch (e) {
-        console.error("Failed to fetch description for LIKE search", e);
-        return;
-      }
-    }
+
     if (description) {
       // Set debouncedSearchQuery immediately and perform search with description
       setDebouncedSearchQuery(description);
       performSearchWithQuery(description);
+    } else {
+      // If no description available, use the study name for search
+      console.warn(
+        `No description available for study ${studyName}, using name for similar search`
+      );
+      setDebouncedSearchQuery(studyName);
+      performSearchWithQuery(studyName);
     }
   }, []);
 
@@ -2180,7 +1624,7 @@ function DiscoverPageContent() {
           {/* Search Results Panel - Fixed 50% width */}
           <Box
             sx={{
-              width: isMobile ? "100%" : "50%",
+              width: isTablet ? "100%" : "50%",
               minWidth: isMobile ? "100%" : "300px",
               overflowX: "hidden", // Prevent any content from breaking out
               display: "flex",
@@ -2308,21 +1752,26 @@ function DiscoverPageContent() {
             )}
           </Box>
 
-          {/* Study Detail Panel - Only shown on desktop */}
+          {/* Study Detail Panel - Shown on tablet and desktop */}
           {!isMobile && (results.length > 0 || totalHits > 0) && (
             <Box
               sx={{
                 position: "absolute",
                 top: 0,
                 right: 0,
-                width: isDetailExpanded ? "calc(100% - 130px)" : "50%",
+                width: isDetailExpanded
+                  ? "calc(100% - 130px)"
+                  : isTablet
+                  ? "0%"
+                  : "50%",
                 height: "100%",
                 bgcolor: "background.paper",
-                borderLeft: "1px solid",
+                borderLeft:
+                  isTablet && !isDetailExpanded ? "none" : "1px solid",
                 borderColor: "grey.200",
                 display: "flex",
                 flexDirection: "column",
-                overflow: "visible",
+                overflow: "visible", // Allow overflow for the collapse button
                 transition: "width 0.3s ease-in-out",
                 cursor: selectedResult ? "pointer" : "default",
                 zIndex: isDetailExpanded ? 2 : 1,
@@ -2404,9 +1853,6 @@ function DiscoverPageContent() {
                     isDrawerView={false}
                     onTopicClick={handleTopicClick}
                     onInstrumentClick={handleInstrumentClick}
-                    debugData={studyDebugData}
-                    originalSearchResult={studyDebugData?.lookupData}
-                    isLoadingEnhancedData={isLoadingEnhancedData}
                   />
                 </Box>
               ) : (
@@ -2519,13 +1965,11 @@ function DiscoverPageContent() {
             {/* Conditionally render StudyDetail or placeholder in drawer */}
             {studyDetail ? (
               <StudyDetail
+                studyDataComplete={false}
                 study={studyDetail}
                 isDrawerView={true}
                 onTopicClick={handleTopicClick}
                 onInstrumentClick={handleInstrumentClick}
-                debugData={studyDebugData}
-                originalSearchResult={studyDebugData?.lookupData}
-                isLoadingEnhancedData={isLoadingEnhancedData}
               />
             ) : (
               <Box

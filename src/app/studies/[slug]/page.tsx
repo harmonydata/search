@@ -1,4 +1,3 @@
-import { transformSearchResultToStudyDetail } from "@/lib/utils/studyTransform";
 import { notFound } from "next/navigation";
 import Script from "next/script";
 import StudyPageClient from "./StudyPageClient";
@@ -53,12 +52,19 @@ export async function generateMetadata({
     } catch (error) {
       fullStudyResult = await fetchResultByUuid(slug);
     }
-    const study = transformSearchResultToStudyDetail(fullStudyResult);
-
     // Generate Open Graph and Twitter Card metadata
-    const title = study.title || "Academic Study";
-    const description = study.description || "Academic research study data";
-    const image = study.image || "/harmony.png";
+    const title =
+      fullStudyResult.dataset_schema?.name ||
+      fullStudyResult.extra_data?.name ||
+      "Academic Study";
+    const description =
+      fullStudyResult.dataset_schema?.description ||
+      fullStudyResult.extra_data?.description ||
+      "Academic research study data";
+    const image =
+      (fullStudyResult.dataset_schema as any)?.image ||
+      (fullStudyResult as any).image ||
+      "/harmony.png";
     const url = `https://harmonydata.ac.uk/search/studies/${slug}`;
 
     return {
@@ -120,17 +126,24 @@ export default async function StudyPage({
       fullStudyResult.dataset_schema?.name
     );
 
-    // Create a stripped-down study object without variables for static generation
-    // This will make the static files much smaller, and StudyDetail will handle
-    // fetching the full data with variables via API
-    const study = transformSearchResultToStudyDetail(fullStudyResult);
+    // Pass the raw SearchResult directly - StudyDetail will handle its own data fetching
+    // Conditionally remove variables data to reduce static file size
+    const hasVariables =
+      (fullStudyResult.dataset_schema?.variableMeasured?.length || 0) > 0 ||
+      (fullStudyResult.variables_which_matched?.length || 0) > 0;
 
-    // Remove variables data to reduce static file size
-    const strippedStudy = {
-      ...study,
-      allVariables: undefined,
-      matchedVariables: undefined,
-    };
+    const strippedStudy = hasVariables
+      ? {
+          ...fullStudyResult,
+          dataset_schema: {
+            ...fullStudyResult.dataset_schema,
+            variableMeasured: undefined, // Remove variables to reduce static file size
+          },
+          variables_which_matched: undefined,
+        }
+      : fullStudyResult; // Keep full data if no variables to strip
+
+    const studyDataComplete = !hasVariables; // Complete if no variables were stripped
 
     // Prepare JSON-LD structured data (only include main study info, not child datasets)
     const structuredData = {
@@ -163,8 +176,7 @@ export default async function StudyPage({
         />
         <StudyPageClient
           study={strippedStudy}
-          isLoadingEnhancedData={true}
-          originalSearchResult={fullStudyResult}
+          studyDataComplete={studyDataComplete}
         />
       </>
     );

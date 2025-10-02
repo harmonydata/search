@@ -90,6 +90,7 @@ export async function generateMetadata({
         card: "summary_large_image",
         title,
         description,
+        // Use the same image reference to avoid duplication
         images: [image],
       },
     };

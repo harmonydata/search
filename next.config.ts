@@ -31,6 +31,19 @@ const nextConfig: NextConfig = {
   // Enable font optimization and package imports optimization
   experimental: {
     optimizePackageImports: ["@mui/material", "@mui/icons-material"],
+    // Enable modern bundling optimizations
+    optimizeCss: true,
+    // Enable tree shaking for better dead code elimination
+    esmExternals: true,
+    // Enable modern bundling features
+    turbo: {
+      rules: {
+        "*.svg": {
+          loaders: ["@svgr/webpack"],
+          as: "*.js",
+        },
+      },
+    },
   },
 
   eslint: {
@@ -103,6 +116,58 @@ const nextConfig: NextConfig = {
       config.output.filename = "static/js/[name].[contenthash:8].js";
     }
 
+    // Optimize bundle splitting for better caching
+    if (!dev && !isServer) {
+      config.optimization.splitChunks = {
+        chunks: "all",
+        minSize: 20000,
+        maxSize: 244000,
+        cacheGroups: {
+          // Separate vendor chunks for better caching
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: "vendors",
+            chunks: "all",
+            priority: 10,
+            enforce: true,
+          },
+          // Separate MUI components
+          mui: {
+            test: /[\\/]node_modules[\\/]@mui[\\/]/,
+            name: "mui",
+            chunks: "all",
+            priority: 20,
+            enforce: true,
+          },
+          // Separate Recharts (only used in explore page)
+          recharts: {
+            test: /[\\/]node_modules[\\/]recharts[\\/]/,
+            name: "recharts",
+            chunks: "async", // Only load when needed
+            priority: 30,
+            enforce: true,
+          },
+          // Separate React and React-DOM
+          react: {
+            test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
+            name: "react",
+            chunks: "all",
+            priority: 25,
+            enforce: true,
+          },
+          // Common chunks
+          common: {
+            name: "common",
+            minChunks: 2,
+            chunks: "all",
+            priority: 5,
+            reuseExistingChunk: true,
+            enforce: true,
+          },
+        },
+      };
+    }
+
     // Remove console.log statements in production builds (client-side only)
     if (!dev && !isServer) {
       // Configure terser to remove console.log, console.debug, console.info
@@ -115,6 +180,13 @@ const nextConfig: NextConfig = {
                 ...minimizer.options.terserOptions?.compress,
                 drop_console: true, // Remove all console.* calls
                 drop_debugger: true, // Remove debugger statements
+                // Additional optimizations
+                pure_funcs: ["console.log", "console.info", "console.debug"],
+                passes: 2, // Multiple passes for better optimization
+              },
+              mangle: {
+                // Better variable name mangling
+                keep_fnames: false,
               },
             };
           }
@@ -127,6 +199,26 @@ const nextConfig: NextConfig = {
       test: /\.tsx?$/,
       exclude: /discovery-split/,
     });
+
+    // Add module resolution optimizations
+    config.resolve = {
+      ...config.resolve,
+      alias: {
+        ...config.resolve?.alias,
+        // Optimize imports
+        "@mui/material": "@mui/material/esm",
+        "@mui/icons-material": "@mui/icons-material/esm",
+      },
+    };
+
+    // Add performance hints
+    if (!dev && !isServer) {
+      config.performance = {
+        hints: "warning",
+        maxEntrypointSize: 512000,
+        maxAssetSize: 512000,
+      };
+    }
 
     return config;
   },

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+// Removed Inter font - using Roboto from MUI theme instead
 import { Box } from "@mui/material";
 import ThemeRegistry from "@/components/ThemeRegistry";
 import { ToastContainer } from "react-toastify";
@@ -9,22 +9,7 @@ import { SearchProvider } from "@/contexts/SearchContext";
 import "react-toastify/dist/ReactToastify.css";
 import "@/app/globals.css";
 
-// Configure fonts with optimized loading like next-atlas
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"], // Optimized weights
-  style: ["normal"], // Remove italic to reduce downloads
-  display: "swap", // Swap fonts for better performance
-  preload: true, // Preload for critical text
-  fallback: [
-    "system-ui",
-    "-apple-system",
-    "BlinkMacSystemFont",
-    "Segoe UI",
-    "Roboto",
-    "sans-serif",
-  ],
-});
+// Fonts are handled by MUI theme (Roboto) for consistency
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://harmonydata.ac.uk/search/"),
@@ -63,8 +48,37 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <meta name="emotion-insertion-point" content="" />
+        {/* Preconnect hints for better performance */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link rel="preconnect" href="https://www.cataloguementalhealth.ac.uk" />
+        <link rel="dns-prefetch" href="https://harmonydata.ac.uk" />
+        {/* Critical CSS for immediate rendering with Roboto */}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+            /* Ensure immediate rendering with Roboto and fallbacks */
+            * { 
+              font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif !important;
+              font-display: swap;
+              -webkit-font-smoothing: antialiased;
+              -moz-osx-font-smoothing: grayscale;
+            }
+            body { 
+              visibility: visible !important; 
+              opacity: 1 !important; 
+              margin: 0; 
+              padding: 0; 
+            }
+          `,
+          }}
+        />
       </head>
-      <body className={inter.className}>
+      <body>
         <ThemeRegistry>
           <AuthProvider>
             <SearchProvider>

@@ -16,10 +16,24 @@ declare module "@mui/material/styles" {
   }
 }
 
+// Configure Roboto with optimized loading for immediate rendering
 const roboto = Roboto({
   weight: ["300", "400", "500", "700"],
   subsets: ["latin"],
-  display: "swap",
+  display: "swap", // Swap fonts for better performance
+  preload: true, // Preload for critical text
+  fallback: [
+    "-apple-system",
+    "BlinkMacSystemFont",
+    "Segoe UI",
+    "Oxygen",
+    "Ubuntu",
+    "Cantarell",
+    "Fira Sans",
+    "Droid Sans",
+    "Helvetica Neue",
+    "sans-serif",
+  ],
 });
 
 const theme = createTheme({
@@ -65,7 +79,7 @@ const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: roboto.style.fontFamily,
+    fontFamily: roboto.style.fontFamily, // Use Roboto with proper fallbacks
     h1: {
       fontSize: "1.5rem",
       fontWeight: 600,

@@ -8,7 +8,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import Image from "next/image";
-import { ChevronDown, ChevronUp, Bug, Bookmark } from "lucide-react";
+import { ChevronDown, ChevronUp, Bookmark } from "lucide-react";
 import { useState, memo, useMemo, useEffect, useRef } from "react";
 import SquareChip from "@/components/SquareChip";
 import DataCatalogCard from "@/components/DataCatalogCard";
@@ -16,44 +16,24 @@ import OrganizationCard from "@/components/OrganizationCard";
 import TextWithLinkPreviews from "@/components/TextWithLinkPreviews";
 import LinkPreviewCard from "@/components/LinkPreviewCard";
 import MatchedVariablesDataGrid from "@/components/MatchedVariablesDataGrid";
-import StudyDetailDebugDialog from "@/components/StudyDetailDebugDialog";
 import ChildDatasetsDataGrid from "@/components/ChildDatasetsDataGrid";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSearch } from "@/contexts/SearchContext";
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-  query,
-  where,
-  getDocs,
-  deleteDoc,
-  doc,
-} from "firebase/firestore/lite";
-import { db } from "../firebase";
 import { SearchResult, fetchResultByUuid } from "@/services/api";
+import { useRouter, usePathname } from "next/navigation";
 
 interface StudyDetailProps {
   study: SearchResult;
   isDrawerView?: boolean;
   studyDataComplete?: boolean;
-  onTopicClick?: (topic: string) => void;
-  onInstrumentClick?: (instrument: string) => void;
-  // Debug data - only available in development mode
-  debugData?: {
-    originalSearchResult?: any;
-    lookupData?: any;
-  };
 }
 
 const StudyDetailComponent = ({
   study,
   isDrawerView = false,
   studyDataComplete = false,
-  onTopicClick,
-  onInstrumentClick,
-  debugData,
 }: StudyDetailProps) => {
+  // Client-side state
   const [variablesExpanded, setVariablesExpanded] = useState(false);
   const [additionalLinksExpanded, setAdditionalLinksExpanded] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
@@ -62,6 +42,16 @@ const StudyDetailComponent = ({
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedResourceId, setSavedResourceId] = useState<string | null>(null);
+  const [instrumentsExpanded, setInstrumentsExpanded] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<{
+    [key: string]: boolean;
+  }>({
+    description: true,
+    details: false,
+    variables: false,
+    links: false,
+    childDatasets: false,
+  });
 
   // Internal lookup state
   const [enhancedStudy, setEnhancedStudy] = useState<SearchResult | null>(null);
@@ -71,10 +61,47 @@ const StudyDetailComponent = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const { currentUser } = useAuth();
-  const { searchSettings } = useSearch();
+  const { searchSettings, updateSearchSettings } = useSearch();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Track if we're on the client to avoid hydration mismatches
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Use enhanced study data if available, otherwise fall back to original study
   const displayStudy = enhancedStudy || study;
+
+  // Reset enhanced study when the study prop changes
+  useEffect(() => {
+    setEnhancedStudy(null);
+  }, [study.extra_data?.uuid]);
+
+  // Helper function to add filter values additively
+  const addToFilters = (filterKey: string, newValue: string) => {
+    const currentFilters = searchSettings.selectedFilters;
+    const currentValues = currentFilters[filterKey] || [];
+
+    // Add the new value if it's not already present
+    const updatedValues = currentValues.includes(newValue)
+      ? currentValues
+      : [...currentValues, newValue];
+
+    updateSearchSettings({
+      selectedFilters: {
+        ...currentFilters,
+        [filterKey]: updatedValues,
+      },
+    });
+
+    // Navigate to discover page if we're not already there
+    if (pathname !== "/discover") {
+      router.push("/discover");
+    }
+  };
 
   // Extract data directly from SearchResult structure
   const title =
@@ -95,186 +122,6 @@ const StudyDetailComponent = ({
     (displayStudy.dataset_schema as any)?.image ||
     (displayStudy as any).image ||
     undefined;
-
-  // Reset image error when study changes or study image changes
-  useEffect(() => {
-    setImageError(false);
-  }, [title, image]);
-
-  // Reset description expanded state when study changes
-  useEffect(() => {
-    setDescriptionExpanded(false);
-  }, [title]);
-
-  // Scroll to top when study changes
-  useEffect(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, [study.extra_data?.uuid]); // Trigger when the study UUID changes
-
-  // Check if resource is already saved
-  useEffect(() => {
-    const checkIfSaved = async () => {
-      if (!currentUser || !study.extra_data?.uuid) return;
-
-      try {
-        const q = query(
-          collection(db, "saved_resources"),
-          where("uid", "==", currentUser.uid),
-          where("uuid", "==", study.extra_data.uuid)
-        );
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-          const doc = querySnapshot.docs[0];
-          setIsSaved(true);
-          setSavedResourceId(doc.id);
-        } else {
-          setIsSaved(false);
-          setSavedResourceId(null);
-        }
-      } catch (error) {
-        console.error("Error checking if resource is saved:", error);
-      }
-    };
-
-    checkIfSaved();
-  }, [currentUser, study.extra_data?.uuid]);
-
-  // Save/unsave resource
-  const toggleSave = async () => {
-    if (!currentUser || !study.extra_data?.uuid || saving) return;
-
-    setSaving(true);
-    try {
-      if (isSaved && savedResourceId) {
-        // Unsave
-        await deleteDoc(doc(db, "saved_resources", savedResourceId));
-        setIsSaved(false);
-        setSavedResourceId(null);
-      } else {
-        // Save
-        const resourceData = {
-          title: title,
-          description: aiSummary || description,
-          image: image || null,
-          uuid: study.extra_data.uuid,
-          slug: study.extra_data.slug || null,
-          resourceType: study.extra_data.resource_type || null,
-          // Data for CompactResultCard display
-          keywords: study.dataset_schema?.keywords || [],
-          variablesCount:
-            study.dataset_schema?.variableMeasured?.length ||
-            study.dataset_schema?.number_of_variables ||
-            0,
-          datasetsCount: study.child_datasets?.length || 0,
-          hasDataAvailable:
-            !!study.dataset_schema?.includedInDataCatalog?.length,
-          hasFreeAccess: study.hasFreeAccess || false,
-          hasCohortsAvailable: study.hasCohortsAvailable || false,
-          // User and metadata
-          uid: currentUser.uid,
-          created: serverTimestamp(),
-        };
-
-        console.log("Saving resource:", resourceData);
-
-        const docRef = await addDoc(
-          collection(db, "saved_resources"),
-          resourceData
-        );
-        setIsSaved(true);
-        setSavedResourceId(docRef.id);
-      }
-    } catch (error) {
-      console.error("Error saving/unsaving resource:", error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Reset AI summary toggle when study changes - default to AI summary if available
-  useEffect(() => {
-    setShowAiSummary(!!hasAiSummary);
-  }, [title, hasAiSummary]);
-
-  // Lookup for enhanced data - only happens within this component when needed
-  useEffect(() => {
-    let cancelled = false;
-
-    // Reset enhanced study when study changes
-    setEnhancedStudy(null);
-
-    // Skip lookup if study data is already complete
-    if (studyDataComplete) {
-      return;
-    }
-
-    if (!study?.extra_data?.uuid) {
-      return;
-    }
-
-    setIsLoadingEnhancedData(true);
-
-    const fetchData = async () => {
-      try {
-        // Fetch enhanced data immediately with search context
-        const enhancedData = await fetchResultByUuid(
-          study.extra_data.uuid!,
-          searchSettings.query,
-          searchSettings.hybridWeight,
-          searchSettings.maxDistance
-        );
-
-        if (!cancelled) {
-          setEnhancedStudy(enhancedData);
-          setIsLoadingEnhancedData(false);
-        }
-      } catch (error) {
-        console.error("Failed to load enhanced study data:", error);
-        if (!cancelled) {
-          setIsLoadingEnhancedData(false);
-        }
-      }
-    };
-
-    fetchData();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    study?.extra_data?.uuid,
-    studyDataComplete,
-    searchSettings.query,
-    searchSettings.hybridWeight,
-    searchSettings.maxDistance,
-  ]);
-
-  // State for debug dialog
-  const [debugDialogOpen, setDebugDialogOpen] = useState(false);
-
-  // Add state for instruments dropdown
-  const [instrumentsExpanded, setInstrumentsExpanded] = useState(false);
-
-  // State for collapsible sections
-  const [expandedSections, setExpandedSections] = useState<{
-    [key: string]: boolean;
-  }>({
-    description: true,
-    details: false,
-    variables: false,
-    links: false,
-    childDatasets: false,
-  });
-
-  const toggleSection = (section: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
-  };
 
   // Extract topics/keywords from SearchResult
   const unfilteredTopics = displayStudy.dataset_schema?.keywords || [];
@@ -336,36 +183,208 @@ const StudyDetailComponent = ({
   }
   const hasAdditionalLinks = additionalLinks.length > 0;
 
-  // Debug log for instruments
-  console.log("StudyDetail instruments debug:", {
-    instruments: displayStudy.extra_data?.instruments || [],
-    hasInstruments,
-    instrumentsLength: (displayStudy.extra_data?.instruments || []).length,
-  });
+  // Client-side effects
+  useEffect(() => {
+    setImageError(false);
+  }, [displayStudy.dataset_schema?.name, displayStudy.extra_data?.name]);
+
+  useEffect(() => {
+    setDescriptionExpanded(false);
+  }, [displayStudy.dataset_schema?.name, displayStudy.extra_data?.name]);
+
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [displayStudy.extra_data?.uuid]);
+
+  useEffect(() => {
+    const checkIfSaved = async () => {
+      if (!currentUser || !displayStudy.extra_data?.uuid) return;
+
+      try {
+        // Dynamic import for client-side only
+        const { collection, query, where, getDocs } = await import(
+          "firebase/firestore/lite"
+        );
+        const { db } = await import("../firebase");
+
+        const q = query(
+          collection(db, "saved_resources"),
+          where("uid", "==", currentUser.uid),
+          where("uuid", "==", displayStudy.extra_data.uuid)
+        );
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          const doc = querySnapshot.docs[0];
+          setIsSaved(true);
+          setSavedResourceId(doc.id);
+        } else {
+          setIsSaved(false);
+          setSavedResourceId(null);
+        }
+      } catch (error) {
+        console.error("Error checking if resource is saved:", error);
+      }
+    };
+
+    checkIfSaved();
+  }, [currentUser, displayStudy.extra_data?.uuid]);
+
+  const toggleSave = async () => {
+    if (!currentUser || !displayStudy.extra_data?.uuid || saving) return;
+
+    setSaving(true);
+    try {
+      // Dynamic import for client-side only
+      const {
+        collection,
+        addDoc,
+        serverTimestamp,
+        query,
+        where,
+        getDocs,
+        deleteDoc,
+        doc,
+      } = await import("firebase/firestore/lite");
+      const { db } = await import("../firebase");
+
+      if (isSaved && savedResourceId) {
+        await deleteDoc(doc(db, "saved_resources", savedResourceId));
+        setIsSaved(false);
+        setSavedResourceId(null);
+      } else {
+        const title =
+          displayStudy.dataset_schema?.name ||
+          displayStudy.extra_data?.name ||
+          "Untitled Dataset";
+        const description =
+          displayStudy.extra_data?.ai_summary ||
+          displayStudy.dataset_schema?.description ||
+          displayStudy.extra_data?.description ||
+          "";
+        const image =
+          (displayStudy.dataset_schema as any)?.image ||
+          (displayStudy as any).image ||
+          null;
+        const aiSummary = displayStudy.extra_data?.ai_summary || null;
+
+        const resourceData = {
+          title: title,
+          description: aiSummary || description,
+          image: image || null,
+          uuid: displayStudy.extra_data.uuid,
+          slug: displayStudy.extra_data.slug || null,
+          resourceType: displayStudy.extra_data.resource_type || null,
+          keywords: displayStudy.dataset_schema?.keywords || [],
+          variablesCount:
+            displayStudy.dataset_schema?.variableMeasured?.length ||
+            displayStudy.dataset_schema?.number_of_variables ||
+            0,
+          datasetsCount: displayStudy.child_datasets?.length || 0,
+          hasDataAvailable:
+            !!displayStudy.dataset_schema?.includedInDataCatalog?.length,
+          hasFreeAccess: displayStudy.hasFreeAccess || false,
+          hasCohortsAvailable: displayStudy.hasCohortsAvailable || false,
+          uid: currentUser.uid,
+          created: serverTimestamp(),
+        };
+
+        const docRef = await addDoc(
+          collection(db, "saved_resources"),
+          resourceData
+        );
+        setIsSaved(true);
+        setSavedResourceId(docRef.id);
+      }
+    } catch (error) {
+      console.error("Error saving/unsaving resource:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    const hasAiSummary = !!(
+      displayStudy.extra_data?.ai_summary &&
+      displayStudy.extra_data.ai_summary.trim().length > 0
+    );
+    setShowAiSummary(hasAiSummary);
+  }, [
+    displayStudy.dataset_schema?.name,
+    displayStudy.extra_data?.name,
+    displayStudy.extra_data?.ai_summary,
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setEnhancedStudy(null);
+
+    if (studyDataComplete) {
+      return;
+    }
+    if (!displayStudy?.extra_data?.uuid) {
+      return;
+    }
+
+    setIsLoadingEnhancedData(true);
+
+    const fetchData = async () => {
+      try {
+        const enhancedData = await fetchResultByUuid(
+          displayStudy.extra_data.uuid!,
+          searchSettings.query,
+          searchSettings.hybridWeight,
+          searchSettings.maxDistance
+        );
+
+        if (!cancelled) {
+          setEnhancedStudy(enhancedData);
+          setIsLoadingEnhancedData(false);
+        }
+      } catch (error) {
+        console.error("Failed to load enhanced study data:", error);
+        if (!cancelled) {
+          setIsLoadingEnhancedData(false);
+        }
+      }
+    };
+
+    fetchData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    displayStudy?.extra_data?.uuid,
+    studyDataComplete,
+    searchSettings.query,
+    searchSettings.hybridWeight,
+    searchSettings.maxDistance,
+  ]);
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
 
   // Prepare deduped list of all variables for the DataGrid
   const allStudyVariables = useMemo(() => {
-    console.log("study var deduping :", {
-      matchedVariables: displayStudy.variables_which_matched,
-      allVariables: displayStudy.dataset_schema?.variableMeasured,
-      matchedLength: displayStudy.variables_which_matched?.length,
-      allLength: displayStudy.dataset_schema?.variableMeasured?.length,
-    });
     const matched = displayStudy.variables_which_matched || [];
     const allVars = displayStudy.dataset_schema?.variableMeasured || [];
-    // Use name as key since VariableSchema doesn't have uuid
     const matchedMap = new Map<string, any>();
     matched.forEach((v) => {
       const key = v.name;
       if (key) matchedMap.set(key, { ...v, matched: true });
     });
-    // Add unmatched variables
     allVars.forEach((v) => {
       const key = v.name;
       if (!key || matchedMap.has(key)) return;
       matchedMap.set(key, v);
     });
-    // Return as array
     return Array.from(matchedMap.values());
   }, [
     displayStudy.variables_which_matched,
@@ -415,23 +434,6 @@ const StudyDetailComponent = ({
           >
             Loading...
           </Typography>
-        </Box>
-      )}
-
-      {/* Debug button for drawer mode - only visible in development */}
-      {isDrawerView && (true || process.env.NODE_ENV !== "production") && (
-        <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
-          <IconButton
-            size="small"
-            onClick={() => setDebugDialogOpen(true)}
-            sx={{
-              opacity: 0.6,
-              "&:hover": { opacity: 1 },
-              color: "text.secondary",
-            }}
-          >
-            <Bug size={18} />
-          </IconButton>
         </Box>
       )}
 
@@ -503,22 +505,6 @@ const StudyDetailComponent = ({
                       fill={isSaved ? "currentColor" : "none"}
                     />
                   )}
-                </IconButton>
-              )}
-
-              {/* Debug button - only visible in development */}
-              {(true || process.env.NODE_ENV !== "production") && (
-                <IconButton
-                  size="small"
-                  onClick={() => setDebugDialogOpen(true)}
-                  sx={{
-                    opacity: 0.6,
-                    "&:hover": { opacity: 1 },
-                    color: "text.secondary",
-                    mt: 0.5,
-                  }}
-                >
-                  <Bug size={18} />
                 </IconButton>
               )}
             </Box>
@@ -929,10 +915,11 @@ const StudyDetailComponent = ({
             {filteredTopics.map((topic, index) => (
               <SquareChip
                 key={`topic-${index}`}
-                onClick={(e) => {
+                onClick={(e: React.MouseEvent) => {
                   e.stopPropagation();
-                  if (onTopicClick) {
-                    onTopicClick(topic);
+                  // Check if we're on the client side (context is available)
+                  if (isClient) {
+                    addToFilters("keywords", topic);
                   }
                 }}
                 sx={{ cursor: "pointer" }}
@@ -1024,7 +1011,7 @@ const StudyDetailComponent = ({
               height: "auto",
               mb: 2,
             }}
-            onClick={() => setInstrumentsExpanded((prev) => !prev)}
+            onClick={() => setInstrumentsExpanded(!instrumentsExpanded)}
           >
             Instruments ({(study.extra_data?.instruments || []).length})
           </SquareChip>
@@ -1032,13 +1019,15 @@ const StudyDetailComponent = ({
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1 }}>
               {(study.extra_data?.instruments || []).map((instrument, idx) => (
                 <SquareChip
-                  onClick={(e) => {
+                  key={`instrument-${idx}`}
+                  onClick={(e: React.MouseEvent) => {
                     e.stopPropagation();
-                    if (onInstrumentClick) {
-                      onInstrumentClick(instrument);
+                    // Check if we're on the client side (context is available)
+                    if (isClient) {
+                      addToFilters("instruments", instrument);
                     }
                   }}
-                  key={`instrument-${idx}`}
+                  sx={{ cursor: "pointer" }}
                 >
                   {instrument}
                 </SquareChip>
@@ -1087,16 +1076,6 @@ const StudyDetailComponent = ({
             </Collapse>
           </Box>
         )}
-
-      {/* Debug Dialog */}
-      <StudyDetailDebugDialog
-        open={debugDialogOpen}
-        onClose={() => setDebugDialogOpen(false)}
-        title={title}
-        originalSearchResult={debugData?.originalSearchResult}
-        lookupData={debugData?.lookupData}
-        finalProcessedData={study}
-      />
     </Box>
   );
 };

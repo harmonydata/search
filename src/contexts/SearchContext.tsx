@@ -34,7 +34,21 @@ const defaultSearchSettings: SearchSettings = {
   similarUid: null,
 };
 
-const SearchContext = createContext<SearchContextType | undefined>(undefined);
+// Default context value for SSR - no-op functions that don't throw errors
+const defaultSearchContext: SearchContextType = {
+  searchSettings: defaultSearchSettings,
+  updateSearchSettings: () => {
+    console.warn("Search not available on server");
+  },
+  resetSearchSettings: () => {
+    console.warn("Search not available on server");
+  },
+  loadSearchFromSaved: () => {
+    console.warn("Search not available on server");
+  },
+};
+
+const SearchContext = createContext<SearchContextType>(defaultSearchContext);
 
 export function SearchProvider({ children }: { children: React.ReactNode }) {
   const [searchSettings, setSearchSettings] = useState<SearchSettings>(
@@ -82,9 +96,5 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
 
 export function useSearch() {
   const context = useContext(SearchContext);
-  if (context === undefined) {
-    throw new Error("useSearch must be used within a SearchProvider");
-  }
   return context;
 }
-

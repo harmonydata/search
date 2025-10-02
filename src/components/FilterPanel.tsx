@@ -415,6 +415,25 @@ const DropdownFilter: React.FC<{
       getOptionLabel={getOptionLabel}
       value={displayValue}
       onChange={handleChange}
+      renderTags={(value, getTagProps) =>
+        value.map((option, index) => (
+          <Chip
+            {...getTagProps({ index })}
+            key={option}
+            label={getOptionLabel(option)}
+            sx={{
+              backgroundColor: "primary.main",
+              color: "primary.contrastText",
+              "& .MuiChip-deleteIcon": {
+                color: "primary.contrastText",
+                "&:hover": {
+                  color: "primary.contrastText",
+                },
+              },
+            }}
+          />
+        ))
+      }
       renderInput={(params) => (
         <TextField
           {...params}
@@ -560,6 +579,14 @@ const HybridChipsFilter: React.FC<{
               label={getLabel(option)}
               color={selected.includes(option) ? "primary" : "default"}
               onClick={() => handleToggle(option)}
+              sx={{
+                maxWidth: "350px",
+                "& .MuiChip-label": {
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                },
+              }}
             />
           );
 
@@ -582,6 +609,25 @@ const HybridChipsFilter: React.FC<{
             getOptionLabel={getLabel}
             value={selected.filter((item) => remainingOptions.includes(item))}
             onChange={handleAutocompleteChange}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <Chip
+                  {...getTagProps({ index })}
+                  key={option}
+                  label={getLabel(option)}
+                  sx={{
+                    backgroundColor: "primary.main",
+                    color: "primary.contrastText",
+                    "& .MuiChip-deleteIcon": {
+                      color: "primary.contrastText",
+                      "&:hover": {
+                        color: "primary.contrastText",
+                      },
+                    },
+                  }}
+                />
+              ))
+            }
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -732,6 +778,14 @@ const ChipsFilter: React.FC<{
               label={getLabel(option)}
               color={selected.includes(option) ? "primary" : "default"}
               onClick={() => handleToggle(option)}
+              sx={{
+                maxWidth: "350px",
+                "& .MuiChip-label": {
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                },
+              }}
             />
           );
 

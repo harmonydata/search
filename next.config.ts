@@ -15,7 +15,7 @@ console.log(
 );
 
 const nextConfig: NextConfig = {
-  // Only enable static export when NEXT_STATIC_EXPORT is true OR when building for GitHub Pages
+  // Keep static export for build-time compilation
   output:
     process.env.NEXT_STATIC_EXPORT || isGitHubPagesDeployment
       ? "export"
@@ -23,7 +23,16 @@ const nextConfig: NextConfig = {
   basePath: isGitHubPagesDeployment ? "/search" : "",
   assetPrefix: isGitHubPagesDeployment ? "/search" : "",
   trailingSlash: false,
-  reactStrictMode: false,
+  reactStrictMode: true, // Enable like next-atlas
+
+  // Enable compression for static files
+  compress: true,
+
+  // Enable font optimization and package imports optimization
+  experimental: {
+    optimizePackageImports: ["@mui/material", "@mui/icons-material"],
+  },
+
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -86,12 +95,39 @@ const nextConfig: NextConfig = {
   // Skip server-side routes during static export
   skipTrailingSlashRedirect: true,
   skipMiddlewareUrlNormalize: true,
-  // Exclude discovery-split directory from build
-  webpack: (config) => {
+  // Webpack optimizations like next-atlas
+  webpack: (config, { dev, isServer }) => {
+    // Use more stable chunk names to reduce build-to-build changes
+    if (!dev && !isServer) {
+      config.output.chunkFilename = "static/js/[name].[contenthash:8].js";
+      config.output.filename = "static/js/[name].[contenthash:8].js";
+    }
+
+    // Remove console.log statements in production builds (client-side only)
+    if (!dev && !isServer) {
+      // Configure terser to remove console.log, console.debug, console.info
+      if (config.optimization && config.optimization.minimizer) {
+        config.optimization.minimizer.forEach((minimizer: any) => {
+          if (minimizer.constructor.name === "TerserPlugin") {
+            minimizer.options.terserOptions = {
+              ...minimizer.options.terserOptions,
+              compress: {
+                ...minimizer.options.terserOptions?.compress,
+                drop_console: true, // Remove all console.* calls
+                drop_debugger: true, // Remove debugger statements
+              },
+            };
+          }
+        });
+      }
+    }
+
+    // Exclude discovery-split directory from build
     config.module.rules.push({
       test: /\.tsx?$/,
       exclude: /discovery-split/,
     });
+
     return config;
   },
 };

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Script from "next/script";
-import StudyPageClient from "./StudyPageClient";
+import StudyDetail from "@/components/StudyDetail";
 import { fetchAllStudiesWithUuids, fetchResultByUuid } from "@/services/api";
 import {
   getCachedStudiesWithUuids,
@@ -11,7 +11,7 @@ import { Metadata } from "next";
 // This runs at build time for static export
 export async function generateStaticParams() {
   try {
-    console.log("Fetching all studies for static generation...");
+    console.log("Fetching studies for static generation...");
 
     // Try to use cached data first, fallback to API
     let studiesWithUuids;
@@ -27,7 +27,7 @@ export async function generateStaticParams() {
       `Found ${studiesWithUuids.length} studies for static generation`
     );
 
-    // Return the params for each study (slug only)
+    // Return ALL studies for static export (build-time compilation)
     return studiesWithUuids.map((study) => ({
       slug: study.slug,
     }));
@@ -108,17 +108,39 @@ export default async function StudyPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const gspStartTime = Date.now();
+  const gspId = Math.random().toString(36).substring(7);
+
+  console.log(
+    `🚀 [${new Date().toISOString()}] [${gspId}] generateStaticProps started for slug: ${slug}`
+  );
 
   try {
-    console.log(`Generating static page for study: ${slug}`);
-
     // Try to use cached data first, fallback to API
+    const fetchStartTime = Date.now();
     let fullStudyResult;
     try {
+      console.log(
+        `📡 [${new Date().toISOString()}] [${gspId}] Getting cached study data...`
+      );
       fullStudyResult = getCachedStudyBySlug(slug);
+      const fetchEndTime = Date.now();
+      console.log(
+        `✅ [${new Date().toISOString()}] [${gspId}] Cached study fetched in ${
+          fetchEndTime - fetchStartTime
+        }ms`
+      );
     } catch (error) {
-      console.log(`Fetching study from API ${slug}`);
+      console.log(
+        `📡 [${new Date().toISOString()}] [${gspId}] Fetching study from API: ${slug}`
+      );
       fullStudyResult = await fetchResultByUuid(slug);
+      const fetchEndTime = Date.now();
+      console.log(
+        `✅ [${new Date().toISOString()}] [${gspId}] API study fetched in ${
+          fetchEndTime - fetchStartTime
+        }ms`
+      );
     }
 
     console.log(
@@ -144,6 +166,19 @@ export default async function StudyPage({
       : fullStudyResult; // Keep full data if no variables to strip
 
     const studyDataComplete = !hasVariables; // Complete if no variables were stripped
+
+    const gspEndTime = Date.now();
+    const totalGspTime = gspEndTime - gspStartTime;
+
+    console.log(
+      `✅ [${new Date().toISOString()}] [${gspId}] generateStaticProps completed successfully:`
+    );
+    console.log(`   📈 Total time: ${totalGspTime}ms`);
+    console.log(
+      `   📊 Study: ${slug} (${fullStudyResult.dataset_schema?.name})`
+    );
+    console.log(`   📦 Variables stripped: ${hasVariables ? "Yes" : "No"}`);
+    console.log(`   🎯 Data complete: ${studyDataComplete ? "Yes" : "No"}`);
 
     // Prepare JSON-LD structured data (only include main study info, not child datasets)
     const structuredData = {
@@ -174,14 +209,20 @@ export default async function StudyPage({
             __html: JSON.stringify(structuredData),
           }}
         />
-        <StudyPageClient
+        <StudyDetail
           study={strippedStudy}
+          isDrawerView={false}
           studyDataComplete={studyDataComplete}
         />
       </>
     );
   } catch (error) {
-    console.error(`Failed to generate static page for study: ${slug}`, error);
+    const errorEndTime = Date.now();
+    const totalGspTime = errorEndTime - gspStartTime;
+    console.error(
+      `❌ [${new Date().toISOString()}] [${gspId}] Error in generateStaticProps after ${totalGspTime}ms:`,
+      error
+    );
     notFound();
   }
 }

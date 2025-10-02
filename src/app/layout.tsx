@@ -9,7 +9,22 @@ import { SearchProvider } from "@/contexts/SearchContext";
 import "react-toastify/dist/ReactToastify.css";
 import "@/app/globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+// Configure fonts with optimized loading like next-atlas
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"], // Optimized weights
+  style: ["normal"], // Remove italic to reduce downloads
+  display: "swap", // Swap fonts for better performance
+  preload: true, // Preload for critical text
+  fallback: [
+    "system-ui",
+    "-apple-system",
+    "BlinkMacSystemFont",
+    "Segoe UI",
+    "Roboto",
+    "sans-serif",
+  ],
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://harmonydata.ac.uk/search/"),

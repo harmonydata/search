@@ -62,9 +62,6 @@ function DiscoverPageContent() {
   );
   const [results, setResults] = useState<SearchResult[]>([]);
   const [filters, setFilters] = useState<AggregateFilter[]>([]);
-  const [selectedFilters, setSelectedFilters] = useState<
-    Record<string, string[]>
-  >(searchSettings.selectedFilters);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(
     searchSettings.selectedCategory
   );
@@ -73,7 +70,6 @@ function DiscoverPageContent() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalHits, setTotalHits] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [showDebug, setShowDebug] = useState(false);
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(
     null
   );
@@ -122,7 +118,7 @@ function DiscoverPageContent() {
   useEffect(() => {
     updateSearchSettings({
       query: searchQuery,
-      selectedFilters,
+      selectedFilters: searchSettings.selectedFilters,
       selectedCategory,
       useSearch2,
       hybridWeight,
@@ -130,7 +126,7 @@ function DiscoverPageContent() {
     });
   }, [
     searchQuery,
-    selectedFilters,
+    searchSettings.selectedFilters,
     selectedCategory,
     useSearch2,
     hybridWeight,
@@ -143,7 +139,7 @@ function DiscoverPageContent() {
     setSaveSearchSuccess(false);
   }, [
     searchQuery,
-    selectedFilters,
+    searchSettings.selectedFilters,
     useSearch2,
     hybridWeight,
     maxDistance,
@@ -217,37 +213,51 @@ function DiscoverPageContent() {
     if (
       initialTopics &&
       initialTopics.length > 0 &&
-      (!selectedFilters.keywords ||
-        selectedFilters.keywords.join(",") !== initialTopics.join(","))
+      (!searchSettings.selectedFilters.keywords ||
+        searchSettings.selectedFilters.keywords.join(",") !==
+          initialTopics.join(","))
     ) {
-      setSelectedFilters((prev) => ({
-        ...prev,
-        keywords: initialTopics,
-      }));
+      updateSearchSettings({
+        ...searchSettings,
+        selectedFilters: {
+          ...searchSettings.selectedFilters,
+          keywords: initialTopics,
+        },
+      });
       didSet = true;
     }
     if (
       initialInstruments &&
       initialInstruments.length > 0 &&
-      (!selectedFilters.instruments ||
-        selectedFilters.instruments.join(",") !== initialInstruments.join(","))
+      (!searchSettings.selectedFilters.instruments ||
+        searchSettings.selectedFilters.instruments.join(",") !==
+          initialInstruments.join(","))
     ) {
-      setSelectedFilters((prev) => ({
-        ...prev,
-        instruments: initialInstruments,
-      }));
+      updateSearchSettings({
+        ...searchSettings,
+        selectedFilters: {
+          ...searchSettings.selectedFilters,
+          instruments: initialInstruments,
+        },
+      });
+
       didSet = true;
     }
     if (
       initialStudyDesign &&
       initialStudyDesign.length > 0 &&
-      (!selectedFilters.study_design ||
-        selectedFilters.study_design.join(",") !== initialStudyDesign.join(","))
+      (!searchSettings.selectedFilters.study_design ||
+        searchSettings.selectedFilters.study_design.join(",") !==
+          initialStudyDesign.join(","))
     ) {
-      setSelectedFilters((prev) => ({
-        ...prev,
-        study_design: initialStudyDesign,
-      }));
+      updateSearchSettings({
+        ...searchSettings,
+        selectedFilters: {
+          ...searchSettings.selectedFilters,
+          study_design: initialStudyDesign,
+        },
+      });
+
       didSet = true;
     }
     // Remove the params from the URL after processing
@@ -272,7 +282,7 @@ function DiscoverPageContent() {
 
   // Refs to track previous query and filters for page reset logic
   const searchQueryRef = useRef(debouncedSearchQuery);
-  const filtersRef = useRef(JSON.stringify(selectedFilters));
+  const filtersRef = useRef(JSON.stringify(searchSettings.selectedFilters));
   const useSearch2Ref = useRef(useSearch2);
   const hybridWeightRef = useRef(debouncedHybridWeight);
   const maxDistanceRef = useRef(debouncedMaxDistance);
@@ -382,61 +392,6 @@ function DiscoverPageContent() {
     loadKeywordPhrases();
   }, [keywordPhrasesLoaded]);
 
-  // Debug helper function to log current state to console
-  const debugState = useCallback(() => {
-    // Store state in window for later inspection
-    if (typeof window !== "undefined") {
-      // @ts-ignore - Adding debug properties to window
-      window.__debugState = {
-        // currentPage,
-        currentPage,
-        totalHits,
-        resultsPerPage,
-        searchQuery,
-        debouncedSearchQuery,
-        selectedFilters,
-        filters,
-        results,
-        selectedResult,
-        apiOffline,
-        topLevelIdsSeen,
-      };
-
-      console.log("Current state stored in window.__debugState");
-      console.log("Current state:", {
-        pagination: {
-          currentPage,
-          totalHits,
-        },
-        searchQuery,
-        debouncedSearchQuery,
-        selectedFilters,
-        filterCount: filters.length,
-        resultCount: results.length,
-        selectedResult: selectedResult
-          ? {
-              id: selectedResult.extra_data?.uuid,
-              title: selectedResult.dataset_schema?.name,
-            }
-          : null,
-        apiOffline,
-      });
-    }
-  }, [
-    // currentPage,
-    currentPage,
-    totalHits,
-    resultsPerPage,
-    searchQuery,
-    debouncedSearchQuery,
-    selectedFilters,
-    filters,
-    results,
-    selectedResult,
-    apiOffline,
-    topLevelIdsSeen,
-  ]);
-
   // Handle result selection (works in both modes)
   const handleResultSelect = useCallback(
     (result: SearchResult) => {
@@ -478,32 +433,6 @@ function DiscoverPageContent() {
       setIsDetailExpanded((prev) => !prev);
     }
   }, [isMobile]);
-
-  // Toggle debug panel
-  const toggleDebug = useCallback(() => {
-    setShowDebug((prev) => !prev);
-    debugState();
-  }, [debugState]);
-
-  // Debug event to prevent console clearing
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const preserveLog = (e: Event) => {
-        if (e.target === window) {
-          console.log("Preserving console log");
-          e.stopPropagation();
-          return false;
-        }
-        return true;
-      };
-
-      window.addEventListener("beforeunload", preserveLog, true);
-
-      return () => {
-        window.removeEventListener("beforeunload", preserveLog, true);
-      };
-    }
-  }, []);
 
   // Fetch initial aggregations for filters - this should only happen once
   useEffect(() => {
@@ -584,7 +513,7 @@ function DiscoverPageContent() {
     try {
       const searchData = {
         query: searchQuery,
-        filters: selectedFilters,
+        filters: searchSettings.selectedFilters,
         useSearch2,
         hybridWeight,
         maxDistance,
@@ -678,7 +607,7 @@ function DiscoverPageContent() {
     // Check if query, filters, or advanced search options changed (NOT page changes)
     const isSearchParameterChange =
       debouncedSearchQuery !== searchQueryRef.current ||
-      JSON.stringify(selectedFilters) !== filtersRef.current ||
+      JSON.stringify(searchSettings.selectedFilters) !== filtersRef.current ||
       useSearch2 !== useSearch2Ref.current ||
       debouncedHybridWeight !== hybridWeightRef.current ||
       debouncedMaxDistance !== maxDistanceRef.current;
@@ -713,7 +642,7 @@ function DiscoverPageContent() {
       performSearch(queryToUse, 1).finally(() => {
         // Update refs only after search completes to prevent race conditions
         searchQueryRef.current = debouncedSearchQuery;
-        filtersRef.current = JSON.stringify(selectedFilters);
+        filtersRef.current = JSON.stringify(searchSettings.selectedFilters);
         useSearch2Ref.current = useSearch2;
         hybridWeightRef.current = debouncedHybridWeight;
         maxDistanceRef.current = debouncedMaxDistance;
@@ -722,7 +651,7 @@ function DiscoverPageContent() {
     }
   }, [
     debouncedSearchQuery,
-    selectedFilters,
+    searchSettings.selectedFilters,
     similarUid,
     similarStudy,
     useSearch2,
@@ -793,7 +722,7 @@ function DiscoverPageContent() {
 
     try {
       // Create a copy of the filters to send to the API
-      const combinedFilters = { ...selectedFilters };
+      const combinedFilters = { ...searchSettings.selectedFilters };
 
       // Add resource_type filter if present in URL params
       if (resourceType) {
@@ -845,22 +774,6 @@ function DiscoverPageContent() {
           similarUid
         );
       }
-      // More detailed logging for pagination debugging
-      console.log("Detailed pagination info:", {
-        pageToUse,
-        topLevelIdsSeenLength: topLevelIdsSeen.length,
-        topLevelIdsSeenSample: topLevelIdsSeen.slice(0, 5),
-        currentTopLevelIdsRefLength: currentTopLevelIdsRef.current.length,
-        currentTopLevelIdsRefSample: currentTopLevelIdsRef.current.slice(0, 5),
-        nextPageOffset: currentNextPageOffsetRef.current,
-        idsToExclude: idsToExclude || [],
-        willPassIds: pageToUse > 1 && !useSearch2,
-        willPassOffset:
-          pageToUse > 1 && currentNextPageOffsetRef.current !== undefined,
-        willUsePost:
-          pageToUse > 1 && !useSearch2 && (idsToExclude?.length || 0) > 0,
-        useSearch2,
-      });
 
       // Calculate the alpha to use based on query and keyword phrases
       const calculatedAlpha = calculateDynamicHybridWeight(query);
@@ -1078,35 +991,12 @@ function DiscoverPageContent() {
     selectedOptions: string[]
   ) => {
     // Just update the selected filters - the special case of age_range is handled in FilterPanel
-    setSelectedFilters((prev) => ({
-      ...prev,
-      [category]: selectedOptions,
-    }));
-  };
-
-  // Handler for topic clicks in study detail
-  const handleTopicClick = (topic: string) => {
-    const currentKeywords = selectedFilters?.keywords || [];
-    if (!currentKeywords.includes(topic)) {
-      const newKeywords = [...currentKeywords, topic];
-      setSelectedFilters((prev) => ({
-        ...prev,
-        keywords: newKeywords,
-      }));
-      handleFilterSelection("keywords", newKeywords);
-    }
-  };
-  // Handler for topic clicks in study detail
-  const handleInstrumentClick = (instrument: string) => {
-    const currentInstruments = selectedFilters?.instruments || [];
-    if (!currentInstruments.includes(instrument)) {
-      const newInstruments = [...currentInstruments, instrument];
-      setSelectedFilters((prev) => ({
-        ...prev,
-        instruments: newInstruments,
-      }));
-      handleFilterSelection("instruments", newInstruments);
-    }
+    updateSearchSettings({
+      selectedFilters: {
+        ...searchSettings.selectedFilters,
+        [category]: selectedOptions,
+      },
+    });
   };
 
   // Helper function to capitalize filter labels
@@ -1332,7 +1222,7 @@ function DiscoverPageContent() {
     setLoading(true);
     setApiOffline(false);
     try {
-      const combinedFilters = { ...selectedFilters };
+      const combinedFilters = { ...searchSettings.selectedFilters };
       if (resourceType) {
         combinedFilters.resource_type = [resourceType];
       }
@@ -1545,11 +1435,11 @@ function DiscoverPageContent() {
         <FilterPanel
           filtersData={filters}
           onSelectionChange={handleFilterSelection}
-          selectedFilters={selectedFilters}
+          selectedFilters={searchSettings.selectedFilters}
         />
 
-        {/* Search Results Summary */}
-        {!loading && !apiOffline && (results.length > 0 || totalHits > 0) && (
+        {/* Search Results Summary - Always rendered to prevent layout shift */}
+        {!apiOffline && (
           <Box
             sx={{
               mb: 2,
@@ -1559,28 +1449,33 @@ function DiscoverPageContent() {
             }}
           >
             <Typography variant="body2" color="text.secondary">
-              {(() => {
-                // Smart display logic for results count
-                if (!hasMoreResults) {
-                  // We've reached the end - show total found
-                  return `${results.length} results found`;
-                } else if (results.length > totalHits) {
-                  // We have more results than original estimate - show estimate was low
-                  return `${results.length} results loaded (${totalHits}+ estimated)`;
-                } else if (totalHits > 0) {
-                  // Normal case - show loaded vs estimated
-                  return `${results.length} of ~${totalHits} results loaded`;
-                } else {
-                  // Fallback - just show loaded count
-                  return `${results.length} results loaded`;
-                }
-              })()}
-              {lastApiTime && ` (API: ${lastApiTime}ms`}
-              {lastSearchTime && lastApiTime && `, Total: ${lastSearchTime}ms)`}
+              {loading
+                ? "Searching..."
+                : (() => {
+                    // Smart display logic for results count
+                    if (!hasMoreResults) {
+                      // We've reached the end - show total found
+                      return `${results.length} results found`;
+                    } else if (results.length > totalHits) {
+                      // We have more results than original estimate - show estimate was low
+                      return `${results.length} results loaded (${totalHits}+ estimated)`;
+                    } else if (totalHits > 0) {
+                      // Normal case - show loaded vs estimated
+                      return `${results.length} of ~${totalHits} results loaded`;
+                    } else {
+                      // Fallback - just show loaded count
+                      return `${results.length} results loaded`;
+                    }
+                  })()}
+              {!loading && lastApiTime && ` (API: ${lastApiTime}ms`}
+              {!loading &&
+                lastSearchTime &&
+                lastApiTime &&
+                `, Total: ${lastSearchTime}ms)`}
             </Typography>
 
-            {/* Save search button - only visible when user is logged in and has results */}
-            {currentUser && results.length > 0 && (
+            {/* Save search button - always visible when user is logged in to prevent layout shift */}
+            {currentUser && (
               <Button
                 variant="outlined"
                 size="small"
@@ -1592,7 +1487,7 @@ function DiscoverPageContent() {
                   )
                 }
                 onClick={saveSearch}
-                disabled={savingSearch || !searchQuery.trim()}
+                disabled={savingSearch || !searchQuery.trim() || loading}
                 sx={{
                   ml: 2,
                   color: saveSearchSuccess ? "success.main" : "inherit",
@@ -1691,8 +1586,8 @@ function DiscoverPageContent() {
                     loader={
                       // Check if we have an empty state (no search query and no filters)
                       !debouncedSearchQuery &&
-                      (!selectedFilters ||
-                        Object.values(selectedFilters).every(
+                      (!searchSettings.selectedFilters ||
+                        Object.values(searchSettings.selectedFilters).every(
                           (arr) => arr.length === 0
                         )) ? (
                         <Box
@@ -1848,12 +1743,7 @@ function DiscoverPageContent() {
                     minHeight: 0, // Important for flex child scrolling
                   }}
                 >
-                  <StudyDetail
-                    study={studyDetail}
-                    isDrawerView={false}
-                    onTopicClick={handleTopicClick}
-                    onInstrumentClick={handleInstrumentClick}
-                  />
+                  <StudyDetail study={studyDetail} isDrawerView={false} />
                 </Box>
               ) : (
                 <Box
@@ -1968,8 +1858,6 @@ function DiscoverPageContent() {
                 studyDataComplete={false}
                 study={studyDetail}
                 isDrawerView={true}
-                onTopicClick={handleTopicClick}
-                onInstrumentClick={handleInstrumentClick}
               />
             ) : (
               <Box

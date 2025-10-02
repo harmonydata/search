@@ -200,16 +200,7 @@ const nextConfig: NextConfig = {
       exclude: /discovery-split/,
     });
 
-    // Add module resolution optimizations
-    config.resolve = {
-      ...config.resolve,
-      alias: {
-        ...config.resolve?.alias,
-        // Optimize imports
-        "@mui/material": "@mui/material/esm",
-        "@mui/icons-material": "@mui/icons-material/esm",
-      },
-    };
+    // Module resolution is handled by Next.js optimizePackageImports
 
     // Add performance hints
     if (!dev && !isServer) {

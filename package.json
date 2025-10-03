@@ -10,6 +10,7 @@
     "export": "next build && next export",
     "static": "NEXT_STATIC_EXPORT=true next build",
     "build:github-pages": "GITHUB_PAGES_DEPLOYMENT=true NEXT_STATIC_EXPORT=true next build",
+    "build:analyze": "ANALYZE=true GITHUB_PAGES_DEPLOYMENT=true NEXT_STATIC_EXPORT=true next build",
     "prepare-data": "node scripts/prepare-build-data.js",
     "build:with-cache": "npm run prepare-data && npm run build:github-pages",
     "serve": "serve out"
@@ -41,6 +42,7 @@
     "@emotion/css": "^11.13.5",
     "@emotion/server": "^11.11.0",
     "@eslint/eslintrc": "^3",
+    "@next/bundle-analyzer": "^15.5.4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

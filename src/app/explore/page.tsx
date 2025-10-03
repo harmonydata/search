@@ -14,8 +14,6 @@ import {
   Tooltip as MuiTooltip,
 } from "@mui/material";
 import {
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,

@@ -15,8 +15,21 @@ import DataCatalogCard from "@/components/DataCatalogCard";
 import OrganizationCard from "@/components/OrganizationCard";
 import TextWithLinkPreviews from "@/components/TextWithLinkPreviews";
 import LinkPreviewCard from "@/components/LinkPreviewCard";
-import MatchedVariablesDataGrid from "@/components/MatchedVariablesDataGrid";
-import ChildDatasetsDataGrid from "@/components/ChildDatasetsDataGrid";
+import dynamic from "next/dynamic";
+
+// Dynamically import heavy data grid components to reduce initial bundle size
+const MatchedVariablesDataGrid = dynamic(
+  () => import("@/components/MatchedVariablesDataGrid"),
+  {
+    loading: () => <div>Loading variables...</div>,
+  }
+);
+const ChildDatasetsDataGrid = dynamic(
+  () => import("@/components/ChildDatasetsDataGrid"),
+  {
+    loading: () => <div>Loading datasets...</div>,
+  }
+);
 import { useAuth } from "@/contexts/AuthContext";
 import { useSearch } from "@/contexts/SearchContext";
 import { SearchResult, fetchResultByUuid } from "@/services/api";

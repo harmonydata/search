@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import withBundleAnalyzer from "@next/bundle-analyzer";
 
 // Only apply base path when explicitly building for GitHub Pages deployment
 const isGitHubPagesDeployment = process.env.GITHUB_PAGES_DEPLOYMENT === "true";
@@ -31,19 +32,8 @@ const nextConfig: NextConfig = {
   // Enable font optimization and package imports optimization
   experimental: {
     optimizePackageImports: ["@mui/material", "@mui/icons-material"],
-    // Enable modern bundling optimizations
-    optimizeCss: true,
     // Enable tree shaking for better dead code elimination
     esmExternals: true,
-    // Enable modern bundling features
-    turbo: {
-      rules: {
-        "*.svg": {
-          loaders: ["@svgr/webpack"],
-          as: "*.js",
-        },
-      },
-    },
   },
 
   eslint: {
@@ -116,57 +106,8 @@ const nextConfig: NextConfig = {
       config.output.filename = "static/js/[name].[contenthash:8].js";
     }
 
-    // Optimize bundle splitting for better caching
-    if (!dev && !isServer) {
-      config.optimization.splitChunks = {
-        chunks: "all",
-        minSize: 20000,
-        maxSize: 244000,
-        cacheGroups: {
-          // Separate vendor chunks for better caching
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: "vendors",
-            chunks: "all",
-            priority: 10,
-            enforce: true,
-          },
-          // Separate MUI components
-          mui: {
-            test: /[\\/]node_modules[\\/]@mui[\\/]/,
-            name: "mui",
-            chunks: "all",
-            priority: 20,
-            enforce: true,
-          },
-          // Separate Recharts (only used in explore page)
-          recharts: {
-            test: /[\\/]node_modules[\\/]recharts[\\/]/,
-            name: "recharts",
-            chunks: "async", // Only load when needed
-            priority: 30,
-            enforce: true,
-          },
-          // Separate React and React-DOM
-          react: {
-            test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
-            name: "react",
-            chunks: "all",
-            priority: 25,
-            enforce: true,
-          },
-          // Common chunks
-          common: {
-            name: "common",
-            minChunks: 2,
-            chunks: "all",
-            priority: 5,
-            reuseExistingChunk: true,
-            enforce: true,
-          },
-        },
-      };
-    }
+    // Let Next.js handle bundle splitting automatically
+    // Custom splitChunks was creating a massive vendor chunk that hurt performance
 
     // Remove console.log statements in production builds (client-side only)
     if (!dev && !isServer) {
@@ -202,17 +143,20 @@ const nextConfig: NextConfig = {
 
     // Module resolution is handled by Next.js optimizePackageImports
 
-    // Add performance hints
-    if (!dev && !isServer) {
-      config.performance = {
-        hints: "warning",
-        maxEntrypointSize: 512000,
-        maxAssetSize: 512000,
-      };
-    }
+    // Add performance hints for both dev and production
+    config.performance = {
+      hints: "warning",
+      maxEntrypointSize: 500000, // 500KB warning threshold
+      maxAssetSize: 500000, // 500KB per asset warning threshold
+    };
 
     return config;
   },
 };
 
-export default nextConfig;
+// Export with bundle analyzer if ANALYZE env var is set
+export default withBundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+  openAnalyzer: true,
+  analyzerMode: "static",
+})(nextConfig);

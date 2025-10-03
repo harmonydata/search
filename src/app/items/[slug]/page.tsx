@@ -1,7 +1,6 @@
-import { transformSearchResultToDatasetDetail } from "@/lib/utils/datasetTransform";
 import { notFound } from "next/navigation";
 import Script from "next/script";
-import DatasetPageClient from "./DatasetPageClient";
+import StudyDetail from "@/components/StudyDetail";
 import {
   fetchAllStudiesWithUuids,
   fetchAllDatasetsWithUuids,
@@ -137,12 +136,19 @@ export async function generateMetadata({
       };
     }
 
-    const dataset = transformSearchResultToDatasetDetail(fullDatasetResult);
-
-    // Generate Open Graph and Twitter Card metadata
-    const title = dataset.title || "Academic Dataset";
-    const description = dataset.description || "Academic research dataset";
-    const image = dataset.image || "/harmony.png";
+    // Generate Open Graph and Twitter Card metadata using raw data
+    const title =
+      fullDatasetResult.dataset_schema?.name ||
+      fullDatasetResult.extra_data?.name ||
+      "Academic Dataset";
+    const description =
+      fullDatasetResult.dataset_schema?.description ||
+      fullDatasetResult.extra_data?.description ||
+      "Academic research dataset";
+    const image =
+      (fullDatasetResult.dataset_schema as any)?.image ||
+      (fullDatasetResult as any).image ||
+      "/harmony.png";
     const url = `https://harmonydata.ac.uk/search/items/${slug}`;
 
     return {
@@ -201,8 +207,7 @@ export default async function DatasetPage({
 
     // Dataset data found successfully
 
-    // Transform the data for StudyDetail component
-    const datasetData = transformSearchResultToDatasetDetail(fullDatasetResult);
+    // Using raw SearchResult data directly with StudyDetail
 
     // Prepare JSON-LD structured data (only include main dataset info)
     const structuredData = {
@@ -233,7 +238,7 @@ export default async function DatasetPage({
             __html: JSON.stringify(structuredData),
           }}
         />
-        <DatasetPageClient dataset={datasetData} />
+        <StudyDetail study={fullDatasetResult} />
       </>
     );
   } catch (error) {

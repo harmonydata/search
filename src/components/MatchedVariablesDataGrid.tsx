@@ -5,8 +5,6 @@ import {
   GridColDef,
   QuickFilter,
   QuickFilterControl,
-  GridRowSelectionModel,
-  useGridApiContext,
   useGridApiRef,
 } from "@mui/x-data-grid";
 import {
@@ -36,7 +34,7 @@ import {
   Maximize2,
   X,
 } from "lucide-react";
-import * as XLSX from "xlsx";
+// XLSX will be loaded dynamically when needed to reduce bundle size
 
 import "./MatchedVariablesDataGrid.css";
 
@@ -319,18 +317,21 @@ function MatchedVariablesDataGrid({
     handleDownloadClose();
   };
 
-  const downloadAsExcel = () => {
+  const downloadAsExcel = async () => {
     const data = getQuestionsData();
 
+    // Dynamically import only the specific XLSX functions we need
+    const { utils, write } = await import("xlsx");
+
     // Create worksheet
-    const ws = XLSX.utils.json_to_sheet(data);
+    const ws = utils.json_to_sheet(data);
 
     // Create workbook
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Questions");
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, "Questions");
 
     // Generate Excel file
-    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const excelBuffer = write(wb, { bookType: "xlsx", type: "array" });
     const blob = new Blob([excelBuffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
@@ -354,6 +355,7 @@ function MatchedVariablesDataGrid({
             //autoPageSize
             apiRef={apiRef}
             paginationMode="server"
+            rowCount={rows.length}
             rows={rows}
             columns={columns}
             checkboxSelection

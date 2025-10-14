@@ -25,6 +25,7 @@ interface CachedChildDataset {
 let cachedStudies: CachedStudy[] | null = null;
 let cachedDatasets: CachedDataset[] | null = null;
 let cachedChildDatasets: CachedChildDataset[] | null = null;
+let hasLoggedCacheLoad = false;
 
 function loadCachedData() {
   if (cachedStudies && cachedDatasets && cachedChildDatasets) {
@@ -41,6 +42,14 @@ function loadCachedData() {
       !fs.existsSync(datasetsFile) ||
       !fs.existsSync(childDatasetsFile)
     ) {
+      console.error(`❌ Cached data files not found in ${TMP_DIR}`);
+      console.error(`   - studies.json exists: ${fs.existsSync(studiesFile)}`);
+      console.error(
+        `   - datasets.json exists: ${fs.existsSync(datasetsFile)}`
+      );
+      console.error(
+        `   - child-datasets.json exists: ${fs.existsSync(childDatasetsFile)}`
+      );
       throw new Error(
         "Cached data files not found. Run the pre-build script first."
       );
@@ -52,11 +61,19 @@ function loadCachedData() {
       fs.readFileSync(childDatasetsFile, "utf8")
     );
 
-    // Cached data loaded successfully
+    // Only log once across all workers
+    if (!hasLoggedCacheLoad) {
+      console.log(
+        `✅ Cached data loaded: ${cachedStudies?.length || 0} studies, ${
+          cachedDatasets?.length || 0
+        } datasets, ${cachedChildDatasets?.length || 0} child datasets`
+      );
+      hasLoggedCacheLoad = true;
+    }
 
     return { cachedStudies, cachedDatasets, cachedChildDatasets };
   } catch (error) {
-    console.error("Failed to load cached data:", error);
+    console.error("❌ Failed to load cached data:", error);
     throw error;
   }
 }
@@ -134,7 +151,6 @@ export function getCachedStudyBySlug(slug: string): any {
   if (!study) {
     throw new Error(`Study with slug "${slug}" not found in cached data`);
   }
-  console.log(`Found study with slug "${slug}" in cached data`);
   return study.data;
 }
 

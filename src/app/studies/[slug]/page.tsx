@@ -11,28 +11,30 @@ import { Metadata } from "next";
 // This runs at build time for static export
 export async function generateStaticParams() {
   try {
-    console.log("Fetching studies for static generation...");
-
     // Try to use cached data first, fallback to API
     let studiesWithUuids;
     try {
       studiesWithUuids = getCachedStudiesWithUuids();
-      console.log(`Using cached data: ${studiesWithUuids.length} studies`);
+      console.log(
+        `\n🏗️  Building static study pages: ${studiesWithUuids.length} studies`
+      );
     } catch (error) {
-      console.log("Cached data not available, falling back to API...");
+      console.log("⚠️  Cached data not available, falling back to API...");
       studiesWithUuids = await fetchAllStudiesWithUuids();
+      console.log(
+        `\n🏗️  Building static study pages: ${studiesWithUuids.length} studies`
+      );
     }
 
-    console.log(
-      `Found ${studiesWithUuids.length} studies for static generation`
-    );
-
     // Return ALL studies for static export (build-time compilation)
-    return studiesWithUuids.map((study) => ({
+    const params = studiesWithUuids.map((study) => ({
       slug: study.slug,
     }));
+
+    console.log(`📄 Study slugs to be built: ${params.length}`);
+    return params;
   } catch (error) {
-    console.error("Failed to generate static params:", error);
+    console.error("❌ Failed to generate static params:", error);
     return [];
   }
 }
@@ -109,45 +111,15 @@ export default async function StudyPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const gspStartTime = Date.now();
-  const gspId = Math.random().toString(36).substring(7);
-
-  console.log(
-    `🚀 [${new Date().toISOString()}] [${gspId}] generateStaticProps started for slug: ${slug}`
-  );
 
   try {
     // Try to use cached data first, fallback to API
-    const fetchStartTime = Date.now();
     let fullStudyResult;
     try {
-      console.log(
-        `📡 [${new Date().toISOString()}] [${gspId}] Getting cached study data...`
-      );
       fullStudyResult = getCachedStudyBySlug(slug);
-      const fetchEndTime = Date.now();
-      console.log(
-        `✅ [${new Date().toISOString()}] [${gspId}] Cached study fetched in ${
-          fetchEndTime - fetchStartTime
-        }ms`
-      );
     } catch (error) {
-      console.log(
-        `📡 [${new Date().toISOString()}] [${gspId}] Fetching study from API: ${slug}`
-      );
       fullStudyResult = await fetchResultByUuid(slug);
-      const fetchEndTime = Date.now();
-      console.log(
-        `✅ [${new Date().toISOString()}] [${gspId}] API study fetched in ${
-          fetchEndTime - fetchStartTime
-        }ms`
-      );
     }
-
-    console.log(
-      `Found full study data for ${slug}:`,
-      fullStudyResult.dataset_schema?.name
-    );
 
     // Pass the raw SearchResult directly - StudyDetail will handle its own data fetching
     // Conditionally remove variables data to reduce static file size
@@ -167,19 +139,6 @@ export default async function StudyPage({
       : fullStudyResult; // Keep full data if no variables to strip
 
     const studyDataComplete = !hasVariables; // Complete if no variables were stripped
-
-    const gspEndTime = Date.now();
-    const totalGspTime = gspEndTime - gspStartTime;
-
-    console.log(
-      `✅ [${new Date().toISOString()}] [${gspId}] generateStaticProps completed successfully:`
-    );
-    console.log(`   📈 Total time: ${totalGspTime}ms`);
-    console.log(
-      `   📊 Study: ${slug} (${fullStudyResult.dataset_schema?.name})`
-    );
-    console.log(`   📦 Variables stripped: ${hasVariables ? "Yes" : "No"}`);
-    console.log(`   🎯 Data complete: ${studyDataComplete ? "Yes" : "No"}`);
 
     // Prepare JSON-LD structured data (only include main study info, not child datasets)
     const structuredData = {
@@ -218,12 +177,7 @@ export default async function StudyPage({
       </>
     );
   } catch (error) {
-    const errorEndTime = Date.now();
-    const totalGspTime = errorEndTime - gspStartTime;
-    console.error(
-      `❌ [${new Date().toISOString()}] [${gspId}] Error in generateStaticProps after ${totalGspTime}ms:`,
-      error
-    );
+    console.error(`❌ Error generating study page for ${slug}:`, error);
     notFound();
   }
 }

@@ -90,7 +90,6 @@ function MatchedVariablesDataGrid({
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
   const [isApiReady, setIsApiReady] = useState(false);
-  console.log("variables passed:", variables);
 
   useEffect(() => {
     // Load the Harmony Export web component script from our local server

@@ -3,17 +3,6 @@ import withBundleAnalyzer from "@next/bundle-analyzer";
 
 // Only apply base path when explicitly building for GitHub Pages deployment
 const isGitHubPagesDeployment = process.env.GITHUB_PAGES_DEPLOYMENT === "true";
-console.log(
-  `[next.config.js] DEBUG: process.env.GITHUB_PAGES_DEPLOYMENT = '${process.env.GITHUB_PAGES_DEPLOYMENT}'`
-);
-console.log(
-  `[next.config.js] DEBUG: isGitHubPagesDeployment = ${isGitHubPagesDeployment}`
-);
-console.log(
-  `[next.config.js] DEBUG: Calculated assetPrefix = '${
-    isGitHubPagesDeployment ? "/search" : ""
-  }'`
-);
 
 const nextConfig: NextConfig = {
   // Keep static export for build-time compilation

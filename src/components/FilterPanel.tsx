@@ -34,7 +34,6 @@ const NUMERIC_FIELDS = [
   "age_upper",
   "start_year",
   "end_year",
-  "num_variables",
   "num_sweeps",
   "age_range",
   "time_range",
@@ -45,8 +44,8 @@ const CHARACTERISTICS_IDS = [
   "genetic_data",
   "duration_years",
   "sample_size",
-  "num_variables",
   "num_sweeps",
+  "sex",
 ];
 
 // Fields that should be hidden from the top level filters
@@ -58,6 +57,8 @@ const HIDDEN_FILTERS = [
   "harmony_id",
   "resource_type",
   "country_codes",
+  "language_codes",
+  "num_variables",
 ];
 
 // Mapping for country and language codes
@@ -132,11 +133,6 @@ const NumericFilter: React.FC<{
       filter.id.includes("duration")
     ) {
       defaultMax = 100;
-    } else if (
-      filter.id === "num_variables" ||
-      filter.id.includes("variables")
-    ) {
-      defaultMax = 10000;
     } else if (filter.id === "num_sweeps" || filter.id.includes("sweeps")) {
       defaultMax = 50;
     } else if (
@@ -1004,6 +1000,31 @@ export default function FilterPanel({
         subFilters: updatedSubFilters,
       } as ExtendedAggregateFilter);
 
+      // Sort filters in the desired order: Source, Topic, Study Design, Sample Characteristics, Instruments
+      const desiredOrder = [
+        "source",
+        "keywords",
+        "study_design",
+        "sample_characteristics",
+        "instruments",
+      ];
+      filtersCopy.sort((a, b) => {
+        const indexA = desiredOrder.indexOf(a.id);
+        const indexB = desiredOrder.indexOf(b.id);
+
+        // If both are in desired order, sort by their position in desiredOrder
+        if (indexA !== -1 && indexB !== -1) {
+          return indexA - indexB;
+        }
+
+        // If only one is in desired order, put it first
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+
+        // If neither is in desired order, maintain original order
+        return 0;
+      });
+
       setFilters(filtersCopy as ExtendedAggregateFilter[]);
 
       // Mark initial filters as set
@@ -1108,6 +1129,31 @@ export default function FilterPanel({
             options: [],
             subFilters: updatedSubFilters,
           } as ExtendedAggregateFilter);
+
+          // Sort filters in the desired order: Source, Topic, Study Design, Sample Characteristics, Instruments
+          const desiredOrder = [
+            "source",
+            "keywords",
+            "study_design",
+            "sample_characteristics",
+            "instruments",
+          ];
+          filtersCopy.sort((a, b) => {
+            const indexA = desiredOrder.indexOf(a.id);
+            const indexB = desiredOrder.indexOf(b.id);
+
+            // If both are in desired order, sort by their position in desiredOrder
+            if (indexA !== -1 && indexB !== -1) {
+              return indexA - indexB;
+            }
+
+            // If only one is in desired order, put it first
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+
+            // If neither is in desired order, maintain original order
+            return 0;
+          });
 
           setFilters(filtersCopy as ExtendedAggregateFilter[]);
 

@@ -108,6 +108,12 @@ function formatLabel(str: string): string {
     .join(" ");
 }
 
+// Helper function to map filter keys to API parameter names
+function mapFilterKeyToApiParam(key: string): string {
+  // Currently no mappings needed - API parameters match filter keys
+  return key;
+}
+
 export async function fetchAggregateFilters(): Promise<AggregateFilter[]> {
   const response = await fetch(`${API_BASE}/discover/aggregate`, {
     method: "GET",
@@ -152,7 +158,6 @@ export async function fetchAggregateFilters(): Promise<AggregateFilter[]> {
     // For numeric fields, extract the actual numeric values from the aggregation object
     const numericFields = [
       "num_sweeps",
-      "num_variables",
       "sample_size",
       "duration_years",
       "age_lower",
@@ -267,12 +272,15 @@ export async function fetchSearchResults(
     if (filters) {
       Object.entries(filters).forEach(([key, values]) => {
         if (values.length > 0) {
+          // Map filter key to API parameter name
+          const apiParamKey = mapFilterKeyToApiParam(key);
+
           // Handle numeric min/max fields as single integer values
           if (key.endsWith("_min") || key.endsWith("_max")) {
-            requestBody[key] = parseInt(values[0], 10);
+            requestBody[apiParamKey] = parseInt(values[0], 10);
           } else {
             // Regular non-numeric filter - add all values
-            requestBody[key] = values;
+            requestBody[apiParamKey] = values;
           }
         }
       });
@@ -330,6 +338,9 @@ export async function fetchSearchResults(
     // Append each filter value as a separate query parameter if values exist
     if (filters) {
       for (const key in filters) {
+        // Map filter key to API parameter name
+        const apiParamKey = mapFilterKeyToApiParam(key);
+
         // Handle the case of min/max parameters for numeric fields
         if (key.endsWith("_min") || key.endsWith("_max")) {
           // Extract the base field name
@@ -348,11 +359,11 @@ export async function fetchSearchResults(
           }
 
           // Always add the parameter to the URL
-          params.append(key, filters[key][0]);
+          params.append(apiParamKey, filters[key][0]);
         } else {
           // Regular non-numeric filter - add all values
           filters[key].forEach((value) => {
-            params.append(key, value);
+            params.append(apiParamKey, value);
           });
         }
       }

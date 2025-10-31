@@ -11,6 +11,7 @@ interface SearchResultsProps {
   selectedResultId?: string;
   onFindSimilar?: (result: SearchResult) => void;
   collapsed?: boolean;
+  hasActiveSearch?: boolean; // Whether user has entered a search query or applied filters
 }
 
 export default function SearchResults({
@@ -20,6 +21,7 @@ export default function SearchResults({
   selectedResultId,
   onFindSimilar,
   collapsed = false,
+  hasActiveSearch = false,
 }: SearchResultsProps) {
   // Filter results based on resourceTypeFilter if provided, using case-insensitive comparison
   const filteredResults =
@@ -48,10 +50,34 @@ export default function SearchResults({
 
   if (!filteredResults.length) {
     return (
-      <Box sx={{ textAlign: "center", py: 8 }}>
-        <Typography color="text.secondary">
-          No results found. Try adjusting your search criteria.
-        </Typography>
+      <Box sx={{ textAlign: "center", py: 8, maxWidth: 600, mx: "auto" }}>
+        {!hasActiveSearch ? (
+          // Initial state - no search or filters applied
+          <Box>
+            <Typography variant="h5" color="text.primary" gutterBottom>
+              Harmony Search is here to help you find existing research studies
+              in the UK
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Start by entering keywords in the search box above or browse our
+              collection of research studies and datasets.
+            </Typography>
+          </Box>
+        ) : (
+          // User has searched/filtered but no results
+          <Box>
+            <Typography variant="h5" color="text.primary" gutterBottom>
+              No results found
+            </Typography>
+            <Typography variant="body1" color="text.secondary" gutterBottom>
+              We couldn't find any studies matching your search criteria.
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Try adjusting your search terms, removing some filters, or
+              broadening your criteria to find more results.
+            </Typography>
+          </Box>
+        )}
       </Box>
     );
   }

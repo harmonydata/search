@@ -20,6 +20,7 @@ import Image from "next/image";
 import SearchResults from "@/components/SearchResults";
 import FilterPanel from "@/components/FilterPanel";
 import StudyDetail from "@/components/StudyDetail";
+import FeedbackButton from "@/components/FeedbackButton";
 import {
   fetchSearchResults,
   fetchAggregateFilters,
@@ -29,6 +30,7 @@ import {
   SearchResult,
   AggregateFilter,
 } from "@/services/api";
+import { submitFeedback } from "@/services/feedback";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSearch } from "@/contexts/SearchContext";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore/lite";
@@ -999,6 +1001,23 @@ function DiscoverPageContent() {
     });
   };
 
+  // Helper function to handle feedback submission
+  const handleFeedbackSubmit = async (
+    rating: number | null,
+    comment: string
+  ) => {
+    if (!rating) return;
+
+    try {
+      await submitFeedback(rating, comment);
+      // You could add a success toast here if desired
+      console.log("Feedback submitted successfully");
+    } catch (error) {
+      console.error("Failed to submit feedback:", error);
+      // You could add an error toast here if desired
+    }
+  };
+
   // Helper function to capitalize filter labels
   function capitalize(str: string): string {
     return str.charAt(0).toUpperCase() + str.slice(1).replace(/_/g, " ");
@@ -1018,7 +1037,6 @@ function DiscoverPageContent() {
       "start_year",
       "end_year",
       "duration_years",
-      "num_variables",
       "num_sweeps",
     ];
 
@@ -1079,7 +1097,7 @@ function DiscoverPageContent() {
             minValue = 1900;
           } else if (field === "duration_years") {
             minValue = 0;
-          } else if (field === "num_variables" || field === "num_sweeps") {
+          } else if (field === "num_sweeps") {
             minValue = 0;
           } else {
             minValue = 0;
@@ -1101,8 +1119,6 @@ function DiscoverPageContent() {
             maxValue = 2024;
           } else if (field === "duration_years") {
             maxValue = 100;
-          } else if (field === "num_variables") {
-            maxValue = 10000;
           } else if (field === "num_sweeps") {
             maxValue = 50;
           } else {
@@ -1640,6 +1656,12 @@ function DiscoverPageContent() {
                       onSelectResult={handleSelectResult}
                       selectedResultId={selectedResult?.extra_data?.uuid}
                       onFindSimilar={handleFindSimilar}
+                      hasActiveSearch={
+                        searchSettings.query.trim() !== "" ||
+                        Object.keys(searchSettings.selectedFilters).length >
+                          0 ||
+                        resourceTypeFilter.length > 0
+                      }
                     />
                   </InfiniteScroll>
                 </Box>
@@ -1877,6 +1899,9 @@ function DiscoverPageContent() {
           </Box>
         </Drawer>
       </Container>
+
+      {/* Feedback Button */}
+      <FeedbackButton onSubmitFeedback={handleFeedbackSubmit} />
     </Box>
   );
 }

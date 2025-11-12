@@ -33,6 +33,10 @@ interface SearchContextType {
   loadSearchFromSaved: (savedSearch: {
     query: string;
     filters?: Record<string, string[]>;
+    useSearch2?: boolean;
+    hybridWeight?: number;
+    maxDistance?: number;
+    selectedCategory?: string | null;
   }) => void;
 }
 
@@ -373,12 +377,27 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadSearchFromSaved = useCallback(
-    (savedSearch: { query: string; filters?: Record<string, string[]> }) => {
+    (savedSearch: {
+      query: string;
+      filters?: Record<string, string[]>;
+      useSearch2?: boolean;
+      hybridWeight?: number;
+      maxDistance?: number;
+      selectedCategory?: string | null;
+    }) => {
       setSearchSettings({
         ...defaultSearchSettings,
         query: savedSearch.query,
         debouncedQuery: savedSearch.query,
         selectedFilters: savedSearch.filters || {},
+        useSearch2: savedSearch.useSearch2 ?? defaultSearchSettings.useSearch2,
+        hybridWeight:
+          savedSearch.hybridWeight ?? defaultSearchSettings.hybridWeight,
+        maxDistance:
+          savedSearch.maxDistance ?? defaultSearchSettings.maxDistance,
+        selectedCategory:
+          savedSearch.selectedCategory ??
+          defaultSearchSettings.selectedCategory,
       });
     },
     []

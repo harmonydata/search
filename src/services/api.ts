@@ -434,6 +434,47 @@ export async function fetchSearchResults(
   } as SearchResponse;
 }
 
+export async function fetchResultsByUuids(
+  uuids: string[],
+  query?: string,
+  alpha?: number,
+  maxVectorDistance?: number
+): Promise<SearchResult[]> {
+  console.log(`🔗 API CALL: fetchResultsByUuids(${uuids.length} UUIDs)`);
+  const params = new URLSearchParams();
+
+  // Append all UUIDs
+  for (const uuid of uuids) {
+    params.append("uuid", uuid);
+  }
+
+  // Append query parameter if provided
+  if (query && query.trim()) {
+    params.set("query", query.trim());
+  }
+
+  // Append alpha parameter if provided
+  if (alpha !== undefined) {
+    params.set("alpha", alpha.toString());
+  }
+
+  // Append max_vector_distance parameter if provided
+  if (maxVectorDistance !== undefined) {
+    params.set("max_vector_distance", maxVectorDistance.toString());
+  }
+
+  const url = `${API_BASE}/discover/lookup?${params.toString()}`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    console.error("Failed to fetch results by UUIDs:", response.statusText);
+    throw new Error(`Failed to fetch results by UUIDs: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.results || [];
+}
+
 export async function fetchResultByUuid(
   identifier: string,
   query?: string,

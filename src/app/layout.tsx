@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 // Removed Inter font - using Roboto from MUI theme instead
 import { Box } from "@mui/material";
+import { Suspense } from "react";
 import ThemeRegistry from "@/components/ThemeRegistry";
 import { ToastContainer } from "react-toastify";
 import Sidebar from "@/components/Sidebar";
@@ -83,30 +84,32 @@ export default function RootLayout({
         <ThemeRegistry>
           <AuthProvider>
             <FirebaseProvider>
-              <SearchProvider>
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: { xs: "column", md: "row" },
-                  }}
-                >
-                  <Sidebar />
+              <Suspense fallback={<div>Loading...</div>}>
+                <SearchProvider>
                   <Box
-                    component="main"
                     sx={{
-                      flexGrow: 1,
-                      // Responsive spacing for sidebar
-                      ml: { xs: 0, md: "72px" }, // No left margin on mobile, 72px on desktop
-                      mt: { xs: "64px", md: 0 }, // 64px top margin on mobile, none on desktop
-                      minHeight: { xs: "calc(100vh - 64px)", md: "100vh" }, // Account for top bar height
-                      width: { xs: "100%", md: "calc(100% - 72px)" }, // Full width on mobile, minus sidebar on desktop
+                      display: "flex",
+                      flexDirection: { xs: "column", md: "row" },
                     }}
                   >
-                    {children}
+                    <Sidebar />
+                    <Box
+                      component="main"
+                      sx={{
+                        flexGrow: 1,
+                        // Responsive spacing for sidebar
+                        ml: { xs: 0, md: "72px" }, // No left margin on mobile, 72px on desktop
+                        mt: { xs: "64px", md: 0 }, // 64px top margin on mobile, none on desktop
+                        minHeight: { xs: "calc(100vh - 64px)", md: "100vh" }, // Account for top bar height
+                        width: { xs: "100%", md: "calc(100% - 72px)" }, // Full width on mobile, minus sidebar on desktop
+                      }}
+                    >
+                      {children}
+                    </Box>
                   </Box>
-                </Box>
-                <ToastContainer position="bottom-right" />
-              </SearchProvider>
+                  <ToastContainer position="bottom-right" />
+                </SearchProvider>
+              </Suspense>
             </FirebaseProvider>
           </AuthProvider>
         </ThemeRegistry>

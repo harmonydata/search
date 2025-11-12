@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
 import Script from "next/script";
+import { Suspense } from "react";
 import StudyDetail from "@/components/StudyDetail";
 import {
   fetchAllStudiesWithUuids,
   fetchAllDatasetsWithUuids,
+  fetchResultsByUuids,
   fetchResultByUuid,
 } from "@/services/api";
 import {
@@ -34,16 +36,76 @@ export async function generateStaticParams() {
     const params = [];
 
     if (!usingCachedData && studiesWithUuids) {
-      // Process studies and their child datasets
-      for (const study of studiesWithUuids) {
+      // Process studies and their child datasets in batches using batch lookup
+      const batchSize = 50;
+      for (let i = 0; i < studiesWithUuids.length; i += batchSize) {
+        const batch = studiesWithUuids.slice(i, i + batchSize);
+        const batchNumber = Math.floor(i / batchSize) + 1;
+        const totalBatches = Math.ceil(studiesWithUuids.length / batchSize);
+
+        console.log(
+          `Processing study batch ${batchNumber}/${totalBatches} (${batch.length} studies)...`
+        );
+
+        // Batch fetch all studies in a single API call
+        const batchUuids = batch.map((study) => study.uuid);
+        let batchResults: Array<{
+          study: { slug: string; uuid: string };
+          studyData: any;
+          error: any;
+        }> = [];
+
         try {
-          // Fetch the full study data to get child datasets
-          const studyData = await fetchResultByUuid(
-            study.uuid,
+          const studyDataArray = await fetchResultsByUuids(
+            batchUuids,
             undefined,
             undefined,
             0.4
           );
+
+          // Map results back to studies
+          const uuidToStudy = new Map(
+            batch.map((study) => [study.uuid, study])
+          );
+          const uuidToData = new Map(
+            studyDataArray.map((data) => [
+              data.extra_data?.uuid || data.dataset_schema?.identifier,
+              data,
+            ])
+          );
+
+          batchResults = batch.map((study) => {
+            const studyData = uuidToData.get(study.uuid);
+            return {
+              study,
+              studyData: studyData || null,
+              error: studyData
+                ? null
+                : new Error("Study data not found in response"),
+            };
+          });
+        } catch (error) {
+          console.warn(`Failed to fetch study batch ${batchNumber}:`, error);
+          // Create error results for all studies in batch
+          batchResults = batch.map((study) => ({
+            study,
+            studyData: null,
+            error,
+          }));
+        }
+
+        // Process results
+        for (const { study, studyData, error } of batchResults) {
+          if (error || !studyData) {
+            // Still add study params even if fetch failed
+            if (study.slug) {
+              params.push({ slug: study.slug });
+            }
+            if (study.uuid) {
+              params.push({ slug: study.uuid });
+            }
+            continue;
+          }
 
           // Add study by slug
           if (study.slug) {
@@ -71,8 +133,11 @@ export async function generateStaticParams() {
               }
             }
           }
-        } catch (error) {
-          console.warn(`Failed to fetch study ${study.uuid}:`, error);
+        }
+
+        // Small delay between batches to be nice to the API
+        if (i + batchSize < studiesWithUuids.length) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
       }
     }
@@ -229,7 +294,7 @@ export default async function DatasetPage({
     };
 
     return (
-      <>
+      <Suspense fallback={<div>Loading...</div>}>
         <Script
           strategy="beforeInteractive"
           id="structured-data"
@@ -239,7 +304,7 @@ export default async function DatasetPage({
           }}
         />
         <StudyDetail study={fullDatasetResult} />
-      </>
+      </Suspense>
     );
   } catch (error) {
     console.error(`Failed to generate page for dataset: ${slug}`, error);

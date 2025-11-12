@@ -146,7 +146,7 @@ const convertSavedResourceToSearchResult = (
 
 export default function SavesPage() {
   const { currentUser } = useAuth();
-  const { loadSearchFromSaved, updateSearchSettings } = useSearch();
+  const { loadSearchFromSaved } = useSearch();
   const router = useRouter();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -327,13 +327,13 @@ export default function SavesPage() {
 
   // Load search settings and navigate to discover page
   const loadSearch = (search: SavedSearch) => {
-    updateSearchSettings({
+    loadSearchFromSaved({
       query: search.query,
-      selectedFilters: search.filters || {},
-      useSearch2: search.useSearch2 || false,
-      hybridWeight: search.hybridWeight || 0.5,
-      maxDistance: search.maxDistance || 0.4,
-      selectedCategory: search.selectedCategory || null,
+      filters: search.filters,
+      useSearch2: search.useSearch2,
+      hybridWeight: search.hybridWeight,
+      maxDistance: search.maxDistance,
+      selectedCategory: search.selectedCategory,
     });
     router.push("/discover");
   };

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Script from "next/script";
+import { Suspense } from "react";
 import StudyDetail from "@/components/StudyDetail";
 import { fetchAllStudiesWithUuids, fetchResultByUuid } from "@/services/api";
 import {
@@ -169,11 +170,13 @@ export default async function StudyPage({
             __html: JSON.stringify(structuredData),
           }}
         />
-        <StudyDetail
-          study={strippedStudy}
-          isDrawerView={false}
-          studyDataComplete={studyDataComplete}
-        />
+        <Suspense fallback={<div>Loading...</div>}>
+          <StudyDetail
+            study={strippedStudy}
+            isDrawerView={false}
+            studyDataComplete={studyDataComplete}
+          />
+        </Suspense>
       </>
     );
   } catch (error) {

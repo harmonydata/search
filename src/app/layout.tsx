@@ -5,6 +5,7 @@ import ThemeRegistry from "@/components/ThemeRegistry";
 import { ToastContainer } from "react-toastify";
 import Sidebar from "@/components/Sidebar";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { FirebaseProvider } from "@/contexts/FirebaseContext";
 import { SearchProvider } from "@/contexts/SearchContext";
 import "react-toastify/dist/ReactToastify.css";
 import "@/app/globals.css";
@@ -81,30 +82,32 @@ export default function RootLayout({
       <body>
         <ThemeRegistry>
           <AuthProvider>
-            <SearchProvider>
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: { xs: "column", md: "row" },
-                }}
-              >
-                <Sidebar />
+            <FirebaseProvider>
+              <SearchProvider>
                 <Box
-                  component="main"
                   sx={{
-                    flexGrow: 1,
-                    // Responsive spacing for sidebar
-                    ml: { xs: 0, md: "72px" }, // No left margin on mobile, 72px on desktop
-                    mt: { xs: "64px", md: 0 }, // 64px top margin on mobile, none on desktop
-                    minHeight: { xs: "calc(100vh - 64px)", md: "100vh" }, // Account for top bar height
-                    width: { xs: "100%", md: "calc(100% - 72px)" }, // Full width on mobile, minus sidebar on desktop
+                    display: "flex",
+                    flexDirection: { xs: "column", md: "row" },
                   }}
                 >
-                  {children}
+                  <Sidebar />
+                  <Box
+                    component="main"
+                    sx={{
+                      flexGrow: 1,
+                      // Responsive spacing for sidebar
+                      ml: { xs: 0, md: "72px" }, // No left margin on mobile, 72px on desktop
+                      mt: { xs: "64px", md: 0 }, // 64px top margin on mobile, none on desktop
+                      minHeight: { xs: "calc(100vh - 64px)", md: "100vh" }, // Account for top bar height
+                      width: { xs: "100%", md: "calc(100% - 72px)" }, // Full width on mobile, minus sidebar on desktop
+                    }}
+                  >
+                    {children}
+                  </Box>
                 </Box>
-              </Box>
-              <ToastContainer position="bottom-right" />
-            </SearchProvider>
+                <ToastContainer position="bottom-right" />
+              </SearchProvider>
+            </FirebaseProvider>
           </AuthProvider>
         </ThemeRegistry>
       </body>

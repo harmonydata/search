@@ -22,6 +22,7 @@ import {
 } from "@/services/api";
 import FancySlider from "@/components/FancySlider";
 import { countryCodes } from "@/config/constants";
+import { useSearch } from "@/contexts/SearchContext";
 
 // Constants - consolidated at the top level
 const DROPDOWN_THRESHOLD = 10; // Threshold to decide when to use a dropdown multiselect
@@ -84,7 +85,9 @@ const languageMap: Record<string, string> = {
 
 interface FilterPanelProps {
   filtersData?: AggregateFilter[];
+  // Legacy props for backward compatibility - FilterPanel now uses SearchContext directly
   onSelectionChange?: (categoryId: string, selectedOptions: string[]) => void;
+  onClearAllFilters?: () => void;
   selectedFilters?: Record<string, string[]>;
 }
 
@@ -799,26 +802,23 @@ const ChipsFilter: React.FC<{
 
 export default function FilterPanel({
   filtersData,
-  onSelectionChange,
-  selectedFilters: externalSelectedFilters,
+  onSelectionChange, // Legacy prop - kept for backward compatibility
+  onClearAllFilters, // Legacy prop - kept for backward compatibility
+  selectedFilters: externalSelectedFilters, // Legacy prop - kept for backward compatibility
 }: FilterPanelProps) {
+  // Use SearchContext as primary source of truth
+  const { searchSettings, updateSearchSettings } = useSearch();
+
+  // Use context filters, fall back to external prop for backward compatibility
+  const selectedFilters =
+    searchSettings.selectedFilters || externalSelectedFilters || {};
+
   const [filters, setFilters] = useState<ExtendedAggregateFilter[]>(
     filtersData ? (filtersData as ExtendedAggregateFilter[]) : []
   );
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [internalSelectedFilters, setInternalSelectedFilters] = useState<
-    Record<string, string[]>
-  >({});
-
-  // Use external selectedFilters if provided, otherwise use internal state
-  const selectedFilters = externalSelectedFilters || internalSelectedFilters;
-
-  // Update internal state when external filters change
-  useEffect(() => {
-    if (externalSelectedFilters) {
-      setInternalSelectedFilters(externalSelectedFilters);
-    }
-  }, [externalSelectedFilters]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(
+    searchSettings.selectedCategory
+  );
 
   // Track whether initial filters have been set
   const [initialFiltersSet, setInitialFiltersSet] = useState<boolean>(false);
@@ -853,13 +853,29 @@ export default function FilterPanel({
     return mapping;
   }, [sourcesData]);
 
-  // Function to reset all filters
-  const resetAllFilters = () => {
-    // Clear all selected filters
-    setInternalSelectedFilters({});
+  // Handle filter selection - updates SearchContext directly
+  // This is a wrapper that will be used by the complex handleFilterSelection below
+  const updateFilterInContext = (updates: Record<string, string[]>) => {
+    updateSearchSettings({
+      selectedFilters: {
+        ...selectedFilters,
+        ...updates,
+      },
+    });
+  };
 
-    // Notify parent component
-    if (onSelectionChange) {
+  // Function to reset all filters - updates SearchContext directly
+  const resetAllFilters = () => {
+    // Clear filters in SearchContext
+    updateSearchSettings({
+      selectedFilters: {},
+    });
+
+    // Also call legacy callback if provided for backward compatibility
+    if (onClearAllFilters) {
+      onClearAllFilters();
+    } else if (onSelectionChange) {
+      // Fallback to the old logic if no atomic clear function provided
       // Get all filter keys currently in use
       const allFilterKeys = Object.keys(selectedFilters);
 
@@ -898,6 +914,11 @@ export default function FilterPanel({
       });
     }
   };
+
+  // Sync selectedCategory from context
+  useEffect(() => {
+    setSelectedCategory(searchSettings.selectedCategory);
+  }, [searchSettings.selectedCategory]);
 
   // Process data once when filters are loaded
   React.useEffect(() => {
@@ -1178,6 +1199,8 @@ export default function FilterPanel({
     categoryId: string,
     selectedOptions: string[]
   ) => {
+    const filterUpdates: Record<string, string[]> = {};
+
     // Handle numeric range filters with min/max parameters
     if (categoryId.includes("#") && categoryId.split("#")[1]) {
       const [parentId, filterId] = categoryId.split("#");
@@ -1212,107 +1235,79 @@ export default function FilterPanel({
             // Handle special cases
             if (filterId === "age_range") {
               // Age range is a special case that maps to age_min and age_max parameters
-              if (onSelectionChange) {
-                onSelectionChange("age_min", [String(minValue)]);
-                onSelectionChange("age_max", [String(maxValue)]);
-              }
-
-              // Update local state
-              setInternalSelectedFilters((prev) => ({
-                ...prev,
-                age_min: [String(minValue)],
-                age_max: [String(maxValue)],
-                [categoryId]: selectedOptions, // Store with subfilter key format
-              }));
+              filterUpdates["age_min"] = [String(minValue)];
+              filterUpdates["age_max"] = [String(maxValue)];
+              filterUpdates[categoryId] = selectedOptions; // Store with subfilter key format
             } else if (filterId === "time_range") {
               // Time range maps to start_year and end_year
-              if (onSelectionChange) {
-                onSelectionChange("start_year", [String(minValue)]);
-                onSelectionChange("end_year", [String(maxValue)]);
-              }
-
-              // Update local state
-              setInternalSelectedFilters((prev) => ({
-                ...prev,
-                start_year: [String(minValue)],
-                end_year: [String(maxValue)],
-                [categoryId]: selectedOptions, // Store with subfilter key format
-              }));
+              filterUpdates["start_year"] = [String(minValue)];
+              filterUpdates["end_year"] = [String(maxValue)];
+              filterUpdates[categoryId] = selectedOptions; // Store with subfilter key format
             } else {
               // For all other numeric fields, use {field}_min and {field}_max pattern
               const minParamName = `${filterId}_min`;
               const maxParamName = `${filterId}_max`;
-
-              if (onSelectionChange) {
-                onSelectionChange(minParamName, [String(minValue)]);
-                onSelectionChange(maxParamName, [String(maxValue)]);
-              }
-
-              // Update local state - store both the API parameters and the subfilter key
-              setInternalSelectedFilters((prev) => ({
-                ...prev,
-                [minParamName]: [String(minValue)],
-                [maxParamName]: [String(maxValue)],
-                [categoryId]: selectedOptions, // Store with subfilter key format
-              }));
+              filterUpdates[minParamName] = [String(minValue)];
+              filterUpdates[maxParamName] = [String(maxValue)];
+              filterUpdates[categoryId] = selectedOptions; // Store with subfilter key format
             }
           } else {
-            // Clear the filters if at full range
+            // Clear the filters if at full range - remove min/max but keep the categoryId for UI
+            filterUpdates[categoryId] = selectedOptions;
+            // Note: We don't explicitly delete min/max here - they'll be removed when we merge
+            // We need to handle this by creating a new filters object without those keys
+            const newFilters = { ...selectedFilters };
             if (filterId === "age_range") {
-              if (onSelectionChange) {
-                onSelectionChange("age_min", []);
-                onSelectionChange("age_max", []);
-              }
-
-              // Update local state
-              setInternalSelectedFilters((prev) => {
-                const newState = { ...prev };
-                delete newState["age_min"];
-                delete newState["age_max"];
-                delete newState[categoryId]; // Remove subfilter key
-                return {
-                  ...newState,
-                  [categoryId]: selectedOptions,
-                };
-              });
+              delete newFilters["age_min"];
+              delete newFilters["age_max"];
             } else if (filterId === "time_range") {
-              if (onSelectionChange) {
-                onSelectionChange("start_year", []);
-                onSelectionChange("end_year", []);
-              }
-
-              // Update local state
-              setInternalSelectedFilters((prev) => {
-                const newState = { ...prev };
-                delete newState["start_year"];
-                delete newState["end_year"];
-                delete newState[categoryId]; // Remove subfilter key
-                return {
-                  ...newState,
-                  [categoryId]: selectedOptions,
-                };
-              });
+              delete newFilters["start_year"];
+              delete newFilters["end_year"];
             } else {
-              // For all other numeric fields
               const minParamName = `${filterId}_min`;
               const maxParamName = `${filterId}_max`;
-
-              if (onSelectionChange) {
+              delete newFilters[minParamName];
+              delete newFilters[maxParamName];
+            }
+            filterUpdates[categoryId] = selectedOptions;
+            updateSearchSettings({
+              selectedFilters: {
+                ...newFilters,
+                ...filterUpdates,
+              },
+            });
+            // Also call legacy callback if provided
+            if (onSelectionChange) {
+              if (filterId === "age_range") {
+                onSelectionChange("age_min", []);
+                onSelectionChange("age_max", []);
+              } else if (filterId === "time_range") {
+                onSelectionChange("start_year", []);
+                onSelectionChange("end_year", []);
+              } else {
+                const minParamName = `${filterId}_min`;
+                const maxParamName = `${filterId}_max`;
                 onSelectionChange(minParamName, []);
                 onSelectionChange(maxParamName, []);
               }
-
-              // Update local state
-              setInternalSelectedFilters((prev) => {
-                const newState = { ...prev };
-                delete newState[minParamName];
-                delete newState[maxParamName];
-                delete newState[categoryId]; // Remove subfilter key
-                return {
-                  ...newState,
-                  [categoryId]: selectedOptions,
-                };
-              });
+            }
+            return; // Exit early for full range case
+          }
+          // Update SearchContext with the filter updates
+          updateFilterInContext(filterUpdates);
+          // Also call legacy callback if provided
+          if (onSelectionChange) {
+            if (filterId === "age_range") {
+              onSelectionChange("age_min", filterUpdates["age_min"]);
+              onSelectionChange("age_max", filterUpdates["age_max"]);
+            } else if (filterId === "time_range") {
+              onSelectionChange("start_year", filterUpdates["start_year"]);
+              onSelectionChange("end_year", filterUpdates["end_year"]);
+            } else {
+              const minParamName = `${filterId}_min`;
+              const maxParamName = `${filterId}_max`;
+              onSelectionChange(minParamName, filterUpdates[minParamName]);
+              onSelectionChange(maxParamName, filterUpdates[maxParamName]);
             }
           }
           return; // Exit after handling the numeric field
@@ -1323,24 +1318,23 @@ export default function FilterPanel({
     // Handle regular filters that aren't numeric ranges
     if (categoryId.includes("#")) {
       const [parentId, filterId] = categoryId.split("#");
-
       // If this isn't a numeric field or special case, just pass the values directly
-      setInternalSelectedFilters((prev) => ({
-        ...prev,
-        [categoryId]: selectedOptions,
-      }));
-
-      if (onSelectionChange) {
-        onSelectionChange(filterId, selectedOptions);
-      }
+      filterUpdates[categoryId] = selectedOptions;
+      filterUpdates[filterId] = selectedOptions; // Also store with just filterId for API
     } else {
       // For top-level filters (not within a category)
-      setInternalSelectedFilters((prev) => ({
-        ...prev,
-        [categoryId]: selectedOptions,
-      }));
+      filterUpdates[categoryId] = selectedOptions;
+    }
 
-      if (onSelectionChange) {
+    // Update SearchContext
+    updateFilterInContext(filterUpdates);
+
+    // Also call legacy callback if provided for backward compatibility
+    if (onSelectionChange) {
+      if (categoryId.includes("#")) {
+        const [parentId, filterId] = categoryId.split("#");
+        onSelectionChange(filterId, selectedOptions);
+      } else {
         onSelectionChange(categoryId, selectedOptions);
       }
     }
@@ -1348,11 +1342,12 @@ export default function FilterPanel({
 
   const handleCategoryClick = (categoryId: string) => {
     // Toggle the selected category - if clicking the same category, deselect it
-    if (selectedCategory === categoryId) {
-      setSelectedCategory(null);
-    } else {
-      setSelectedCategory(categoryId);
-    }
+    const newCategory = selectedCategory === categoryId ? null : categoryId;
+    setSelectedCategory(newCategory);
+    // Update SearchContext
+    updateSearchSettings({
+      selectedCategory: newCategory,
+    });
   };
 
   const activeFilter = filters.find((filter) => filter.id === selectedCategory);

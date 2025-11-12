@@ -1,60 +1,18 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import {
-  Box,
-  Button,
-  Popover,
-  Typography,
-  FormControlLabel,
-  Switch,
-  Slider,
-} from "@mui/material";
+import { useState, useRef } from "react";
+import { Box, Button, Popover, Typography } from "@mui/material";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
-import { fetchVersionInfo, VersionInfo } from "@/services/api";
+import SearchVersionToggle from "./advanced-search/SearchVersionToggle";
+import HybridWeightSlider from "./advanced-search/HybridWeightSlider";
+import MaxDistanceSlider from "./advanced-search/MaxDistanceSlider";
 
-interface AdvancedSearchDropdownProps {
-  useSearch2: boolean;
-  onEndpointChange: (useSearch2: boolean) => void;
-  hybridWeight: number;
-  onHybridWeightChange: (weight: number) => void;
-  maxDistance: number;
-  onMaxDistanceChange: (distance: number) => void;
-}
-
-export default function AdvancedSearchDropdown({
-  useSearch2,
-  onEndpointChange,
-  hybridWeight,
-  onHybridWeightChange,
-  maxDistance,
-  onMaxDistanceChange,
-}: AdvancedSearchDropdownProps) {
+export default function AdvancedSearchDropdown() {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
-  const [loadingVersion, setLoadingVersion] = useState(true);
 
   const open = Boolean(anchorEl);
-
-  // Fetch version information on component mount
-  useEffect(() => {
-    const loadVersionInfo = async () => {
-      try {
-        const version = await fetchVersionInfo();
-        setVersionInfo(version);
-      } catch (error) {
-        console.error("Failed to fetch version info:", error);
-        // Set a fallback in case of error
-        setVersionInfo({ harmony_discovery_version: "Unknown" });
-      } finally {
-        setLoadingVersion(false);
-      }
-    };
-
-    loadVersionInfo();
-  }, []);
 
   const handleClick = () => {
     setAnchorEl(buttonRef.current);
@@ -62,24 +20,6 @@ export default function AdvancedSearchDropdown({
 
   const handleClose = () => {
     setAnchorEl(null);
-  };
-
-  const handleEndpointToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onEndpointChange(event.target.checked);
-  };
-
-  const handleHybridWeightChange = (
-    event: Event,
-    newValue: number | number[]
-  ) => {
-    onHybridWeightChange(newValue as number);
-  };
-
-  const handleMaxDistanceChange = (
-    event: Event,
-    newValue: number | number[]
-  ) => {
-    onMaxDistanceChange(newValue as number);
   };
 
   return (
@@ -128,103 +68,16 @@ export default function AdvancedSearchDropdown({
             Search Configuration
           </Typography>
 
-          {/* Endpoint Toggle */}
-          <Box sx={{ mb: 3 }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={useSearch2}
-                  onChange={handleEndpointToggle}
-                  color="primary"
-                />
-              }
-              label={
-                <Box>
-                  <Typography variant="body2" fontWeight={500}>
-                    Search Version
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {useSearch2
-                      ? "Previous Version"
-                      : loadingVersion
-                      ? "Loading..."
-                      : versionInfo?.harmony_discovery_version ||
-                        "Current Version"}
-                  </Typography>
-                </Box>
-              }
-            />
-          </Box>
-
-          {/* Hybrid Weight Slider */}
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" fontWeight={500} gutterBottom>
-              Hybrid Weight: {hybridWeight.toFixed(2)}
-            </Typography>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              gutterBottom
-              display="block"
-            >
-              Controls the balance between semantic and keyword search
-            </Typography>
-            <Box sx={{ px: 2, mt: 2 }}>
-              <Slider
-                value={hybridWeight}
-                onChange={handleHybridWeightChange}
-                min={0}
-                max={1}
-                step={0.01}
-                valueLabelDisplay="auto"
-                valueLabelFormat={(value) => value.toFixed(2)}
-                marks={[
-                  { value: 0, label: "Keyword" },
-                  { value: 0.5, label: "Balanced" },
-                  { value: 1, label: "Semantic" },
-                ]}
-              />
-            </Box>
-          </Box>
-
-          {/* Max Distance Slider */}
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" fontWeight={500} gutterBottom>
-              Max Distance: {maxDistance.toFixed(2)}
-            </Typography>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              gutterBottom
-              display="block"
-            >
-              Controls the maximum vector distance for semantic search results
-            </Typography>
-            <Box sx={{ px: 2, mt: 2 }}>
-              <Slider
-                value={maxDistance}
-                onChange={handleMaxDistanceChange}
-                min={0}
-                max={1}
-                step={0.01}
-                valueLabelDisplay="auto"
-                valueLabelFormat={(value) => value.toFixed(2)}
-                marks={[
-                  { value: 0, label: "0" },
-                  { value: 0.4, label: "0.4" },
-                  { value: 1, label: "1" },
-                ]}
-              />
-            </Box>
-          </Box>
+          <SearchVersionToggle />
+          <HybridWeightSlider />
+          <MaxDistanceSlider />
 
           {/* Information */}
           <Box sx={{ mt: 3, p: 2, bgcolor: "grey.50", borderRadius: 1 }}>
             <Typography variant="caption" color="text.secondary">
-              <strong>Tip:</strong> Hybrid weight is automatically adjusted
-              based on query length. Short queries favor keyword search (lower
-              values), while longer queries favor semantic search (higher
-              values).
+              <strong>Tip:</strong> Adjust the hybrid weight to balance between
+              keyword search (lower values) and semantic search (higher values).
+              The default value of 0.5 provides a balanced approach.
             </Typography>
           </Box>
         </Box>

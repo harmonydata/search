@@ -35,6 +35,7 @@ import {
   X,
 } from "lucide-react";
 // XLSX will be loaded dynamically when needed to reduce bundle size
+import { loadHarmonyExportComponent } from "@/utilities/harmonyExportLoader";
 
 import "./MatchedVariablesDataGrid.css";
 
@@ -92,23 +93,10 @@ function MatchedVariablesDataGrid({
   const [isApiReady, setIsApiReady] = useState(false);
 
   useEffect(() => {
-    // Load the Harmony Export web component script from our local server
-    // Only load if the custom element is not already defined
-    if (customElements.get("harmony-export")) {
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "/app/js/harmony-export.js";
-    script.async = true;
-    document.body.appendChild(script);
-
-    return () => {
-      // Cleanup: remove the script when component unmounts
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
+    // Load the Harmony Export web component using centralized loader
+    loadHarmonyExportComponent().catch((error) => {
+      console.error("Failed to load harmony-export component:", error);
+    });
   }, []);
 
   const columns: GridColDef[] = [
@@ -116,9 +104,11 @@ function MatchedVariablesDataGrid({
       field: "description",
       headerName: "Description / Code",
       flex: 2,
-      valueGetter: (value: any, row: any) =>
-        (row.description || row.name) +
-        (row.description && row.name ? " (" + row.name + ")" : ""),
+      valueGetter: (value: any, row: any) => {
+        const nameToShow = row.displayName || row.name;
+        return (row.description || nameToShow) +
+          (row.description && nameToShow ? " (" + nameToShow + ")" : "");
+      },
       sortable: true,
     },
     {

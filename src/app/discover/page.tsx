@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+  startTransition,
+} from "react";
 import {
   Box,
   Container,
@@ -12,8 +19,6 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
-import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 import CloseIcon from "@mui/icons-material/Close";
 import CloudOffIcon from "@mui/icons-material/CloudOff";
 import Image from "next/image";
@@ -21,11 +26,11 @@ import SearchResults from "@/components/SearchResults";
 import FilterPanel from "@/components/FilterPanel";
 import StudyDetail from "@/components/StudyDetail";
 import FeedbackButton from "@/components/FeedbackButton";
+import HeroBanner from "@/components/HeroBanner";
 import {
   fetchSearchResults,
   fetchAggregateFilters,
   fetchResultByUuid,
-  fetchKeywordPhrases,
   SearchResponse,
   SearchResult,
   AggregateFilter,
@@ -57,16 +62,9 @@ function DiscoverPageContent() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm")); // 600px breakpoint
   const isTablet = useMediaQuery(theme.breakpoints.down("lg")); // 1200px breakpoint
-  const { searchSettings, updateSearchSettings } = useSearch();
-  const [searchQuery, setSearchQuery] = useState(searchSettings.query);
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(
-    searchSettings.query
-  );
+  const { searchSettings, updateQuery, updateSearchSettings } = useSearch();
   const [results, setResults] = useState<SearchResult[]>([]);
   const [filters, setFilters] = useState<AggregateFilter[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(
-    searchSettings.selectedCategory
-  );
   const [loading, setLoading] = useState(false);
   const [hasMoreResults, setHasMoreResults] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -83,17 +81,6 @@ function DiscoverPageContent() {
   const [apiOffline, setApiOffline] = useState(false);
   const [similarStudy, setSimilarStudy] = useState<SearchResult | null>(null);
 
-  // New state for advanced search options
-  const [useSearch2, setUseSearch2] = useState(searchSettings.useSearch2);
-  const [hybridWeight, setHybridWeight] = useState(searchSettings.hybridWeight);
-  const [debouncedHybridWeight, setDebouncedHybridWeight] = useState(
-    searchSettings.hybridWeight
-  );
-  const [maxDistance, setMaxDistance] = useState(searchSettings.maxDistance);
-  const [debouncedMaxDistance, setDebouncedMaxDistance] = useState(
-    searchSettings.maxDistance
-  );
-
   // State for tracking search performance
   const [lastSearchTime, setLastSearchTime] = useState<number | null>(null);
   const [lastApiTime, setLastApiTime] = useState<number | null>(null);
@@ -104,190 +91,41 @@ function DiscoverPageContent() {
     undefined
   );
 
-  // State for keyword phrases
-  const [keywordPhrases, setKeywordPhrases] = useState<string[]>([]);
-  const [keywordPhrasesLoaded, setKeywordPhrasesLoaded] = useState(false);
   const [savingSearch, setSavingSearch] = useState(false);
   const [saveSearchSuccess, setSaveSearchSuccess] = useState(false);
-  const [hasInitializedFromContext, setHasInitializedFromContext] =
-    useState(false);
 
   const resultsPerPage = 50;
 
   const { currentUser } = useAuth();
 
-  // Sync local state changes back to context
-  useEffect(() => {
-    updateSearchSettings({
-      query: searchQuery,
-      selectedFilters: searchSettings.selectedFilters,
-      selectedCategory,
-      useSearch2,
-      hybridWeight,
-      maxDistance,
-    });
-  }, [
-    searchQuery,
-    searchSettings.selectedFilters,
-    selectedCategory,
-    useSearch2,
-    hybridWeight,
-    maxDistance,
-    updateSearchSettings,
-  ]);
-
-  // Reset save search success state when search query or filters change
-  useEffect(() => {
-    setSaveSearchSuccess(false);
-  }, [
-    searchQuery,
-    searchSettings.selectedFilters,
-    useSearch2,
-    hybridWeight,
-    maxDistance,
-    selectedCategory,
-  ]);
-
-  // Detect when search settings are loaded from context and trigger search
-  useEffect(() => {
-    // Check if we have meaningful search parameters from context
-    const hasSearchQuery =
-      searchSettings.query && searchSettings.query.trim() !== "";
-    const hasFilters = Object.keys(searchSettings.selectedFilters).length > 0;
-
-    // Only trigger if we haven't initialized yet and we have search parameters
-    if (!hasInitializedFromContext && (hasSearchQuery || hasFilters)) {
-      setHasInitializedFromContext(true);
-      // Trigger search with current context settings
-      performSearch(searchSettings.query || "", 1);
-    }
-  }, [searchSettings, hasInitializedFromContext, performSearch]);
-
-  // Reset initialization flag when component mounts to allow fresh loads
-  useEffect(() => {
-    setHasInitializedFromContext(false);
-  }, []);
-
   const searchParams = useSearchParams();
   const resourceType = searchParams.get("resource_type");
   const similarUid = searchParams.get("like");
-  const initialQuery = searchParams.get("query");
-  const initialTopics = searchParams.getAll("topics");
-  const initialInstruments = searchParams.getAll("instruments");
-  const initialStudyDesign = searchParams.getAll("study_design");
-
-  // Initialize context from URL parameters on first load
-  useEffect(() => {
-    const hasUrlParams =
-      initialQuery ||
-      initialTopics.length > 0 ||
-      initialInstruments.length > 0 ||
-      initialStudyDesign.length > 0;
-
-    if (hasUrlParams) {
-      const urlFilters: Record<string, string[]> = {};
-      if (initialTopics.length > 0) urlFilters.keywords = initialTopics;
-      if (initialInstruments.length > 0)
-        urlFilters.instruments = initialInstruments;
-      if (initialStudyDesign.length > 0)
-        urlFilters.study_design = initialStudyDesign;
-      if (resourceType) urlFilters.resource_type = [resourceType];
-
-      updateSearchSettings({
-        query: initialQuery || "",
-        selectedFilters: urlFilters,
-        selectedCategory: null,
-        resourceType: resourceType,
-        similarUid: similarUid,
-      });
-    }
-  }, []); // Only run once on mount
-
   const router = useRouter();
 
-  useEffect(() => {
-    let didSet = false;
-    if (initialQuery) {
-      setSearchQuery(initialQuery);
-      setDebouncedSearchQuery(initialQuery);
-      didSet = true;
-    }
-    if (
-      initialTopics &&
-      initialTopics.length > 0 &&
-      (!searchSettings.selectedFilters.keywords ||
-        searchSettings.selectedFilters.keywords.join(",") !==
-          initialTopics.join(","))
-    ) {
-      updateSearchSettings({
-        ...searchSettings,
-        selectedFilters: {
-          ...searchSettings.selectedFilters,
-          keywords: initialTopics,
-        },
-      });
-      didSet = true;
-    }
-    if (
-      initialInstruments &&
-      initialInstruments.length > 0 &&
-      (!searchSettings.selectedFilters.instruments ||
-        searchSettings.selectedFilters.instruments.join(",") !==
-          initialInstruments.join(","))
-    ) {
-      updateSearchSettings({
-        ...searchSettings,
-        selectedFilters: {
-          ...searchSettings.selectedFilters,
-          instruments: initialInstruments,
-        },
-      });
+  // Store initial URL params in refs for hero banner check
+  const initialQueryRef = useRef(searchParams.get("query"));
+  const initialTopicsRef = useRef(searchParams.getAll("topics"));
+  const initialInstrumentsRef = useRef(searchParams.getAll("instruments"));
+  const initialStudyDesignRef = useRef(searchParams.getAll("study_design"));
 
-      didSet = true;
-    }
-    if (
-      initialStudyDesign &&
-      initialStudyDesign.length > 0 &&
-      (!searchSettings.selectedFilters.study_design ||
-        searchSettings.selectedFilters.study_design.join(",") !==
-          initialStudyDesign.join(","))
-    ) {
-      updateSearchSettings({
-        ...searchSettings,
-        selectedFilters: {
-          ...searchSettings.selectedFilters,
-          study_design: initialStudyDesign,
-        },
-      });
+  const initialQuery = initialQueryRef.current;
+  const initialTopics = initialTopicsRef.current;
+  const initialInstruments = initialInstrumentsRef.current;
+  const initialStudyDesign = initialStudyDesignRef.current;
 
-      didSet = true;
-    }
-    // Remove the params from the URL after processing
-    if (didSet && typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("query");
-      url.searchParams.delete("topics");
-      url.searchParams.delete("instruments");
-      url.searchParams.delete("study_design");
-
-      //router auto appends the basepath (/search) so we need to take care here!
-      const targetPath = url.pathname.replace("/search", "");
-      console.log("Navigating to:", targetPath + url.search);
-      router.replace(targetPath + url.search);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialQuery, initialTopics, initialInstruments, initialStudyDesign]);
+  // URL initialization is now handled by SearchContext
   const resourceTypeFilter = useMemo(
     () => (resourceType ? [resourceType] : []),
     [resourceType]
   );
 
   // Refs to track previous query and filters for page reset logic
-  const searchQueryRef = useRef(debouncedSearchQuery);
+  const searchQueryRef = useRef(searchSettings.debouncedQuery);
   const filtersRef = useRef(JSON.stringify(searchSettings.selectedFilters));
-  const useSearch2Ref = useRef(useSearch2);
-  const hybridWeightRef = useRef(debouncedHybridWeight);
-  const maxDistanceRef = useRef(debouncedMaxDistance);
+  const useSearch2Ref = useRef(searchSettings.useSearch2);
+  const hybridWeightRef = useRef(searchSettings.hybridWeight);
+  const maxDistanceRef = useRef(searchSettings.maxDistance);
   const topLevelIdsSeenRef = useRef(topLevelIdsSeen);
   const isResettingPageRef = useRef(false);
 
@@ -297,102 +135,8 @@ function DiscoverPageContent() {
   // Ref to store the latest next_page_offset immediately for next API call
   const currentNextPageOffsetRef = useRef<number | undefined>(undefined);
 
-  // Calculate dynamic hybrid weight based on query length and keyword phrases
-  const calculateDynamicHybridWeight = useCallback(
-    (query: string): number => {
-      if (!query || query.trim() === "" || query === "*") {
-        return 0.5; // Default balanced weight for empty queries
-      }
-
-      const trimmedQuery = query.trim();
-
-      // Check if query matches any keyword phrases (case-insensitive)
-      const isKeywordPhrase = keywordPhrases.some(
-        (phrase) => trimmedQuery.toLowerCase() === phrase.toLowerCase()
-      );
-
-      // If it matches a keyword phrase, use alpha = 0 (pure keyword search)
-      if (isKeywordPhrase) {
-        return 0;
-      }
-
-      return 0.5;
-    },
-    [keywordPhrases]
-  );
-
-  // Handlers for advanced search configuration
-  const handleEndpointChange = useCallback((newUseSearch2: boolean) => {
-    setUseSearch2(newUseSearch2);
-  }, []);
-
-  const handleHybridWeightChange = useCallback((newWeight: number) => {
-    setHybridWeight(newWeight);
-  }, []);
-
-  const handleMaxDistanceChange = useCallback((newDistance: number) => {
-    setMaxDistance(newDistance);
-  }, []);
-
-  // Update hybrid weight when search query changes (auto-calculation)
-  // This needs to happen BEFORE the search is triggered to avoid wasteful searches
-  useEffect(() => {
-    const dynamicWeight = calculateDynamicHybridWeight(debouncedSearchQuery);
-    setHybridWeight(dynamicWeight);
-    // Also immediately update the debounced value to avoid delay
-    setDebouncedHybridWeight(dynamicWeight);
-  }, [debouncedSearchQuery, calculateDynamicHybridWeight]);
-
-  // Debounce search query to prevent firing API calls on every keystroke
-  useEffect(() => {
-    const timerId = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 500); // 500ms delay after user stops typing
-
-    return () => {
-      clearTimeout(timerId);
-    };
-  }, [searchQuery]);
-
-  // Debounce hybrid weight to prevent firing API calls on every slider movement
-  useEffect(() => {
-    const timerId = setTimeout(() => {
-      setDebouncedHybridWeight(hybridWeight);
-    }, 300); // 300ms delay after user stops dragging
-
-    return () => {
-      clearTimeout(timerId);
-    };
-  }, [hybridWeight]);
-
-  // Debounce max distance to prevent firing API calls on every slider movement
-  useEffect(() => {
-    const timerId = setTimeout(() => {
-      setDebouncedMaxDistance(maxDistance);
-    }, 300); // 300ms delay after user stops dragging
-
-    return () => {
-      clearTimeout(timerId);
-    };
-  }, [maxDistance]);
-
-  // Fetch keyword phrases on first visit
-  useEffect(() => {
-    const loadKeywordPhrases = async () => {
-      if (!keywordPhrasesLoaded) {
-        try {
-          const phrases = await fetchKeywordPhrases();
-          setKeywordPhrases(phrases);
-          setKeywordPhrasesLoaded(true);
-        } catch (error) {
-          console.error("Failed to fetch keyword phrases:", error);
-          setKeywordPhrasesLoaded(true); // Set to true even on error to prevent retries
-        }
-      }
-    };
-
-    loadKeywordPhrases();
-  }, [keywordPhrasesLoaded]);
+  // Advanced search configuration is now handled directly by AdvancedSearchDropdown via SearchContext
+  // Hybrid weight is manually controlled by the user (defaults to 0.5)
 
   // Handle result selection (works in both modes)
   const handleResultSelect = useCallback(
@@ -508,18 +252,18 @@ function DiscoverPageContent() {
 
   // Save search function
   const saveSearch = async () => {
-    if (!currentUser || !searchQuery.trim() || savingSearch) return;
+    if (!currentUser || !searchSettings.query.trim() || savingSearch) return;
 
     setSavingSearch(true);
     setSaveSearchSuccess(false);
     try {
       const searchData = {
-        query: searchQuery,
+        query: searchSettings.query,
         filters: searchSettings.selectedFilters,
-        useSearch2,
-        hybridWeight,
-        maxDistance,
-        selectedCategory,
+        useSearch2: searchSettings.useSearch2,
+        hybridWeight: searchSettings.hybridWeight,
+        maxDistance: searchSettings.maxDistance,
+        selectedCategory: searchSettings.selectedCategory,
         resultCount: results.length,
         uid: currentUser.uid,
         created: serverTimestamp(),
@@ -552,15 +296,15 @@ function DiscoverPageContent() {
   // Effect to load similar study when UID is present
   useEffect(() => {
     async function loadSimilarStudy() {
-      if (!similarUid) return;
+      if (!searchSettings.similarUid) return;
 
       try {
         setLoading(true);
         const studyResult = await fetchResultByUuid(
-          similarUid,
+          searchSettings.similarUid,
           undefined,
           undefined,
-          debouncedMaxDistance
+          searchSettings.maxDistance
         );
         setSimilarStudy(studyResult);
 
@@ -572,23 +316,21 @@ function DiscoverPageContent() {
           throw new Error("No description available for similar search");
         }
 
-        // Set the search query to the description
-        setSearchQuery(description);
-        setDebouncedSearchQuery(description);
+        // Set the search query to the description in SearchContext
+        updateQuery(description);
 
         // Fetch similar studies
-        const calculatedAlpha = calculateDynamicHybridWeight(description);
         const searchResponse = await fetchSearchResults(
           description,
           {},
           1, // First page
           resultsPerPage,
-          useSearch2,
-          calculatedAlpha, // Use calculated alpha instead of debouncedHybridWeight
+          searchSettings.useSearch2,
+          searchSettings.hybridWeight,
           undefined, // First page, no IDs seen yet
           undefined, // nextPageOffset
           undefined, // returnVariablesWithinParent
-          debouncedMaxDistance // maxVectorDistance
+          searchSettings.maxDistance // maxVectorDistance
         );
 
         setResults(searchResponse.results || []);
@@ -602,24 +344,30 @@ function DiscoverPageContent() {
     }
 
     loadSimilarStudy();
-  }, [similarUid, resultsPerPage, useSearch2, debouncedHybridWeight]);
+  }, [
+    searchSettings.similarUid,
+    resultsPerPage,
+    searchSettings.useSearch2,
+    searchSettings.hybridWeight,
+    updateQuery,
+  ]);
 
   // Effect to trigger search when query, filters, or advanced search options change
   useEffect(() => {
     // Check if query, filters, or advanced search options changed (NOT page changes)
     const isSearchParameterChange =
-      debouncedSearchQuery !== searchQueryRef.current ||
+      searchSettings.debouncedQuery !== searchQueryRef.current ||
       JSON.stringify(searchSettings.selectedFilters) !== filtersRef.current ||
-      useSearch2 !== useSearch2Ref.current ||
-      debouncedHybridWeight !== hybridWeightRef.current ||
-      debouncedMaxDistance !== maxDistanceRef.current;
+      searchSettings.useSearch2 !== useSearch2Ref.current ||
+      searchSettings.hybridWeight !== hybridWeightRef.current ||
+      searchSettings.maxDistance !== maxDistanceRef.current;
 
     // If we're in similar studies mode, use the original description as the query
-    const queryToUse = similarUid
+    const queryToUse = searchSettings.similarUid
       ? similarStudy?.dataset_schema?.description ||
         similarStudy?.extra_data?.description ||
-        debouncedSearchQuery
-      : debouncedSearchQuery;
+        searchSettings.debouncedQuery
+      : searchSettings.debouncedQuery;
 
     // Only clear results and reset for search parameter changes, NOT page changes
     if (isSearchParameterChange) {
@@ -641,24 +389,33 @@ function DiscoverPageContent() {
       }
 
       // Perform search with explicit page 1 to ensure correct offset
-      performSearch(queryToUse, 1).finally(() => {
+      performSearch(queryToUse, 1, {
+        query: queryToUse,
+        filters: searchSettings.selectedFilters,
+        useSearch2: searchSettings.useSearch2,
+        hybridWeight: searchSettings.hybridWeight,
+        maxDistance: searchSettings.maxDistance,
+        selectedCategory: searchSettings.selectedCategory,
+        resourceType: searchSettings.resourceType,
+        similarUid: searchSettings.similarUid,
+      }).finally(() => {
         // Update refs only after search completes to prevent race conditions
-        searchQueryRef.current = debouncedSearchQuery;
+        searchQueryRef.current = searchSettings.debouncedQuery;
         filtersRef.current = JSON.stringify(searchSettings.selectedFilters);
-        useSearch2Ref.current = useSearch2;
-        hybridWeightRef.current = debouncedHybridWeight;
-        maxDistanceRef.current = debouncedMaxDistance;
+        useSearch2Ref.current = searchSettings.useSearch2;
+        hybridWeightRef.current = searchSettings.hybridWeight;
+        maxDistanceRef.current = searchSettings.maxDistance;
         topLevelIdsSeenRef.current = topLevelIdsSeen;
       });
     }
   }, [
-    debouncedSearchQuery,
+    searchSettings.debouncedQuery,
     searchSettings.selectedFilters,
-    similarUid,
+    searchSettings.similarUid,
     similarStudy,
-    useSearch2,
-    debouncedHybridWeight,
-    debouncedMaxDistance,
+    searchSettings.useSearch2,
+    searchSettings.hybridWeight,
+    searchSettings.maxDistance,
     // Remove currentPage from dependencies - page changes will be handled separately
   ]);
 
@@ -668,11 +425,11 @@ function DiscoverPageContent() {
     if (currentPage > 1) {
       console.log("📄 Page changed to:", currentPage, "- loading more results");
 
-      const queryToUse = similarUid
+      const queryToUse = searchSettings.similarUid
         ? similarStudy?.dataset_schema?.description ||
           similarStudy?.extra_data?.description ||
-          debouncedSearchQuery
-        : debouncedSearchQuery;
+          searchSettings.debouncedQuery
+        : searchSettings.debouncedQuery;
 
       // For page changes, don't clear results, just append
       performSearch(queryToUse, currentPage);
@@ -701,8 +458,18 @@ function DiscoverPageContent() {
   }, [loadingMore, hasMoreResults, currentPage]);
 
   async function performSearch(
-    query: string = debouncedSearchQuery,
-    forcePage?: number
+    query: string = searchSettings.debouncedQuery,
+    forcePage?: number,
+    searchParams?: {
+      query?: string;
+      filters?: Record<string, string[]>;
+      useSearch2?: boolean;
+      hybridWeight?: number;
+      maxDistance?: number;
+      selectedCategory?: string | null;
+      resourceType?: string | null;
+      similarUid?: string | null;
+    }
   ) {
     const pageToUse = forcePage !== undefined ? forcePage : currentPage;
 
@@ -748,8 +515,11 @@ function DiscoverPageContent() {
       console.log("Filters:", combinedFilters);
       console.log("Page:", pageToUse);
       console.log("Results per page:", resultsPerPage);
-      console.log("Use Search2:", useSearch2);
-      console.log("Similar UID (will be excluded):", similarUid || "None");
+      console.log("Use Search2:", searchSettings.useSearch2);
+      console.log(
+        "Similar UID (will be excluded):",
+        searchSettings.similarUid || "None"
+      );
       console.log(
         "Top Level IDs Seen:",
         pageToUse > 1 ? topLevelIdsSeen : "First page"
@@ -768,17 +538,14 @@ function DiscoverPageContent() {
       if (pageToUse > 1) {
         // For pagination, use the existing top level IDs
         idsToExclude = currentTopLevelIdsRef.current;
-      } else if (similarUid) {
+      } else if (searchSettings.similarUid) {
         // For similar study searches, exclude the original study
-        idsToExclude = [similarUid];
+        idsToExclude = [searchSettings.similarUid];
         console.log(
           "Excluding original study from similar search:",
-          similarUid
+          searchSettings.similarUid
         );
       }
-
-      // Calculate the alpha to use based on query and keyword phrases
-      const calculatedAlpha = calculateDynamicHybridWeight(query);
 
       // Race the actual API call against the timeout
       const res: SearchResponse = await Promise.race([
@@ -787,12 +554,12 @@ function DiscoverPageContent() {
           combinedFilters,
           pageToUse, // Use pageToUse instead of currentPage
           resultsPerPage,
-          useSearch2,
-          calculatedAlpha, // Use calculated alpha instead of debouncedHybridWeight
+          searchSettings.useSearch2,
+          searchSettings.hybridWeight,
           idsToExclude, // Use the determined IDs to exclude
           pageToUse > 1 ? currentNextPageOffsetRef.current : undefined, // Pass next page offset for subsequent pages
           undefined, // returnVariablesWithinParent
-          debouncedMaxDistance // maxVectorDistance
+          searchSettings.maxDistance // maxVectorDistance
         ),
         timeoutPromise,
       ]);
@@ -854,9 +621,12 @@ function DiscoverPageContent() {
         // First page - replace all results
         setResults(newResults);
         setTotalHits(res.num_hits || 0);
+
+        // URL updates are now handled by SearchContext
+
         // For new search endpoint (not useSearch2), determine hasMore based on whether we got results
         // For old search endpoint (useSearch2), use the traditional count-based logic
-        if (!useSearch2) {
+        if (!searchSettings.useSearch2) {
           // New pagination logic: we have more if we got any results (we'll check next page to see if there are more)
           const hasMore = newResults.length > 0;
           setHasMoreResults(hasMore);
@@ -905,7 +675,7 @@ function DiscoverPageContent() {
         // Additional pages - append to existing results
         setResults((prevResults) => {
           // Auto-load more pages if we don't have enough results (new pagination logic only)
-          if (!useSearch2 && newResults.length > 0) {
+          if (newResults.length > 0) {
             // Define minimum thresholds
             const minResultsThreshold = Math.min(20, resultsPerPage / 2); // At least 20 results or half the page size
 
@@ -942,30 +712,26 @@ function DiscoverPageContent() {
         });
 
         // For pagination: if we got no results, we're at the end
-        if (!useSearch2) {
-          // New pagination logic: we're done if this page returned no results
-          const hasMore = newResults.length > 0;
-          setHasMoreResults(hasMore);
 
-          // If we've reached the end, update totalHits to reflect actual results
-          if (!hasMore) {
-            setTotalHits(
-              Math.max(
-                totalHits,
-                results.length +
-                  newResults.filter(
-                    (r) =>
-                      !results.some(
-                        (existing) =>
-                          existing.extra_data?.uuid === r.extra_data?.uuid
-                      )
-                  ).length
-              )
-            );
-          }
-        } else {
-          // Old pagination logic: based on count comparison
-          setHasMoreResults(newResults.length === resultsPerPage);
+        // New pagination logic: we're done if this page returned no results
+        const hasMore = newResults.length > 0;
+        setHasMoreResults(hasMore);
+
+        // If we've reached the end, update totalHits to reflect actual results
+        if (!hasMore) {
+          setTotalHits(
+            Math.max(
+              totalHits,
+              results.length +
+                newResults.filter(
+                  (r) =>
+                    !results.some(
+                      (existing) =>
+                        existing.extra_data?.uuid === r.extra_data?.uuid
+                    )
+                ).length
+            )
+          );
         }
       }
 
@@ -987,19 +753,7 @@ function DiscoverPageContent() {
     }
   }
 
-  // Helper function to handle filter selection from FilterPanel
-  const handleFilterSelection = (
-    category: string,
-    selectedOptions: string[]
-  ) => {
-    // Just update the selected filters - the special case of age_range is handled in FilterPanel
-    updateSearchSettings({
-      selectedFilters: {
-        ...searchSettings.selectedFilters,
-        [category]: selectedOptions,
-      },
-    });
-  };
+  // Filter selection and clearing are now handled directly by FilterPanel via SearchContext
 
   // Helper function to handle feedback submission
   const handleFeedbackSubmit = async (
@@ -1214,21 +968,21 @@ function DiscoverPageContent() {
       result.dataset_schema?.name || result.extra_data?.name || "Unnamed Study";
 
     // Set the search query with study name first and UUID in brackets
-    setSearchQuery(`LIKE:${studyName} (${uuid})`);
+    updateQuery(`LIKE:${studyName} (${uuid})`);
 
     const description =
       result.dataset_schema?.description || result.extra_data?.description;
 
     if (description) {
-      // Set debouncedSearchQuery immediately and perform search with description
-      setDebouncedSearchQuery(description);
+      // Update query and perform search with description
+      updateQuery(description);
       performSearchWithQuery(description);
     } else {
       // If no description available, use the study name for search
       console.warn(
         `No description available for study ${studyName}, using name for similar search`
       );
-      setDebouncedSearchQuery(studyName);
+      updateQuery(studyName);
       performSearchWithQuery(studyName);
     }
   }, []);
@@ -1261,16 +1015,13 @@ function DiscoverPageContent() {
         searchQuery = `LIKE:${originalStudyUuid}`;
       }
 
-      // Calculate the alpha to use based on query and keyword phrases
-      const calculatedAlpha = calculateDynamicHybridWeight(searchQuery);
-
       const res: SearchResponse = await fetchSearchResults(
         searchQuery,
         combinedFilters,
         currentPage,
         resultsPerPage,
-        useSearch2,
-        calculatedAlpha, // Use calculated alpha instead of debouncedHybridWeight
+        searchSettings.useSearch2,
+        searchSettings.hybridWeight,
         // For LIKE searches, exclude the original study by passing its UUID in top_level_ids_seen_so_far
         // For regular pagination, use the current ref
         originalStudyUuid
@@ -1280,7 +1031,7 @@ function DiscoverPageContent() {
           : undefined,
         currentPage > 1 ? currentNextPageOffsetRef.current : undefined,
         undefined, // returnVariablesWithinParent
-        debouncedMaxDistance // maxVectorDistance
+        searchSettings.maxDistance // maxVectorDistance
       );
       setResults(res.results || []);
       setTotalHits(res.num_hits || 0);
@@ -1387,11 +1138,12 @@ function DiscoverPageContent() {
             // Regular Search Bar
             <>
               <TextField
+                // Input key no longer needed - SearchContext handles state
                 fullWidth
                 placeholder="What are you searching for?"
-                value={searchQuery}
+                value={searchSettings.query}
                 onChange={(e) => {
-                  setSearchQuery(e.target.value);
+                  updateQuery(e.target.value);
                 }}
                 InputProps={{
                   endAdornment: (
@@ -1404,7 +1156,8 @@ function DiscoverPageContent() {
                         gap: 1,
                       }}
                     >
-                      {searchQuery !== debouncedSearchQuery && (
+                      {searchSettings.query !==
+                        searchSettings.debouncedQuery && (
                         <Typography
                           variant="caption"
                           color="text.secondary"
@@ -1434,25 +1187,15 @@ function DiscoverPageContent() {
                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: 24 } }}
               />
               <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                <AdvancedSearchDropdown
-                  useSearch2={useSearch2}
-                  onEndpointChange={handleEndpointChange}
-                  hybridWeight={hybridWeight}
-                  onHybridWeightChange={handleHybridWeightChange}
-                  maxDistance={maxDistance}
-                  onMaxDistanceChange={handleMaxDistanceChange}
-                />
+                {/* AdvancedSearchDropdown now uses SearchContext directly */}
+                <AdvancedSearchDropdown />
               </Box>
             </>
           )}
         </Box>
 
-        {/* Filter Panel with initial filters */}
-        <FilterPanel
-          filtersData={filters}
-          onSelectionChange={handleFilterSelection}
-          selectedFilters={searchSettings.selectedFilters}
-        />
+        {/* Filter Panel with initial filters - now uses SearchContext directly */}
+        <FilterPanel filtersData={filters} />
 
         {/* Search Results Summary - Always rendered to prevent layout shift */}
         {!apiOffline && (
@@ -1503,7 +1246,9 @@ function DiscoverPageContent() {
                   )
                 }
                 onClick={saveSearch}
-                disabled={savingSearch || !searchQuery.trim() || loading}
+                disabled={
+                  savingSearch || !searchSettings.query.trim() || loading
+                }
                 sx={{
                   ml: 2,
                   color: saveSearchSuccess ? "success.main" : "inherit",
@@ -1521,70 +1266,97 @@ function DiscoverPageContent() {
           </Box>
         )}
 
-        {/* Main Content Area - Responsive Layout */}
-        <Box
-          sx={{
-            display: isMobile ? "block" : "flex",
-            width: "100%",
-            flex: 1,
-            minHeight: 0, // Important for flex child scrolling
-            overflow: "visible", // Prevent main container from scrolling
-            position: "relative", // For overlay positioning
-          }}
-        >
-          {/* Search Results Panel - Fixed 50% width */}
+        {/* Show full-width hero banner only on initial load with no URL params, otherwise show split layout */}
+        {!results.length &&
+        !loading &&
+        searchSettings.query.trim() === "" &&
+        Object.keys(searchSettings.selectedFilters).length === 0 &&
+        resourceTypeFilter.length === 0 &&
+        !initialQuery &&
+        initialTopics.length === 0 &&
+        initialInstruments.length === 0 &&
+        initialStudyDesign.length === 0 ? (
           <Box
             sx={{
-              width: isTablet ? "100%" : "50%",
-              minWidth: isMobile ? "100%" : "300px",
-              overflowX: "hidden", // Prevent any content from breaking out
+              flex: 1,
               display: "flex",
-              flexDirection: "column",
-              height: "100%",
-              position: "relative",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "100%",
             }}
           >
-            {loading ? (
-              <Typography>Loading search results...</Typography>
-            ) : apiOffline ? (
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  textAlign: "center",
-                  py: 8,
-                  px: 4,
-                  height: "100%",
+            <Box sx={{ width: "80%", maxWidth: 1200 }}>
+              <HeroBanner
+                onExampleClick={(query) => {
+                  updateQuery(query);
                 }}
-              >
-                <CloudOffIcon
+              />
+            </Box>
+          </Box>
+        ) : (
+          /* Main Content Area - Responsive Layout */
+          <Box
+            sx={{
+              display: isMobile ? "block" : "flex",
+              width: "100%",
+              flex: 1,
+              minHeight: 0, // Important for flex child scrolling
+              overflow: "visible", // Prevent main container from scrolling
+              position: "relative", // For overlay positioning
+            }}
+          >
+            {/* Search Results Panel - Fixed 50% width */}
+            <Box
+              sx={{
+                width: isTablet ? "100%" : "50%",
+                minWidth: isMobile ? "100%" : "300px",
+                overflowX: "hidden", // Prevent any content from breaking out
+                display: "flex",
+                flexDirection: "column",
+                height: "100%",
+                position: "relative",
+              }}
+            >
+              {loading ? (
+                <Typography>Loading search results...</Typography>
+              ) : apiOffline ? (
+                <Box
                   sx={{
-                    fontSize: { xs: 48, sm: 64 },
-                    color: "text.secondary",
-                    mb: 2,
-                  }}
-                />
-                <Typography variant="h5" color="text.secondary" gutterBottom>
-                  The discovery API is currently offline
-                </Typography>
-                <Typography color="text.secondary">
-                  Please try again soon. We apologize for the inconvenience.
-                </Typography>
-                <Button
-                  variant="contained"
-                  sx={{ mt: 4 }}
-                  onClick={() => {
-                    setApiOffline(false);
-                    performSearch();
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textAlign: "center",
+                    py: 8,
+                    px: 4,
+                    height: "100%",
                   }}
                 >
-                  Retry Connection
-                </Button>
-              </Box>
-            ) : (
-              <>
+                  <CloudOffIcon
+                    sx={{
+                      fontSize: { xs: 48, sm: 64 },
+                      color: "text.secondary",
+                      mb: 2,
+                    }}
+                  />
+                  <Typography variant="h5" color="text.secondary" gutterBottom>
+                    The discovery API is currently offline
+                  </Typography>
+                  <Typography color="text.secondary">
+                    Please try again soon. We apologize for the inconvenience.
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    sx={{ mt: 4 }}
+                    onClick={() => {
+                      setApiOffline(false);
+                      performSearch();
+                    }}
+                  >
+                    Retry Connection
+                  </Button>
+                </Box>
+              ) : (
                 <Box
                   sx={{
                     flex: 1,
@@ -1600,50 +1372,20 @@ function DiscoverPageContent() {
                     next={loadMore}
                     hasMore={hasMoreResults}
                     loader={
-                      // Check if we have an empty state (no search query and no filters)
-                      !debouncedSearchQuery &&
-                      (!searchSettings.selectedFilters ||
-                        Object.values(searchSettings.selectedFilters).every(
-                          (arr) => arr.length === 0
-                        )) ? (
-                        <Box
-                          sx={{
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            py: 6,
-                            textAlign: "center",
-                          }}
-                        >
-                          <Typography
-                            variant="h6"
-                            color="text.secondary"
-                            gutterBottom
-                          >
-                            Enter a search term or select some filters to begin
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Use the search bar above or apply filters to
-                            discover studies
-                          </Typography>
-                        </Box>
-                      ) : (
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            py: 3,
-                          }}
-                        >
-                          <Loader2
-                            size={24}
-                            className="animate-spin"
-                            style={{ color: "#1976d2" }}
-                          />
-                        </Box>
-                      )
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          py: 3,
+                        }}
+                      >
+                        <Loader2
+                          size={24}
+                          className="animate-spin"
+                          style={{ color: "#1976d2" }}
+                        />
+                      </Box>
                     }
                     scrollableTarget="search-results-container"
                     endMessage={
@@ -1665,126 +1407,130 @@ function DiscoverPageContent() {
                     />
                   </InfiniteScroll>
                 </Box>
-              </>
-            )}
-          </Box>
+              )}
+            </Box>
 
-          {/* Study Detail Panel - Shown on tablet and desktop */}
-          {!isMobile && (results.length > 0 || totalHits > 0) && (
-            <Box
-              sx={{
-                position: "absolute",
-                top: 0,
-                right: 0,
-                width: isDetailExpanded
-                  ? "calc(100% - 130px)"
-                  : isTablet
-                  ? "0%"
-                  : "50%",
-                height: "100%",
-                bgcolor: "background.paper",
-                borderLeft:
-                  isTablet && !isDetailExpanded ? "none" : "1px solid",
-                borderColor: "grey.200",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "visible", // Allow overflow for the collapse button
-                transition: "width 0.3s ease-in-out",
-                cursor: selectedResult ? "pointer" : "default",
-                zIndex: isDetailExpanded ? 2 : 1,
-                boxShadow: isDetailExpanded
-                  ? "-4px 0 8px rgba(0, 0, 0, 0.1)"
-                  : "none",
-              }}
-              onClick={handleDetailClick}
-            >
+            {/* Study Detail Panel - Shown on tablet and desktop */}
+            {!isMobile && (results.length > 0 || totalHits > 0) && (
               <Box
                 sx={{
                   position: "absolute",
-                  top: -16,
-                  left: -16,
-                  zIndex: 1000,
+                  top: 0,
+                  right: 0,
+                  width: isDetailExpanded
+                    ? "calc(100% - 130px)"
+                    : isTablet
+                    ? "0%"
+                    : "50%",
+                  height: "100%",
+                  bgcolor: "background.paper",
+                  borderLeft:
+                    isTablet && !isDetailExpanded ? "none" : "1px solid",
+                  borderColor: "grey.200",
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "visible", // Allow overflow for the collapse button
+                  transition: "width 0.3s ease-in-out",
+                  cursor: selectedResult ? "pointer" : "default",
+                  zIndex: isDetailExpanded ? 2 : 1,
+                  boxShadow: isDetailExpanded
+                    ? "-4px 0 8px rgba(0, 0, 0, 0.1)"
+                    : "none",
                 }}
+                onClick={handleDetailClick}
               >
-                <IconButton
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent triggering detail click
-                    handleCollapse();
-                  }}
-                  sx={{
-                    bgcolor: "primary.main",
-                    color: "white",
-                    "&:hover": {
-                      bgcolor: "primary.dark",
-                    },
-                    boxShadow: 2,
-                    width: 30,
-                    height: 30,
-                  }}
-                >
-                  {!isDetailExpanded ? (
-                    <ChevronLeft size={20} />
-                  ) : (
-                    <ChevronRight size={20} />
-                  )}
-                </IconButton>
-              </Box>
-
-              {apiOffline ? (
                 <Box
                   sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    textAlign: "center",
-                    p: 4,
-                    height: "100%",
+                    position: "absolute",
+                    top: -16,
+                    left: -16,
+                    zIndex: 1000,
                   }}
                 >
-                  <CloudOffIcon
-                    sx={{
-                      fontSize: { xs: 36, sm: 48 },
-                      color: "text.secondary",
-                      mb: 2,
+                  <IconButton
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent triggering detail click
+                      handleCollapse();
                     }}
-                  />
-                  <Typography variant="h6" color="text.secondary" gutterBottom>
-                    API Offline
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Study details unavailable
-                  </Typography>
+                    sx={{
+                      bgcolor: "primary.main",
+                      color: "white",
+                      "&:hover": {
+                        bgcolor: "primary.dark",
+                      },
+                      boxShadow: 2,
+                      width: 30,
+                      height: 30,
+                    }}
+                  >
+                    {!isDetailExpanded ? (
+                      <ChevronLeft size={20} />
+                    ) : (
+                      <ChevronRight size={20} />
+                    )}
+                  </IconButton>
                 </Box>
-              ) : // Conditionally render StudyDetail or placeholder
-              studyDetail ? (
-                <Box
-                  sx={{
-                    height: "100%",
-                    overflowY: "auto",
-                    minHeight: 0, // Important for flex child scrolling
-                  }}
-                >
-                  <StudyDetail study={studyDetail} isDrawerView={false} />
-                </Box>
-              ) : (
-                <Box
-                  sx={{
-                    display: "flex",
-                    height: "100%",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    p: 2,
-                  }}
-                >
-                  <Typography color="text.secondary">
-                    Select a dataset to view details
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          )}
-        </Box>
+
+                {apiOffline ? (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      textAlign: "center",
+                      p: 4,
+                      height: "100%",
+                    }}
+                  >
+                    <CloudOffIcon
+                      sx={{
+                        fontSize: { xs: 36, sm: 48 },
+                        color: "text.secondary",
+                        mb: 2,
+                      }}
+                    />
+                    <Typography
+                      variant="h6"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      API Offline
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Study details unavailable
+                    </Typography>
+                  </Box>
+                ) : // Conditionally render StudyDetail or placeholder
+                studyDetail ? (
+                  <Box
+                    sx={{
+                      height: "100%",
+                      overflowY: "auto",
+                      minHeight: 0, // Important for flex child scrolling
+                    }}
+                  >
+                    <StudyDetail study={studyDetail} isDrawerView={false} />
+                  </Box>
+                ) : (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      height: "100%",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      p: 2,
+                    }}
+                  >
+                    <Typography color="text.secondary">
+                      Select a dataset to view details
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            )}
+          </Box>
+        )}
 
         {/* Mobile Drawer for Study Details */}
         <Drawer

@@ -31,6 +31,7 @@ const ChildDatasetsDataGrid = dynamic(
   }
 );
 import { useAuth } from "@/contexts/AuthContext";
+import { useFirebase } from "@/contexts/FirebaseContext";
 import { useSearch } from "@/contexts/SearchContext";
 import { SearchResult, fetchResultByUuid } from "@/services/api";
 import { useRouter, usePathname } from "next/navigation";
@@ -74,7 +75,17 @@ const StudyDetailComponent = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const { currentUser } = useAuth();
+  const { checkIfResourceSaved, saveResource, unsaveResource } = useFirebase();
   const { searchSettings, updateSearchSettings } = useSearch();
+
+  // Debounce search settings to avoid excessive API calls during typing
+  const [debouncedQuery, setDebouncedQuery] = useState(searchSettings.query);
+  const [debouncedHybridWeight, setDebouncedHybridWeight] = useState(
+    searchSettings.hybridWeight
+  );
+  const [debouncedMaxDistance, setDebouncedMaxDistance] = useState(
+    searchSettings.maxDistance
+  );
   const router = useRouter();
   const pathname = usePathname();
 
@@ -216,55 +227,27 @@ const StudyDetailComponent = ({
       if (!currentUser || !displayStudy.extra_data?.uuid) return;
 
       try {
-        // Dynamic import for client-side only
-        const { collection, query, where, getDocs } = await import(
-          "firebase/firestore/lite"
+        const result = await checkIfResourceSaved(
+          currentUser.uid,
+          displayStudy.extra_data.uuid
         );
-        const { db } = await import("../firebase");
-
-        const q = query(
-          collection(db, "saved_resources"),
-          where("uid", "==", currentUser.uid),
-          where("uuid", "==", displayStudy.extra_data.uuid)
-        );
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-          const doc = querySnapshot.docs[0];
-          setIsSaved(true);
-          setSavedResourceId(doc.id);
-        } else {
-          setIsSaved(false);
-          setSavedResourceId(null);
-        }
+        setIsSaved(result.isSaved);
+        setSavedResourceId(result.resourceId || null);
       } catch (error) {
         console.error("Error checking if resource is saved:", error);
       }
     };
 
     checkIfSaved();
-  }, [currentUser, displayStudy.extra_data?.uuid]);
+  }, [currentUser, displayStudy.extra_data?.uuid, checkIfResourceSaved]);
 
   const toggleSave = async () => {
     if (!currentUser || !displayStudy.extra_data?.uuid || saving) return;
 
     setSaving(true);
     try {
-      // Dynamic import for client-side only
-      const {
-        collection,
-        addDoc,
-        serverTimestamp,
-        query,
-        where,
-        getDocs,
-        deleteDoc,
-        doc,
-      } = await import("firebase/firestore/lite");
-      const { db } = await import("../firebase");
-
       if (isSaved && savedResourceId) {
-        await deleteDoc(doc(db, "saved_resources", savedResourceId));
+        await unsaveResource(savedResourceId);
         setIsSaved(false);
         setSavedResourceId(null);
       } else {
@@ -300,16 +283,11 @@ const StudyDetailComponent = ({
             !!displayStudy.dataset_schema?.includedInDataCatalog?.length,
           hasFreeAccess: displayStudy.hasFreeAccess || false,
           hasCohortsAvailable: displayStudy.hasCohortsAvailable || false,
-          uid: currentUser.uid,
-          created: serverTimestamp(),
         };
 
-        const docRef = await addDoc(
-          collection(db, "saved_resources"),
-          resourceData
-        );
+        const resourceId = await saveResource(currentUser.uid, resourceData);
         setIsSaved(true);
-        setSavedResourceId(docRef.id);
+        setSavedResourceId(resourceId);
       }
     } catch (error) {
       console.error("Error saving/unsaving resource:", error);
@@ -347,9 +325,9 @@ const StudyDetailComponent = ({
       try {
         const enhancedData = await fetchResultByUuid(
           displayStudy.extra_data.uuid!,
-          searchSettings.query,
-          searchSettings.hybridWeight,
-          searchSettings.maxDistance
+          debouncedQuery,
+          debouncedHybridWeight,
+          debouncedMaxDistance
         );
 
         if (!cancelled) {
@@ -372,6 +350,20 @@ const StudyDetailComponent = ({
   }, [
     displayStudy?.extra_data?.uuid,
     studyDataComplete,
+    debouncedQuery,
+    debouncedHybridWeight,
+    debouncedMaxDistance,
+  ]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchSettings.query);
+      setDebouncedHybridWeight(searchSettings.hybridWeight);
+      setDebouncedMaxDistance(searchSettings.maxDistance);
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [
     searchSettings.query,
     searchSettings.hybridWeight,
     searchSettings.maxDistance,
@@ -384,21 +376,71 @@ const StudyDetailComponent = ({
     }));
   };
 
-  // Prepare deduped list of all variables for the DataGrid
-  const allStudyVariables = useMemo(() => {
+  // Prepare deduped list of all variables for the DataGrid with repeat counts
+  const { allStudyVariables, matchedCount, totalCount } = useMemo(() => {
     const matched = displayStudy.variables_which_matched || [];
     const allVars = displayStudy.dataset_schema?.variableMeasured || [];
-    const matchedMap = new Map<string, any>();
+
+    // First, dedupe all variables and track which ones are matched
+    const variableMap = new Map<
+      string,
+      { variable: any; matched: boolean; repeatCount: number }
+    >();
+
+    // Count repeats within matched variables only
+    const matchedCounts = new Map<string, number>();
     matched.forEach((v) => {
       const key = v.name;
-      if (key) matchedMap.set(key, { ...v, matched: true });
+      if (!key) return;
+      matchedCounts.set(key, (matchedCounts.get(key) || 0) + 1);
     });
-    allVars.forEach((v) => {
-      const key = v.name;
-      if (!key || matchedMap.has(key)) return;
-      matchedMap.set(key, v);
-    });
-    return Array.from(matchedMap.values());
+
+    // Process all variables, marking matched ones
+    const processAllVariables = (variables: any[], isMatched: boolean) => {
+      variables.forEach((v) => {
+        const key = v.name;
+        if (!key) return;
+
+        const existing = variableMap.get(key);
+        if (existing) {
+          // Already exists, just update matched status if needed
+          if (isMatched && !existing.matched) {
+            existing.matched = true;
+            existing.variable = { ...v, matched: true };
+          }
+        } else {
+          // New variable
+          const repeatCount = matchedCounts.get(key) || 1;
+          variableMap.set(key, {
+            variable: { ...v, matched: isMatched },
+            matched: isMatched,
+            repeatCount: repeatCount,
+          });
+        }
+      });
+    };
+
+    // Process matched variables first (they take precedence)
+    processAllVariables(matched, true);
+    // Then process all variables
+    processAllVariables(allVars, false);
+
+    // Convert to array with display names
+    const dedupedVariables = Array.from(variableMap.values()).map(
+      ({ variable, repeatCount }) => ({
+        ...variable,
+        repeatCount: repeatCount,
+        displayName:
+          repeatCount > 1
+            ? `${variable.name} (x${repeatCount})`
+            : variable.name,
+      })
+    );
+
+    const matchedCount = dedupedVariables.filter((v) => v.matched).length;
+    const totalCount = dedupedVariables.length;
+
+    return { allStudyVariables: dedupedVariables, matchedCount, totalCount };
   }, [
     displayStudy.variables_which_matched,
     displayStudy.dataset_schema?.variableMeasured,
@@ -645,19 +687,9 @@ const StudyDetailComponent = ({
             sx={{ justifyContent: "space-between", py: 2, height: "auto" }}
             onClick={() => setVariablesExpanded(!variablesExpanded)}
           >
-            {!displayStudy.variables_which_matched?.length
-              ? `Variables (${
-                  displayStudy.dataset_schema?.variableMeasured?.length ||
-                  displayStudy.dataset_schema?.number_of_variables ||
-                  0
-                })`
-              : `Related Variables (${
-                  displayStudy.variables_which_matched.length
-                } / ${
-                  displayStudy.dataset_schema?.variableMeasured?.length ||
-                  displayStudy.dataset_schema?.number_of_variables ||
-                  0
-                })`}
+            {!matchedCount
+              ? `Variables (${totalCount})`
+              : `Related Variables (${matchedCount} / ${totalCount})`}
           </SquareChip>
           <Collapse in={variablesExpanded}>
             <Box

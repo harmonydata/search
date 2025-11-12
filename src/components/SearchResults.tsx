@@ -35,13 +35,6 @@ export default function SearchResults({
         )
       : results;
 
-  // Debug log to inspect filtering (removed sorting as API returns results in correct order)
-  console.log("SearchResults debug:", {
-    resourceTypeFilter,
-    originalResults: results,
-    filteredResults,
-  });
-
   const handleSelectResult = (result: SearchResult) => {
     if (onSelectResult) {
       onSelectResult(result);
@@ -52,15 +45,13 @@ export default function SearchResults({
     return (
       <Box sx={{ textAlign: "center", py: 8, maxWidth: 600, mx: "auto" }}>
         {!hasActiveSearch ? (
-          // Initial state - no search or filters applied
-          <Box>
+          // Initial state - no search or filters applied - should not happen since hero banner is now at page level
+          <Box sx={{ textAlign: "center", py: 8, maxWidth: 600, mx: "auto" }}>
             <Typography variant="h5" color="text.primary" gutterBottom>
-              Harmony Search is here to help you find existing research studies
-              in the UK
+              No Results
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Start by entering keywords in the search box above or browse our
-              collection of research studies and datasets.
+              Enter a search term or apply filters to find studies.
             </Typography>
           </Box>
         ) : (

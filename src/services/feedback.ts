@@ -7,16 +7,16 @@ const loadFirebaseModules = async () => {
   if (firebaseModules) return firebaseModules;
 
   console.log("🔍 Loading Firebase modules dynamically for feedback");
-  const [{ db }, { collection, addDoc, serverTimestamp }] = await Promise.all([
-    import("../firebase"),
+  const [{ collection, addDoc, serverTimestamp }, { db }] = await Promise.all([
     import("firebase/firestore/lite"),
+    import("../firebase"),
   ]);
 
   firebaseModules = {
-    db,
     collection,
     addDoc,
     serverTimestamp,
+    db,
   };
 
   return firebaseModules;

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { IconButton, CircularProgress } from "@mui/material";
 import { Bookmark } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFirebase } from "@/contexts/FirebaseContext";
 import { SearchResult } from "@/services/api";
 
 interface BookmarkButtonProps {
@@ -11,12 +12,16 @@ interface BookmarkButtonProps {
   isDrawerView?: boolean;
 }
 
-const BookmarkButton = ({ study, isDrawerView = false }: BookmarkButtonProps) => {
+const BookmarkButton = ({
+  study,
+  isDrawerView = false,
+}: BookmarkButtonProps) => {
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedResourceId, setSavedResourceId] = useState<string | null>(null);
 
   const { currentUser } = useAuth();
+  const { checkIfResourceSaved, saveResource, unsaveResource } = useFirebase();
 
   // Check if resource is already saved
   useEffect(() => {
@@ -24,43 +29,27 @@ const BookmarkButton = ({ study, isDrawerView = false }: BookmarkButtonProps) =>
       if (!currentUser || !study.extra_data?.uuid) return;
 
       try {
-        const { collection, query, where, getDocs } = await import("firebase/firestore/lite");
-        const { db } = await import("../firebase");
-
-        const q = query(
-          collection(db, "saved_resources"),
-          where("uid", "==", currentUser.uid),
-          where("uuid", "==", study.extra_data.uuid)
+        const result = await checkIfResourceSaved(
+          currentUser.uid,
+          study.extra_data.uuid
         );
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-          const doc = querySnapshot.docs[0];
-          setIsSaved(true);
-          setSavedResourceId(doc.id);
-        } else {
-          setIsSaved(false);
-          setSavedResourceId(null);
-        }
+        setIsSaved(result.isSaved);
+        setSavedResourceId(result.resourceId || null);
       } catch (error) {
         console.error("Error checking if resource is saved:", error);
       }
     };
 
     checkIfSaved();
-  }, [currentUser, study.extra_data?.uuid]);
+  }, [currentUser, study.extra_data?.uuid, checkIfResourceSaved]);
 
   const toggleSave = async () => {
     if (!currentUser || !study.extra_data?.uuid || saving) return;
 
     setSaving(true);
     try {
-      const { collection, addDoc, serverTimestamp, deleteDoc, doc } =
-        await import("firebase/firestore/lite");
-      const { db } = await import("../firebase");
-
       if (isSaved && savedResourceId) {
-        await deleteDoc(doc(db, "saved_resources", savedResourceId));
+        await unsaveResource(savedResourceId);
         setIsSaved(false);
         setSavedResourceId(null);
       } else {
@@ -94,16 +83,11 @@ const BookmarkButton = ({ study, isDrawerView = false }: BookmarkButtonProps) =>
             !!study.dataset_schema?.includedInDataCatalog?.length,
           hasFreeAccess: study.hasFreeAccess || false,
           hasCohortsAvailable: study.hasCohortsAvailable || false,
-          uid: currentUser.uid,
-          created: serverTimestamp(),
         };
 
-        const docRef = await addDoc(
-          collection(db, "saved_resources"),
-          resourceData
-        );
+        const resourceId = await saveResource(currentUser.uid, resourceData);
         setIsSaved(true);
-        setSavedResourceId(docRef.id);
+        setSavedResourceId(resourceId);
       }
     } catch (error) {
       console.error("Error saving/unsaving resource:", error);

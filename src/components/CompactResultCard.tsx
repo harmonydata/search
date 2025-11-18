@@ -3,18 +3,11 @@
 import { Box, CardContent, Typography, IconButton } from "@mui/material";
 import { SearchResult } from "@/services/api";
 import Image from "next/image";
-import {
-  File,
-  Database,
-  FileText,
-  Book,
-  ExternalLink,
-  Bug,
-} from "lucide-react";
+import { Database, Bug } from "lucide-react";
 import { useState } from "react";
 import SquareChip from "@/components/SquareChip";
 import JsonTreeDialog from "@/components/JsonTreeDialog";
-import { getAssetPrefix } from "@/lib/utils/shared";
+import ColoredQRCode from "@/components/ColoredQRCode";
 
 interface CompactResultCardProps {
   result: SearchResult;
@@ -119,18 +112,32 @@ export default function CompactResultCard({
     imageUrl = (displayResult as any).thumbnail;
   }
 
-  // Fallback image based on resource type
-  const getTypeIcon = () => {
-    // Choose icon based on resource type
-    if (resourceType.includes("dataset")) {
-      return <Database size={48} />;
-    } else if (resourceType.includes("variable")) {
-      return <File size={48} />;
-    } else if (resourceType.includes("study")) {
-      return <Book size={48} />;
-    } else {
-      return <FileText size={48} />;
+  // Get URL for QR code - prefer dataset_schema.url, then extra_data.urls
+  const getUrlForQRCode = (): string => {
+    // Prefer dataset_schema.url if available
+    if (
+      displayResult.dataset_schema?.url &&
+      displayResult.dataset_schema.url.length > 0
+    ) {
+      const url = displayResult.dataset_schema.url[0];
+      if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
+        return url;
+      }
     }
+    // Fallback to extra_data.urls
+    if (
+      displayResult.extra_data?.urls &&
+      displayResult.extra_data.urls.length > 0
+    ) {
+      const url = displayResult.extra_data.urls[0];
+      if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
+        return url;
+      }
+    }
+    // If no URL found, use a placeholder
+    return `https://example.com/resource/${
+      displayResult.extra_data?.uuid || title
+    }`;
   };
 
   return (
@@ -155,12 +162,12 @@ export default function CompactResultCard({
         sx={{
           width: 120,
           minHeight: "100%",
-          py: 2, // Align with title
+          py: 2,
           flexShrink: 1,
           display: "flex",
           flexDirection: "column",
-          justifyContent: "space-between",
-          alignItems: "center", // Align to top
+          justifyContent: "center",
+          alignItems: "center",
           color: "grey.500",
           background: "transparent",
           position: "relative", // For badge positioning
@@ -177,7 +184,7 @@ export default function CompactResultCard({
             unoptimized={true}
           />
         ) : (
-          getTypeIcon()
+          <ColoredQRCode url={getUrlForQRCode()} title={title} size={100} />
         )}
         {isAncestorCard && (
           <>
@@ -225,37 +232,6 @@ export default function CompactResultCard({
             )}
           </>
         )}
-        {/* Find Similar Button */}
-        <Box
-          sx={{
-            mt: 1,
-            width: "100%",
-            display: "flex",
-            justifyContent: "center",
-          }}
-        >
-          <SquareChip
-            chipVariant="secondary"
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (result.extra_data?.uuid) {
-                window.open(
-                  `${getAssetPrefix()}discover?like=${result.extra_data.uuid}`,
-                  "_blank"
-                );
-              }
-            }}
-            sx={{
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 0.5,
-            }}
-          >
-            Find Similar <ExternalLink size={14} style={{ marginLeft: 4 }} />
-          </SquareChip>
-        </Box>
       </Box>
 
       <Box

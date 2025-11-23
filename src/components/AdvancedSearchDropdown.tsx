@@ -7,6 +7,7 @@ import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 import SearchVersionToggle from "./advanced-search/SearchVersionToggle";
 import HybridWeightSlider from "./advanced-search/HybridWeightSlider";
 import MaxDistanceSlider from "./advanced-search/MaxDistanceSlider";
+import DirectMatchWeightSlider from "./advanced-search/DirectMatchWeightSlider";
 
 export default function AdvancedSearchDropdown() {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -71,6 +72,7 @@ export default function AdvancedSearchDropdown() {
           <SearchVersionToggle />
           <HybridWeightSlider />
           <MaxDistanceSlider />
+          <DirectMatchWeightSlider />
 
           {/* Information */}
           <Box sx={{ mt: 3, p: 2, bgcolor: "grey.50", borderRadius: 1 }}>

@@ -126,6 +126,7 @@ function DiscoverPageContent() {
   const useSearch2Ref = useRef(searchSettings.useSearch2);
   const hybridWeightRef = useRef(searchSettings.hybridWeight);
   const maxDistanceRef = useRef(searchSettings.maxDistance);
+  const directMatchWeightRef = useRef(searchSettings.directMatchWeight);
   const topLevelIdsSeenRef = useRef(topLevelIdsSeen);
   const isResettingPageRef = useRef(false);
 
@@ -320,6 +321,12 @@ function DiscoverPageContent() {
         updateQuery(description);
 
         // Fetch similar studies
+        // Adjust maxDistance based on page number (page 1, so no adjustment needed)
+        const adjustedMaxDistance = getAdjustedMaxDistance(
+          searchSettings.maxDistance,
+          1
+        );
+
         const searchResponse = await fetchSearchResults(
           description,
           {},
@@ -330,7 +337,8 @@ function DiscoverPageContent() {
           undefined, // First page, no IDs seen yet
           undefined, // nextPageOffset
           undefined, // returnVariablesWithinParent
-          searchSettings.maxDistance // maxVectorDistance
+          adjustedMaxDistance, // maxVectorDistance - adjusted based on page number
+          searchSettings.directMatchWeight // directMatchWeight
         );
 
         setResults(searchResponse.results || []);
@@ -360,7 +368,8 @@ function DiscoverPageContent() {
       JSON.stringify(searchSettings.selectedFilters) !== filtersRef.current ||
       searchSettings.useSearch2 !== useSearch2Ref.current ||
       searchSettings.hybridWeight !== hybridWeightRef.current ||
-      searchSettings.maxDistance !== maxDistanceRef.current;
+      searchSettings.maxDistance !== maxDistanceRef.current ||
+      searchSettings.directMatchWeight !== directMatchWeightRef.current;
 
     // If we're in similar studies mode, use the original description as the query
     const queryToUse = searchSettings.similarUid
@@ -405,6 +414,7 @@ function DiscoverPageContent() {
         useSearch2Ref.current = searchSettings.useSearch2;
         hybridWeightRef.current = searchSettings.hybridWeight;
         maxDistanceRef.current = searchSettings.maxDistance;
+        directMatchWeightRef.current = searchSettings.directMatchWeight;
         topLevelIdsSeenRef.current = topLevelIdsSeen;
       });
     }
@@ -416,6 +426,7 @@ function DiscoverPageContent() {
     searchSettings.useSearch2,
     searchSettings.hybridWeight,
     searchSettings.maxDistance,
+    searchSettings.directMatchWeight,
     // Remove currentPage from dependencies - page changes will be handled separately
   ]);
 
@@ -457,6 +468,23 @@ function DiscoverPageContent() {
     setCurrentPage(nextPage);
   }, [loadingMore, hasMoreResults, currentPage]);
 
+  // Helper function to adjust maxDistance based on page number
+  // Gradually reduces maxDistance as page number increases to account for
+  // vector distance normalization within the remaining search window
+  const getAdjustedMaxDistance = (
+    baseMaxDistance: number,
+    page: number
+  ): number => {
+    if (page <= 1) {
+      return baseMaxDistance;
+    }
+    // Reduce by 10% per page, but ensure it doesn't go below 0.1
+    // Formula: maxDistance * (1 - (page - 1) * 0.1)
+    const reductionFactor = 0.1; // 10% reduction per page
+    const adjusted = baseMaxDistance * (1 - (page - 1) * reductionFactor);
+    return Math.max(adjusted, 0.1); // Minimum of 0.1
+  };
+
   async function performSearch(
     query: string = searchSettings.debouncedQuery,
     forcePage?: number,
@@ -466,6 +494,7 @@ function DiscoverPageContent() {
       useSearch2?: boolean;
       hybridWeight?: number;
       maxDistance?: number;
+      directMatchWeight?: number;
       selectedCategory?: string | null;
       resourceType?: string | null;
       similarUid?: string | null;
@@ -547,6 +576,12 @@ function DiscoverPageContent() {
         );
       }
 
+      // Adjust maxDistance based on page number to account for vector distance normalization
+      const adjustedMaxDistance = getAdjustedMaxDistance(
+        searchSettings.maxDistance,
+        pageToUse
+      );
+
       // Race the actual API call against the timeout
       const res: SearchResponse = await Promise.race([
         fetchSearchResults(
@@ -559,7 +594,8 @@ function DiscoverPageContent() {
           idsToExclude, // Use the determined IDs to exclude
           pageToUse > 1 ? currentNextPageOffsetRef.current : undefined, // Pass next page offset for subsequent pages
           undefined, // returnVariablesWithinParent
-          searchSettings.maxDistance // maxVectorDistance
+          adjustedMaxDistance, // maxVectorDistance - adjusted based on page number
+          searchSettings.directMatchWeight // directMatchWeight
         ),
         timeoutPromise,
       ]);
@@ -1015,6 +1051,12 @@ function DiscoverPageContent() {
         searchQuery = `LIKE:${originalStudyUuid}`;
       }
 
+      // Adjust maxDistance based on page number
+      const adjustedMaxDistance = getAdjustedMaxDistance(
+        searchSettings.maxDistance,
+        currentPage
+      );
+
       const res: SearchResponse = await fetchSearchResults(
         searchQuery,
         combinedFilters,
@@ -1031,7 +1073,8 @@ function DiscoverPageContent() {
           : undefined,
         currentPage > 1 ? currentNextPageOffsetRef.current : undefined,
         undefined, // returnVariablesWithinParent
-        searchSettings.maxDistance // maxVectorDistance
+        adjustedMaxDistance, // maxVectorDistance - adjusted based on page number
+        searchSettings.directMatchWeight // directMatchWeight
       );
       setResults(res.results || []);
       setTotalHits(res.num_hits || 0);

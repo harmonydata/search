@@ -216,7 +216,8 @@ export async function fetchSearchResults(
   topLevelIdsSeen?: string[],
   nextPageOffset?: number,
   returnVariablesWithinParent?: boolean,
-  maxVectorDistance?: number
+  maxVectorDistance?: number,
+  directMatchWeight?: number
 ): Promise<SearchResponse> {
   // Check if we have any filters
   const hasFilters = filters && Object.keys(filters).length > 0;
@@ -294,6 +295,17 @@ export async function fetchSearchResults(
     // Add max_vector_distance parameter if provided
     if (maxVectorDistance !== undefined) {
       requestBody.max_vector_distance = maxVectorDistance;
+    }
+
+    // Add direct_match_weight parameter if provided
+    // Transform 0-1 slider value to 0-10 API value
+    // Piecewise linear: 0->0, 0.5->2, 1->10
+    if (directMatchWeight !== undefined) {
+      const apiValue =
+        directMatchWeight <= 0.5
+          ? 4 * directMatchWeight
+          : 16 * directMatchWeight - 6;
+      requestBody.direct_match_weight = apiValue;
     }
 
     requestOptions = {
@@ -380,6 +392,17 @@ export async function fetchSearchResults(
     // Add max_vector_distance parameter if provided
     if (maxVectorDistance !== undefined) {
       params.set("max_vector_distance", maxVectorDistance.toString());
+    }
+
+    // Add direct_match_weight parameter if provided
+    // Transform 0-1 slider value to 0-10 API value
+    // Piecewise linear: 0->0, 0.5->2, 1->10
+    if (directMatchWeight !== undefined) {
+      const apiValue =
+        directMatchWeight <= 0.5
+          ? 4 * directMatchWeight
+          : 16 * directMatchWeight - 6;
+      params.set("direct_match_weight", apiValue.toString());
     }
 
     url = `${baseUrl}?${params.toString()}`;

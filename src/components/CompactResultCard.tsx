@@ -1,13 +1,18 @@
 "use client";
 
-import { Box, CardContent, Typography, IconButton } from "@mui/material";
+import {
+  Box,
+  CardContent,
+  Typography,
+  IconButton,
+  Avatar,
+} from "@mui/material";
 import { SearchResult } from "@/services/api";
 import Image from "next/image";
 import { Database, Bug } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import SquareChip from "@/components/SquareChip";
 import JsonTreeDialog from "@/components/JsonTreeDialog";
-import ColoredQRCode from "@/components/ColoredQRCode";
 
 interface CompactResultCardProps {
   result: SearchResult;
@@ -112,33 +117,54 @@ export default function CompactResultCard({
     imageUrl = (displayResult as any).thumbnail;
   }
 
-  // Get URL for QR code - prefer dataset_schema.url, then extra_data.urls
-  const getUrlForQRCode = (): string => {
-    // Prefer dataset_schema.url if available
-    if (
-      displayResult.dataset_schema?.url &&
-      displayResult.dataset_schema.url.length > 0
-    ) {
-      const url = displayResult.dataset_schema.url[0];
-      if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
-        return url;
-      }
-    }
-    // Fallback to extra_data.urls
-    if (
-      displayResult.extra_data?.urls &&
-      displayResult.extra_data.urls.length > 0
-    ) {
-      const url = displayResult.extra_data.urls[0];
-      if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
-        return url;
-      }
-    }
-    // If no URL found, use a placeholder
-    return `https://example.com/resource/${
-      displayResult.extra_data?.uuid || title
-    }`;
+  // Utility function to get first letter, excluding "A" and "The" as first words
+  const getFirstLetter = (text: string): string => {
+    const trimmed = text.trim();
+    if (!trimmed) return "?";
+
+    // Remove "A " or "The " from the start (case-insensitive)
+    const withoutPrefix = trimmed.replace(/^(A|The)\s+/i, "");
+    const firstChar = withoutPrefix.charAt(0).toUpperCase();
+
+    // Return the first letter, or fallback to original first letter if empty
+    return firstChar || trimmed.charAt(0).toUpperCase() || "?";
   };
+
+  // Hash function to generate consistent color from title
+  const hashString = (str: string): number => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash);
+  };
+
+  // Generate a full RGB color from a hash value
+  const hashToColor = (hash: number): string => {
+    // Extract RGB components from different parts of the hash
+    // Use modulo to ensure values are in valid range, but keep full range
+    const r = (hash & 0xff0000) >> 16;
+    const g = (hash & 0x00ff00) >> 8;
+    const b = hash & 0x0000ff;
+
+    // Ensure colors are not too dark (minimum 80) for better visibility
+    // and not too light (maximum 220) for contrast with white text
+    const adjustedR = Math.max(80, Math.min(220, r));
+    const adjustedG = Math.max(80, Math.min(220, g));
+    const adjustedB = Math.max(80, Math.min(220, b));
+
+    return `rgb(${adjustedR}, ${adjustedG}, ${adjustedB})`;
+  };
+
+  // Get avatar color and letter
+  const avatarColor = useMemo(() => {
+    const hash = hashString(title);
+    return hashToColor(hash);
+  }, [title]);
+
+  const avatarLetter = useMemo(() => getFirstLetter(title), [title]);
 
   return (
     <Box
@@ -184,7 +210,17 @@ export default function CompactResultCard({
             unoptimized={true}
           />
         ) : (
-          <ColoredQRCode url={getUrlForQRCode()} title={title} size={100} />
+          <Avatar
+            sx={{
+              width: 60,
+              height: 60,
+              bgcolor: avatarColor,
+              fontSize: "1.5rem",
+              fontWeight: "bold",
+            }}
+          >
+            {avatarLetter}
+          </Avatar>
         )}
         {isAncestorCard && (
           <>

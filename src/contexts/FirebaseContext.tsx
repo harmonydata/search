@@ -1,11 +1,65 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
 
 // Firebase modules will be dynamically imported when needed
 // This prevents them from being bundled unless actually used
 let firebaseFirestoreModules: any = null;
 let firebaseDb: any = null;
+
+// Cache for saved resources: userId -> Map<uuid, { isSaved: boolean, resourceId?: string }>
+type SavedResourceCache = Map<
+  string,
+  { isSaved: boolean; resourceId?: string }
+>;
+const SAVED_RESOURCES_CACHE_KEY = "discoverynext_saved_resources_cache";
+
+// Load cache from localStorage
+const loadCacheFromStorage = (): Map<string, SavedResourceCache> => {
+  if (typeof window === "undefined") return new Map();
+
+  try {
+    const stored = localStorage.getItem(SAVED_RESOURCES_CACHE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      const cache = new Map<string, SavedResourceCache>();
+      for (const [userId, userCache] of Object.entries(parsed)) {
+        cache.set(userId, new Map(Object.entries(userCache as any)));
+      }
+      return cache;
+    }
+  } catch (error) {
+    console.error(
+      "Error loading saved resources cache from localStorage:",
+      error
+    );
+  }
+  return new Map();
+};
+
+// Save cache to localStorage
+const saveCacheToStorage = (cache: Map<string, SavedResourceCache>) => {
+  if (typeof window === "undefined") return;
+
+  try {
+    const serializable: Record<string, Record<string, any>> = {};
+    for (const [userId, userCache] of cache.entries()) {
+      serializable[userId] = Object.fromEntries(userCache);
+    }
+    localStorage.setItem(
+      SAVED_RESOURCES_CACHE_KEY,
+      JSON.stringify(serializable)
+    );
+  } catch (error) {
+    console.error("Error saving saved resources cache to localStorage:", error);
+  }
+};
 
 const loadFirebaseFirestoreModules = async () => {
   if (firebaseFirestoreModules) return firebaseFirestoreModules;
@@ -17,6 +71,7 @@ const loadFirebaseFirestoreModules = async () => {
       query,
       where,
       getDocs,
+      getDoc,
       addDoc,
       deleteDoc,
       doc,
@@ -33,6 +88,7 @@ const loadFirebaseFirestoreModules = async () => {
     query,
     where,
     getDocs,
+    getDoc,
     addDoc,
     deleteDoc,
     doc,
@@ -85,6 +141,11 @@ export function useFirebase() {
 
 export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [firestoreReady, setFirestoreReady] = useState(false);
+  
+  // Cache for saved resources: userId -> Map<uuid, { isSaved, resourceId }>
+  const savedResourcesCacheRef = useRef<Map<string, SavedResourceCache>>(
+    loadCacheFromStorage()
+  );
 
   // Only run Firebase logic on client side
   useEffect(() => {
@@ -128,6 +189,16 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
 
     return {
       checkIfResourceSaved: async (userId: string, uuid: string) => {
+        // Check cache first
+        const userCache = savedResourcesCacheRef.current.get(userId);
+        if (userCache) {
+          const cached = userCache.get(uuid);
+          if (cached !== undefined) {
+            return cached;
+          }
+        }
+
+        // Cache miss - fetch from Firebase
         const { collection, query, where, getDocs } =
           await loadFirebaseFirestoreModules();
 
@@ -138,11 +209,18 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         );
         const querySnapshot = await getDocs(q);
 
-        if (!querySnapshot.empty) {
-          const doc = querySnapshot.docs[0];
-          return { isSaved: true, resourceId: doc.id };
+        const result = querySnapshot.empty
+          ? { isSaved: false }
+          : { isSaved: true, resourceId: querySnapshot.docs[0].id };
+
+        // Update cache
+        if (!savedResourcesCacheRef.current.has(userId)) {
+          savedResourcesCacheRef.current.set(userId, new Map());
         }
-        return { isSaved: false };
+        savedResourcesCacheRef.current.get(userId)!.set(uuid, result);
+        saveCacheToStorage(savedResourcesCacheRef.current);
+
+        return result;
       },
 
       saveResource: async (userId: string, resourceData: any) => {
@@ -159,12 +237,47 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
           collection(firebaseDb, "saved_resources"),
           dataWithTimestamp
         );
+        
+        // Update cache
+        if (!savedResourcesCacheRef.current.has(userId)) {
+          savedResourcesCacheRef.current.set(userId, new Map());
+        }
+        const uuid = resourceData.uuid;
+        savedResourcesCacheRef.current.get(userId)!.set(uuid, {
+          isSaved: true,
+          resourceId: docRef.id,
+        });
+        saveCacheToStorage(savedResourcesCacheRef.current);
+
         return docRef.id;
       },
 
       unsaveResource: async (resourceId: string) => {
-        const { deleteDoc, doc } = await loadFirebaseFirestoreModules();
-        await deleteDoc(doc(firebaseDb, "saved_resources", resourceId));
+        const { deleteDoc, doc, getDoc } =
+          await loadFirebaseFirestoreModules();
+        
+        // First, get the document to find userId and uuid for cache update
+        const docRef = doc(firebaseDb, "saved_resources", resourceId);
+        const docSnapshot = await getDoc(docRef);
+        
+        if (docSnapshot.exists()) {
+          const docData = docSnapshot.data();
+          const userId = docData.uid;
+          const uuid = docData.uuid;
+          
+          // Delete from Firebase
+          await deleteDoc(docRef);
+          
+          // Update cache
+          const userCache = savedResourcesCacheRef.current.get(userId);
+          if (userCache && uuid) {
+            userCache.set(uuid, { isSaved: false });
+            saveCacheToStorage(savedResourcesCacheRef.current);
+          }
+        } else {
+          // Document doesn't exist, just try to delete anyway
+          await deleteDoc(docRef);
+        }
       },
 
       submitFeedback: async (rating: number, comment?: string) => {

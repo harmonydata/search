@@ -32,6 +32,7 @@ import SearchFeedbackDialog, {
 } from "@/components/SearchFeedbackDialog";
 import { submitSearchFeedback } from "@/services/feedback";
 import { Bug } from "lucide-react";
+import ComingSoonDialog from "@/components/ComingSoonDialog";
 import {
   fetchSearchResults,
   fetchAggregateFilters,
@@ -104,6 +105,10 @@ function DiscoverPageContent() {
   const [selectedResultForFeedback, setSelectedResultForFeedback] =
     useState<SearchResult | null>(null);
   const [selectedResultIndex, setSelectedResultIndex] = useState(-1);
+
+  // Coming soon dialog state
+  const [comingSoonOpen, setComingSoonOpen] = useState(false);
+  const [comingSoonFeature, setComingSoonFeature] = useState<string>("");
 
   const resultsPerPage = 50;
 
@@ -262,8 +267,14 @@ function DiscoverPageContent() {
     );
   }, []);
 
-  // Save search function
+  // Save search function - currently shows coming soon dialog
   const saveSearch = async () => {
+    // For initial launch, show coming soon dialog instead of saving
+    setComingSoonFeature("Save Search");
+    setComingSoonOpen(true);
+
+    // Keep the original code commented for future use
+    /*
     if (!currentUser || !searchSettings.query.trim() || savingSearch) return;
 
     setSavingSearch(true);
@@ -288,6 +299,7 @@ function DiscoverPageContent() {
     } finally {
       setSavingSearch(false);
     }
+    */
   };
 
   // Simple state for study detail - no lookup logic here
@@ -1330,36 +1342,20 @@ function DiscoverPageContent() {
                 `, Total: ${lastSearchTime}ms)`}
             </Typography>
 
-            {/* Save search button - always visible when user is logged in to prevent layout shift */}
-            {currentUser && (
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={
-                  saveSearchSuccess ? (
-                    <Bookmark size={16} fill="currentColor" />
-                  ) : (
-                    <Bookmark size={16} />
-                  )
-                }
-                onClick={saveSearch}
-                disabled={
-                  savingSearch || !searchSettings.query.trim() || loading
-                }
-                sx={{
-                  ml: 2,
-                  color: saveSearchSuccess ? "success.main" : "inherit",
-                  borderColor: saveSearchSuccess ? "success.main" : "inherit",
-                }}
-                title="Save this search"
-              >
-                {savingSearch
-                  ? "Saving..."
-                  : saveSearchSuccess
-                  ? "Saved!"
-                  : "Save Search"}
-              </Button>
-            )}
+            {/* Save search button - always visible */}
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<Bookmark size={16} />}
+              onClick={saveSearch}
+              disabled={!searchSettings.query.trim() || loading}
+              sx={{
+                ml: 2,
+              }}
+              title="Save this search"
+            >
+              Save Search
+            </Button>
           </Box>
         )}
 
@@ -1837,6 +1833,11 @@ function DiscoverPageContent() {
                 )
               : -1,
         }}
+      />
+      <ComingSoonDialog
+        open={comingSoonOpen}
+        onClose={() => setComingSoonOpen(false)}
+        featureName={comingSoonFeature}
       />
     </Box>
   );

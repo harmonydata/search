@@ -16,6 +16,7 @@ import { getAssetPrefix } from "@/lib/utils/shared";
 import { usePathname } from "next/navigation";
 import AccountAvatar from "./AccountAvatar";
 import { getCurrentDomain, getReactAppPath } from "@/lib/utils/urlHelpers";
+import ComingSoonDialog from "./ComingSoonDialog";
 
 const baseNavigationItems = [
   {
@@ -53,6 +54,21 @@ const baseNavigationItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [navigationItems, setNavigationItems] = useState(baseNavigationItems);
+  const [comingSoonOpen, setComingSoonOpen] = useState(false);
+  const [comingSoonFeature, setComingSoonFeature] = useState<string>("");
+
+  const handleNavigationClick = (
+    e: React.MouseEvent,
+    item: (typeof baseNavigationItems)[0]
+  ) => {
+    // For Browse, Explore, Compare, and Saves, show coming soon dialog
+    if (["Browse", "Explore", "Compare", "Saves"].includes(item.text)) {
+      e.preventDefault();
+      setComingSoonFeature(item.text);
+      setComingSoonOpen(true);
+    }
+    // Search and Harmonise should work normally
+  };
 
   // Generate harmonise link on client side only
   useEffect(() => {
@@ -129,6 +145,7 @@ export default function Sidebar() {
                 key={item.text}
                 component={LinkComponent}
                 {...linkProps}
+                onClick={(e) => handleNavigationClick(e, item)}
                 selected={!isExternal && pathname === item.href}
                 sx={{
                   flexDirection: "column",
@@ -279,6 +296,7 @@ export default function Sidebar() {
                 <ListItemButton
                   component={LinkComponent}
                   {...linkProps}
+                  onClick={(e) => handleNavigationClick(e, item)}
                   selected={!isExternal && pathname === item.href}
                   sx={{
                     minHeight: 48,
@@ -365,6 +383,11 @@ export default function Sidebar() {
           <AccountAvatar isMobile={false} />
         </Box>
       </Box>
+      <ComingSoonDialog
+        open={comingSoonOpen}
+        onClose={() => setComingSoonOpen(false)}
+        featureName={comingSoonFeature}
+      />
     </>
   );
 }

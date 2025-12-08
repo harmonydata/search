@@ -16,6 +16,7 @@ import DataCatalogCard from "@/components/DataCatalogCard";
 import OrganizationCard from "@/components/OrganizationCard";
 import TextWithLinkPreviews from "@/components/TextWithLinkPreviews";
 import LinkPreviewCard from "@/components/LinkPreviewCard";
+import ComingSoonDialog from "@/components/ComingSoonDialog";
 import dynamic from "next/dynamic";
 
 // Dynamically import heavy data grid components to reduce initial bundle size
@@ -55,6 +56,7 @@ const StudyDetailComponent = ({
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedResourceId, setSavedResourceId] = useState<string | null>(null);
+  const [comingSoonOpen, setComingSoonOpen] = useState(false);
 
   // Internal lookup state
   const [enhancedStudy, setEnhancedStudy] = useState<SearchResult | null>(null);
@@ -241,6 +243,11 @@ const StudyDetailComponent = ({
   }, [currentUser, displayStudy.extra_data?.uuid, checkIfResourceSaved]);
 
   const toggleSave = async () => {
+    // For initial launch, show coming soon dialog instead of saving
+    setComingSoonOpen(true);
+
+    // Keep the original code commented for future use
+    /*
     if (!currentUser || !displayStudy.extra_data?.uuid || saving) return;
 
     setSaving(true);
@@ -293,6 +300,7 @@ const StudyDetailComponent = ({
     } finally {
       setSaving(false);
     }
+    */
   };
 
   useEffect(() => {
@@ -488,28 +496,29 @@ const StudyDetailComponent = ({
         </Box>
       )}
 
-      {/* Bookmark button for drawer mode */}
-      {isDrawerView && currentUser && (
+      {/* Bookmark button for drawer mode - always visible */}
+      {isDrawerView && (
         <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
           <IconButton
             onClick={toggleSave}
             disabled={saving}
             sx={{
-              color: isSaved ? "primary.main" : "text.secondary",
+              color: "text.secondary",
               "&:hover": {
-                color: isSaved ? "primary.dark" : "primary.main",
+                color: "primary.main",
               },
             }}
-            title={isSaved ? "Remove from saved" : "Save to my resources"}
+            title="Save to my resources"
           >
-            {saving ? (
-              <CircularProgress size={20} />
-            ) : (
-              <Bookmark size={20} fill={isSaved ? "currentColor" : "none"} />
-            )}
+            <Bookmark size={20} fill="none" />
           </IconButton>
         </Box>
       )}
+      <ComingSoonDialog
+        open={comingSoonOpen}
+        onClose={() => setComingSoonOpen(false)}
+        featureName="Bookmark Study"
+      />
 
       {/* Only show title in the detail view if not in drawer mode */}
       {!isDrawerView && (
@@ -535,29 +544,20 @@ const StudyDetailComponent = ({
                 {title}
               </Typography>
 
-              {/* Save button - only visible when user is logged in */}
-              {currentUser && (
-                <IconButton
-                  onClick={toggleSave}
-                  disabled={saving}
-                  sx={{
-                    color: isSaved ? "primary.main" : "text.secondary",
-                    "&:hover": {
-                      color: isSaved ? "primary.dark" : "primary.main",
-                    },
-                  }}
-                  title={isSaved ? "Remove from saved" : "Save to my resources"}
-                >
-                  {saving ? (
-                    <CircularProgress size={20} />
-                  ) : (
-                    <Bookmark
-                      size={20}
-                      fill={isSaved ? "currentColor" : "none"}
-                    />
-                  )}
-                </IconButton>
-              )}
+              {/* Save button - always visible */}
+              <IconButton
+                onClick={toggleSave}
+                disabled={saving}
+                sx={{
+                  color: "text.secondary",
+                  "&:hover": {
+                    color: "primary.main",
+                  },
+                }}
+                title="Save to my resources"
+              >
+                <Bookmark size={20} fill="none" />
+              </IconButton>
             </Box>
           </Box>
 

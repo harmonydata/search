@@ -6,6 +6,7 @@ import { Bookmark } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFirebase } from "@/contexts/FirebaseContext";
 import { SearchResult } from "@/services/api";
+import ComingSoonDialog from "./ComingSoonDialog";
 
 interface BookmarkButtonProps {
   study: SearchResult;
@@ -19,6 +20,7 @@ const BookmarkButton = ({
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedResourceId, setSavedResourceId] = useState<string | null>(null);
+  const [comingSoonOpen, setComingSoonOpen] = useState(false);
 
   const { currentUser } = useAuth();
   const { checkIfResourceSaved, saveResource, unsaveResource } = useFirebase();
@@ -44,6 +46,11 @@ const BookmarkButton = ({
   }, [currentUser, study.extra_data?.uuid, checkIfResourceSaved]);
 
   const toggleSave = async () => {
+    // For initial launch, show coming soon dialog instead of saving
+    setComingSoonOpen(true);
+
+    // Keep the original code commented for future use
+    /*
     if (!currentUser || !study.extra_data?.uuid || saving) return;
 
     setSaving(true);
@@ -94,28 +101,30 @@ const BookmarkButton = ({
     } finally {
       setSaving(false);
     }
+    */
   };
 
-  if (!currentUser) return null;
-
   return (
-    <IconButton
-      onClick={toggleSave}
-      disabled={saving}
-      sx={{
-        color: isSaved ? "primary.main" : "text.secondary",
-        "&:hover": {
-          color: isSaved ? "primary.dark" : "primary.main",
-        },
-      }}
-      title={isSaved ? "Remove from saved" : "Save to my resources"}
-    >
-      {saving ? (
-        <CircularProgress size={20} />
-      ) : (
-        <Bookmark size={20} fill={isSaved ? "currentColor" : "none"} />
-      )}
-    </IconButton>
+    <>
+      <IconButton
+        onClick={toggleSave}
+        disabled={saving}
+        sx={{
+          color: isSaved ? "primary.main" : "text.secondary",
+          "&:hover": {
+            color: isSaved ? "primary.dark" : "primary.main",
+          },
+        }}
+        title="Save to my resources"
+      >
+        <Bookmark size={20} fill="none" />
+      </IconButton>
+      <ComingSoonDialog
+        open={comingSoonOpen}
+        onClose={() => setComingSoonOpen(false)}
+        featureName="Bookmark Study"
+      />
+    </>
   );
 };
 

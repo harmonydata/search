@@ -20,6 +20,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getAssetPrefix } from "@/lib/utils/shared";
 import { getCurrentDomain, getReactAppPath } from "@/lib/utils/urlHelpers";
+import ComingSoonDialog from "./ComingSoonDialog";
 const settings = ["My Harmony", "Logout"];
 
 const SettingsIcons = {
@@ -68,6 +69,22 @@ export default function AccountAvatar({
   isMobile = false,
 }: AccountAvatarProps) {
   const [anchorUser, setAnchorUser] = useState<null | HTMLElement>(null);
+  const [comingSoonOpen, setComingSoonOpen] = useState(false);
+  const [comingSoonFeature, setComingSoonFeature] = useState<string>("");
+
+  const handleNavigationClick = (
+    e: React.MouseEvent,
+    item: (typeof baseNavigationItems)[0]
+  ) => {
+    // For Browse, Explore, Compare, and Saves, show coming soon dialog
+    if (["Browse", "Explore", "Compare", "Saves"].includes(item.text)) {
+      e.preventDefault();
+      setComingSoonFeature(item.text);
+      setComingSoonOpen(true);
+      handleCloseUserMenu();
+    }
+    // Search and Harmonise should work normally
+  };
   const [navigationItems, setNavigationItems] = useState(baseNavigationItems);
   const pathname = usePathname();
   const {
@@ -170,7 +187,16 @@ export default function AccountAvatar({
                 key={item.text}
                 component={isExternal ? "a" : Link}
                 href={item.href}
-                onClick={handleCloseUserMenu}
+                onClick={(e) => {
+                  handleNavigationClick(e, item);
+                  if (
+                    !["Browse", "Explore", "Compare", "Saves"].includes(
+                      item.text
+                    )
+                  ) {
+                    handleCloseUserMenu();
+                  }
+                }}
                 sx={{
                   color: isActive ? "primary.main" : "inherit",
                   bgcolor: isActive ? "action.selected" : "inherit",
@@ -255,6 +281,11 @@ export default function AccountAvatar({
           </MenuItem>
         )}
       </Menu>
+      <ComingSoonDialog
+        open={comingSoonOpen}
+        onClose={() => setComingSoonOpen(false)}
+        featureName={comingSoonFeature}
+      />
     </>
   );
 }

@@ -50,6 +50,17 @@ function cleanUrl(url: string): string {
   return url;
 }
 
+// Helper function to get Google's favicon service URL for a domain
+function getGoogleFaviconUrl(url: string, size: number = 32): string | null {
+  try {
+    const urlObj = new URL(url);
+    const domain = urlObj.hostname.replace(/^www\./, ""); // Remove www. prefix
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=${size}`;
+  } catch (e) {
+    return null;
+  }
+}
+
 interface OpenGraphData {
   title: string;
   description: string;
@@ -143,18 +154,24 @@ export default function LinkPreviewCard({
         // Wait for the request to complete
         let data = await requestPromise;
 
-        // If favicon is empty or just "/favicon.ico", try fetching from the server's /favicon.ico
+        // If favicon is empty or just "/favicon.ico", try Google's favicon service
         if (
           !data.favicon ||
           data.favicon === "/favicon.ico" ||
           data.favicon.trim() === ""
         ) {
-          try {
-            const targetUrl = data.finalUrl || data.url || url;
-            const urlObj = new URL(targetUrl);
-            data.favicon = `${urlObj.origin}/favicon.ico`;
-          } catch (e) {
-            // If URL parsing fails, leave favicon empty
+          const targetUrl = data.finalUrl || data.url || url;
+          const googleFavicon = getGoogleFaviconUrl(targetUrl, 32);
+          if (googleFavicon) {
+            data.favicon = googleFavicon;
+          } else {
+            // Fallback to server's /favicon.ico if Google service fails
+            try {
+              const urlObj = new URL(targetUrl);
+              data.favicon = `${urlObj.origin}/favicon.ico`;
+            } catch (e) {
+              // If URL parsing fails, leave favicon empty
+            }
           }
         }
 
@@ -164,13 +181,19 @@ export default function LinkPreviewCard({
             // Use the favicon we already have
             data.image = data.favicon;
           } else {
-            // If favicon is also empty, try constructing /favicon.ico URL
-            try {
-              const targetUrl = data.finalUrl || data.url || url;
-              const urlObj = new URL(targetUrl);
-              data.image = `${urlObj.origin}/favicon.ico`;
-            } catch (e) {
-              // If URL parsing fails, leave image empty
+            // If favicon is also empty, try Google's favicon service
+            const targetUrl = data.finalUrl || data.url || url;
+            const googleFavicon = getGoogleFaviconUrl(targetUrl, 128);
+            if (googleFavicon) {
+              data.image = googleFavicon;
+            } else {
+              // Fallback to server's /favicon.ico if Google service fails
+              try {
+                const urlObj = new URL(targetUrl);
+                data.image = `${urlObj.origin}/favicon.ico`;
+              } catch (e) {
+                // If URL parsing fails, leave image empty
+              }
             }
           }
         }
@@ -190,10 +213,23 @@ export default function LinkPreviewCard({
   }, [url]);
 
   const handleImageError = () => {
-    // If image fails to load and we have ogData, try favicon.ico as fallback
+    // If image fails to load and we have ogData, try Google's favicon service as fallback
     if (ogData && ogData.image && !imageError) {
       try {
         const targetUrl = ogData.finalUrl || ogData.url || url;
+
+        // Try Google's favicon service first
+        const googleFavicon = getGoogleFaviconUrl(targetUrl, 128);
+        if (googleFavicon && ogData.image !== googleFavicon) {
+          setOgData({
+            ...ogData,
+            image: googleFavicon,
+          });
+          // Don't set imageError to true yet - wait to see if Google favicon works
+          return;
+        }
+
+        // Fallback to server's /favicon.ico
         const urlObj = new URL(targetUrl);
         const faviconUrl = `${urlObj.origin}/favicon.ico`;
 
@@ -218,10 +254,23 @@ export default function LinkPreviewCard({
   };
 
   const handleFaviconError = () => {
-    // If favicon fails to load and we haven't already tried the fallback, try server's /favicon.ico
+    // If favicon fails to load, try Google's favicon service
     if (ogData && !faviconError) {
       try {
         const targetUrl = ogData.finalUrl || ogData.url || url;
+
+        // Try Google's favicon service first
+        const googleFavicon = getGoogleFaviconUrl(targetUrl, 32);
+        if (googleFavicon && ogData.favicon !== googleFavicon) {
+          setOgData({
+            ...ogData,
+            favicon: googleFavicon,
+          });
+          setFaviconError(true); // Mark that we tried, to prevent infinite retries
+          return;
+        }
+
+        // Fallback to server's /favicon.ico
         const urlObj = new URL(targetUrl);
         const faviconUrl = `${urlObj.origin}/favicon.ico`;
 

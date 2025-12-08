@@ -978,23 +978,25 @@ const StudyDetailComponent = ({
                   },
                 }}
               >
-                {additionalLinks?.map((link, index) => {
-                  const isLast = index === (additionalLinks?.length ?? 0) - 1;
-                  const isOdd = (additionalLinks?.length ?? 0) % 2 !== 0;
-                  const shouldSpanFull = isLast && isOdd;
+                {additionalLinks
+                  ?.filter((link) => link && link.trim() !== "") // Filter out empty strings
+                  .map((link, index, filteredLinks) => {
+                    const isLast = index === filteredLinks.length - 1;
+                    const isOdd = filteredLinks.length % 2 !== 0;
+                    const shouldSpanFull = isLast && isOdd;
 
-                  return (
-                    <Box
-                      key={`link-${index}`}
-                      sx={{
-                        display: "flex",
-                        gridColumn: shouldSpanFull ? "1 / -1" : "auto",
-                      }}
-                    >
-                      <LinkPreviewCard url={link} />
-                    </Box>
-                  );
-                })}
+                    return (
+                      <Box
+                        key={`link-${index}`}
+                        sx={{
+                          display: "flex",
+                          gridColumn: shouldSpanFull ? "1 / -1" : "auto",
+                        }}
+                      >
+                        <LinkPreviewCard url={link} />
+                      </Box>
+                    );
+                  })}
               </Box>
             )}
           </Collapse>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, Box, Typography, Skeleton, CardContent } from "@mui/material";
 import Image from "next/image";
 import { ExternalLink } from "lucide-react";
@@ -91,10 +91,48 @@ export default function LinkPreviewCard({
   const [error, setError] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
   const [faviconError, setFaviconError] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Don't render if URL is empty or just whitespace
+  if (!url || url.trim() === "") {
+    return null;
+  }
+
+  // Intersection Observer to detect when card comes into view
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+            // Once visible, we can disconnect the observer
+            observer.disconnect();
+          }
+        });
+      },
+      {
+        // Start loading when the card is within 200px of the viewport
+        rootMargin: "200px",
+        threshold: 0.01,
+      }
+    );
+
+    if (cardRef.current) {
+      observer.observe(cardRef.current);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
+    // Only fetch OG data when the card is visible
+    if (!isVisible) return;
+
     async function fetchOpenGraphData() {
-      if (!url) return;
+      if (!url || url.trim() === "") return;
 
       setLoading(true);
       setError(null);
@@ -210,7 +248,7 @@ export default function LinkPreviewCard({
     }
 
     fetchOpenGraphData();
-  }, [url]);
+  }, [url, isVisible]);
 
   const handleImageError = () => {
     // If image fails to load and we have ogData, try Google's favicon service as fallback
@@ -319,9 +357,10 @@ export default function LinkPreviewCard({
     );
   }
 
-  if (loading) {
+  if (loading || !isVisible) {
     return (
       <Card
+        ref={cardRef}
         elevation={0}
         sx={{
           display: "flex",
@@ -378,6 +417,7 @@ export default function LinkPreviewCard({
 
   return (
     <Card
+      ref={cardRef}
       elevation={0}
       sx={{
         display: "flex",

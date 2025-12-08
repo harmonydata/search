@@ -306,7 +306,11 @@ const DatasetDetail = memo(function DatasetDetail({
             onClick={() => toggleSection("links")}
           >
             <Typography variant="h5" component="h2">
-              Additional Links ({dataset.additionalLinks.length})
+              Additional Links (
+              {dataset.additionalLinks.filter(
+                (link) => link && link.trim() !== ""
+              ).length}
+              )
             </Typography>
             <IconButton size="small" sx={{ ml: 1 }}>
               {expandedSections.links ? <ChevronUp /> : <ChevronDown />}
@@ -323,24 +327,25 @@ const DatasetDetail = memo(function DatasetDetail({
                 },
               }}
             >
-              {dataset.additionalLinks.map((link, index) => {
-                const linksLength = dataset.additionalLinks?.length ?? 0;
-                const isLast = index === linksLength - 1;
-                const isOdd = linksLength % 2 !== 0;
-                const shouldSpanFull = isLast && isOdd;
+              {dataset.additionalLinks
+                .filter((link) => link && link.trim() !== "") // Filter out empty strings
+                .map((link, index, filteredLinks) => {
+                  const isLast = index === filteredLinks.length - 1;
+                  const isOdd = filteredLinks.length % 2 !== 0;
+                  const shouldSpanFull = isLast && isOdd;
 
-                return (
-                  <Box
-                    key={index}
-                    sx={{
-                      display: "flex",
-                      gridColumn: shouldSpanFull ? "1 / -1" : "auto",
-                    }}
-                  >
-                    <LinkPreviewCard url={link} />
-                  </Box>
-                );
-              })}
+                  return (
+                    <Box
+                      key={index}
+                      sx={{
+                        display: "flex",
+                        gridColumn: shouldSpanFull ? "1 / -1" : "auto",
+                      }}
+                    >
+                      <LinkPreviewCard url={link} />
+                    </Box>
+                  );
+                })}
             </Box>
           </Collapse>
         </Box>

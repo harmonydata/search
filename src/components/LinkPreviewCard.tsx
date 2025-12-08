@@ -79,6 +79,7 @@ export default function LinkPreviewCard({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
+  const [faviconError, setFaviconError] = useState(false);
 
   useEffect(() => {
     async function fetchOpenGraphData() {
@@ -87,6 +88,7 @@ export default function LinkPreviewCard({
       setLoading(true);
       setError(null);
       setImageError(false);
+      setFaviconError(false);
 
       try {
         // Check if the URL is already cached client-side
@@ -139,7 +141,40 @@ export default function LinkPreviewCard({
         }
 
         // Wait for the request to complete
-        const data = await requestPromise;
+        let data = await requestPromise;
+
+        // If favicon is empty or just "/favicon.ico", try fetching from the server's /favicon.ico
+        if (
+          !data.favicon ||
+          data.favicon === "/favicon.ico" ||
+          data.favicon.trim() === ""
+        ) {
+          try {
+            const targetUrl = data.finalUrl || data.url || url;
+            const urlObj = new URL(targetUrl);
+            data.favicon = `${urlObj.origin}/favicon.ico`;
+          } catch (e) {
+            // If URL parsing fails, leave favicon empty
+          }
+        }
+
+        // If image is empty, use the favicon as fallback
+        if (!data.image || data.image.trim() === "") {
+          if (data.favicon && data.favicon.trim() !== "") {
+            // Use the favicon we already have
+            data.image = data.favicon;
+          } else {
+            // If favicon is also empty, try constructing /favicon.ico URL
+            try {
+              const targetUrl = data.finalUrl || data.url || url;
+              const urlObj = new URL(targetUrl);
+              data.image = `${urlObj.origin}/favicon.ico`;
+            } catch (e) {
+              // If URL parsing fails, leave image empty
+            }
+          }
+        }
+
         setOgData(data);
       } catch (err) {
         console.error("Error fetching Open Graph data:", err);
@@ -155,7 +190,57 @@ export default function LinkPreviewCard({
   }, [url]);
 
   const handleImageError = () => {
-    setImageError(true);
+    // If image fails to load and we have ogData, try favicon.ico as fallback
+    if (ogData && ogData.image && !imageError) {
+      try {
+        const targetUrl = ogData.finalUrl || ogData.url || url;
+        const urlObj = new URL(targetUrl);
+        const faviconUrl = `${urlObj.origin}/favicon.ico`;
+
+        // Only update if the current image is not already the favicon
+        if (ogData.image !== faviconUrl) {
+          setOgData({
+            ...ogData,
+            image: faviconUrl,
+          });
+          // Don't set imageError to true yet - wait to see if favicon works
+        } else {
+          // If we already tried favicon and it failed, mark as error
+          setImageError(true);
+        }
+      } catch (e) {
+        // If URL parsing fails, mark as error
+        setImageError(true);
+      }
+    } else {
+      setImageError(true);
+    }
+  };
+
+  const handleFaviconError = () => {
+    // If favicon fails to load and we haven't already tried the fallback, try server's /favicon.ico
+    if (ogData && !faviconError) {
+      try {
+        const targetUrl = ogData.finalUrl || ogData.url || url;
+        const urlObj = new URL(targetUrl);
+        const faviconUrl = `${urlObj.origin}/favicon.ico`;
+
+        // Only update if the current favicon is not already the server's favicon.ico
+        if (ogData.favicon !== faviconUrl) {
+          setOgData({
+            ...ogData,
+            favicon: faviconUrl,
+          });
+          setFaviconError(true); // Mark that we tried, to prevent infinite retries
+        } else {
+          // Already tried the fallback, so just mark as error
+          setFaviconError(true);
+        }
+      } catch (e) {
+        // If URL parsing fails, mark as error
+        setFaviconError(true);
+      }
+    }
   };
 
   if (error) {
@@ -259,6 +344,7 @@ export default function LinkPreviewCard({
         cursor: "pointer",
         transition: "all 0.2s",
         opacity: ogData.isFallback ? 0.8 : 1,
+        flex: 1, // Allow card to fill container height
         "&:hover": {
           boxShadow: 2,
           borderColor: ogData.isFallback ? "grey.400" : "primary.main",
@@ -283,7 +369,7 @@ export default function LinkPreviewCard({
             src={ogData.image}
             alt={ogData.title || "Link preview"}
             fill
-            style={{ objectFit: "cover" }}
+            style={{ objectFit: "contain" }}
             onError={handleImageError}
             unoptimized={true}
           />
@@ -299,6 +385,7 @@ export default function LinkPreviewCard({
           flexDirection: "column",
           justifyContent: "space-between",
           bgcolor: "rgba(0,0,0,0.01)",
+          minHeight: 0, // Allow flex shrinking
         }}
       >
         <Box>
@@ -359,6 +446,7 @@ export default function LinkPreviewCard({
                 height={16}
                 style={{ objectFit: "contain" }}
                 unoptimized={true}
+                onError={handleFaviconError}
               />
             </Box>
           )}
@@ -400,7 +488,7 @@ export default function LinkPreviewCard({
             src={ogData.image}
             alt={ogData.title || "Link preview"}
             fill
-            style={{ objectFit: "cover" }}
+            style={{ objectFit: "contain" }}
             onError={handleImageError}
             unoptimized={true}
           />

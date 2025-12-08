@@ -10,6 +10,7 @@ interface SearchResultsProps {
   onSelectResult?: (result: SearchResult) => void;
   selectedResultId?: string;
   onFindSimilar?: (result: SearchResult) => void;
+  onReportResult?: (result: SearchResult, index: number) => void;
   collapsed?: boolean;
   hasActiveSearch?: boolean; // Whether user has entered a search query or applied filters
 }
@@ -20,6 +21,7 @@ export default function SearchResults({
   onSelectResult,
   selectedResultId,
   onFindSimilar,
+  onReportResult,
   collapsed = false,
   hasActiveSearch = false,
 }: SearchResultsProps) {
@@ -87,6 +89,9 @@ export default function SearchResults({
               isSelected={isSelected}
               onClick={() => handleSelectResult(result)}
               onFindSimilar={onFindSimilar}
+              onReportResult={
+                onReportResult ? () => onReportResult(result, index) : undefined
+              }
             />
           );
         })}

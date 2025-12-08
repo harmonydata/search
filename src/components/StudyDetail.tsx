@@ -6,9 +6,10 @@ import {
   Collapse,
   IconButton,
   CircularProgress,
+  Tooltip,
 } from "@mui/material";
 import Image from "next/image";
-import { ChevronDown, ChevronUp, Bookmark } from "lucide-react";
+import { ChevronDown, ChevronUp, Bookmark, Info } from "lucide-react";
 import { useState, memo, useMemo, useEffect, useRef } from "react";
 import SquareChip from "@/components/SquareChip";
 import DataCatalogCard from "@/components/DataCatalogCard";
@@ -48,24 +49,12 @@ const StudyDetailComponent = ({
   studyDataComplete = false,
 }: StudyDetailProps) => {
   // Client-side state
-  const [variablesExpanded, setVariablesExpanded] = useState(false);
-  const [additionalLinksExpanded, setAdditionalLinksExpanded] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [showAiSummary, setShowAiSummary] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedResourceId, setSavedResourceId] = useState<string | null>(null);
-  const [instrumentsExpanded, setInstrumentsExpanded] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<{
-    [key: string]: boolean;
-  }>({
-    description: true,
-    details: false,
-    variables: false,
-    links: false,
-    childDatasets: false,
-  });
 
   // Internal lookup state
   const [enhancedStudy, setEnhancedStudy] = useState<SearchResult | null>(null);
@@ -97,7 +86,17 @@ const StudyDetailComponent = ({
   }, []);
 
   // Use enhanced study data if available, otherwise fall back to original study
-  const displayStudy = enhancedStudy || study;
+  // Preserve child_datasets from original study if enhanced study doesn't have them
+  const displayStudy = enhancedStudy
+    ? {
+        ...enhancedStudy,
+        child_datasets:
+          enhancedStudy.child_datasets &&
+          enhancedStudy.child_datasets.length > 0
+            ? enhancedStudy.child_datasets
+            : study.child_datasets,
+      }
+    : study;
 
   // Reset enhanced study when the study prop changes
   useEffect(() => {
@@ -370,10 +369,7 @@ const StudyDetailComponent = ({
   ]);
 
   const toggleSection = (section: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
+    // Accordions are always open, no-op
   };
 
   // Prepare deduped list of all variables for the DataGrid with repeat counts
@@ -671,27 +667,18 @@ const StudyDetailComponent = ({
           <SquareChip
             fullWidth
             chipVariant="secondary"
-            endIcon={
-              variablesExpanded ? (
-                <ChevronUp
-                  size={16}
-                  style={{ fill: "#004735", stroke: "none" }}
-                />
-              ) : (
-                <ChevronDown
-                  size={16}
-                  style={{ fill: "#004735", stroke: "none" }}
-                />
-              )
-            }
             sx={{ justifyContent: "space-between", py: 2, height: "auto" }}
-            onClick={() => setVariablesExpanded(!variablesExpanded)}
           >
-            {!matchedCount
-              ? `Variables (${totalCount})`
-              : `Related Variables (${matchedCount} / ${totalCount})`}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              {!matchedCount
+                ? `Variables (${totalCount})`
+                : `Related Variables (${matchedCount} / ${totalCount})`}
+              <Tooltip title="This list is intended as an overview of variables and may not be comprehensive. Metadata is limited to information available from available sources. Always refer to source metadata.">
+                <Info size={16} style={{ cursor: "help" }} />
+              </Tooltip>
+            </Box>
           </SquareChip>
-          <Collapse in={variablesExpanded}>
+          <Collapse in={true}>
             <Box
               sx={{
                 p: 2,
@@ -714,25 +701,11 @@ const StudyDetailComponent = ({
         <SquareChip
           fullWidth
           chipVariant="secondary"
-          endIcon={
-            expandedSections.details ? (
-              <ChevronUp
-                size={16}
-                style={{ fill: "#004735", stroke: "none" }}
-              />
-            ) : (
-              <ChevronDown
-                size={16}
-                style={{ fill: "#004735", stroke: "none" }}
-              />
-            )
-          }
           sx={{ justifyContent: "space-between", py: 2, height: "auto" }}
-          onClick={() => toggleSection("details")}
         >
           Details
         </SquareChip>
-        <Collapse in={expandedSections.details}>
+        <Collapse in={true}>
           <Box
             sx={{
               p: 2,
@@ -982,49 +955,46 @@ const StudyDetailComponent = ({
           <SquareChip
             fullWidth
             chipVariant="secondary"
-            endIcon={
-              additionalLinksExpanded ? (
-                <ChevronUp
-                  size={16}
-                  style={{ fill: "#004735", stroke: "none" }}
-                />
-              ) : (
-                <ChevronDown
-                  size={16}
-                  style={{ fill: "#004735", stroke: "none" }}
-                />
-              )
-            }
             sx={{
               justifyContent: "space-between",
               py: 2,
               height: "auto",
               mb: 2,
             }}
-            onClick={() => setAdditionalLinksExpanded(!additionalLinksExpanded)}
           >
             Related Links & Papers
           </SquareChip>
-          <Collapse in={additionalLinksExpanded}>
+          <Collapse in={true}>
             {/* Only render link previews when section is expanded */}
-            {additionalLinksExpanded && (
+            {true && (
               <Box
                 sx={{
-                  display: "flex",
-                  flexWrap: "wrap",
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, 1fr)",
                   gap: 2,
                   mb: 2,
-                  alignItems: "flex-start",
+                  "@media (max-width: 800px)": {
+                    gridTemplateColumns: "1fr",
+                  },
                 }}
               >
-                {additionalLinks?.map((link, index) => (
-                  <Box
-                    key={`link-${index}`}
-                    sx={{ flex: "1 1 350px", minWidth: 300, maxWidth: 500 }}
-                  >
-                    <LinkPreviewCard url={link} />
-                  </Box>
-                ))}
+                {additionalLinks?.map((link, index) => {
+                  const isLast = index === (additionalLinks?.length ?? 0) - 1;
+                  const isOdd = (additionalLinks?.length ?? 0) % 2 !== 0;
+                  const shouldSpanFull = isLast && isOdd;
+
+                  return (
+                    <Box
+                      key={`link-${index}`}
+                      sx={{
+                        display: "flex",
+                        gridColumn: shouldSpanFull ? "1 / -1" : "auto",
+                      }}
+                    >
+                      <LinkPreviewCard url={link} />
+                    </Box>
+                  );
+                })}
               </Box>
             )}
           </Collapse>
@@ -1037,30 +1007,16 @@ const StudyDetailComponent = ({
           <SquareChip
             fullWidth
             chipVariant="secondary"
-            endIcon={
-              instrumentsExpanded ? (
-                <ChevronUp
-                  size={16}
-                  style={{ fill: "#004735", stroke: "none" }}
-                />
-              ) : (
-                <ChevronDown
-                  size={16}
-                  style={{ fill: "#004735", stroke: "none" }}
-                />
-              )
-            }
             sx={{
               justifyContent: "space-between",
               py: 2,
               height: "auto",
               mb: 2,
             }}
-            onClick={() => setInstrumentsExpanded(!instrumentsExpanded)}
           >
             Instruments ({(study.extra_data?.instruments || []).length})
           </SquareChip>
-          <Collapse in={instrumentsExpanded}>
+          <Collapse in={true}>
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1 }}>
               {(study.extra_data?.instruments || []).map((instrument, idx) => (
                 <SquareChip
@@ -1083,31 +1039,17 @@ const StudyDetailComponent = ({
       )}
 
       {/* Child Datasets section - only if present */}
-      {Array.isArray(study.child_datasets) &&
-        (study.child_datasets || []).length > 0 && (
+      {Array.isArray(displayStudy.child_datasets) &&
+        (displayStudy.child_datasets || []).length > 0 && (
           <Box sx={{ mb: 4 }}>
             <SquareChip
               fullWidth
               chipVariant="secondary"
-              endIcon={
-                expandedSections.childDatasets ? (
-                  <ChevronUp
-                    size={16}
-                    style={{ fill: "#004735", stroke: "none" }}
-                  />
-                ) : (
-                  <ChevronDown
-                    size={16}
-                    style={{ fill: "#004735", stroke: "none" }}
-                  />
-                )
-              }
               sx={{ justifyContent: "space-between", py: 2, height: "auto" }}
-              onClick={() => toggleSection("childDatasets")}
             >
-              Related Datasets ({(study.child_datasets || []).length})
+              Related Datasets ({(displayStudy.child_datasets || []).length})
             </SquareChip>
-            <Collapse in={expandedSections.childDatasets}>
+            <Collapse in={true}>
               <Box
                 sx={{
                   p: 2,
@@ -1116,7 +1058,7 @@ const StudyDetailComponent = ({
                   mb: 2,
                 }}
               >
-                <ChildDatasetsDataGrid datasets={study.child_datasets} />
+                <ChildDatasetsDataGrid datasets={displayStudy.child_datasets} />
               </Box>
             </Collapse>
           </Box>

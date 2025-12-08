@@ -43,3 +43,31 @@ export const submitFeedback = async (rating: number, comment?: string) => {
     throw error;
   }
 };
+
+export const submitSearchFeedback = async (feedbackData: any) => {
+  try {
+    const { db, collection, addDoc, serverTimestamp } =
+      await loadFirebaseModules();
+
+    const searchFeedbackPayload = {
+      uid: "anon",
+      discovery_search_feedback: true, // Identifier for search feedback
+      reason: feedbackData.reason,
+      comment: feedbackData.comment || "",
+      reportedResult: feedbackData.reportedResult,
+      searchContext: feedbackData.searchContext,
+      created: serverTimestamp(),
+      source: "discoverynext",
+    };
+
+    const docRef = await addDoc(
+      collection(db, "ratings"),
+      searchFeedbackPayload
+    );
+    console.log("Search feedback submitted with ID: ", docRef.id);
+    return docRef;
+  } catch (error) {
+    console.error("Error submitting search feedback:", error);
+    throw error;
+  }
+};

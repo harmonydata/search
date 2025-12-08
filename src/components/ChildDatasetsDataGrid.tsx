@@ -8,6 +8,7 @@ import {
 } from "@mui/x-data-grid";
 import { Box, Typography, Link as MuiLink } from "@mui/material";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 interface ChildDatasetsDataGridProps {
   datasets: Array<any>;
@@ -16,6 +17,9 @@ interface ChildDatasetsDataGridProps {
 export default function ChildDatasetsDataGrid({
   datasets,
 }: ChildDatasetsDataGridProps) {
+  const pathname = usePathname();
+  const isSearchPage = pathname === "/discover";
+
   const columns: GridColDef[] = [
     {
       field: "title",
@@ -27,34 +31,32 @@ export default function ChildDatasetsDataGrid({
         const slug = params.row.slug;
         const uuid = params.row.uuid;
 
-        if (slug) {
-          return (
-            <MuiLink
-              component={Link}
-              href={`/items/${slug}`}
-              underline="hover"
-              sx={{
-                fontWeight: 600,
-                color: "primary.main",
-              }}
-            >
-              {title}
-            </MuiLink>
-          );
-        } else if (uuid) {
-          return (
-            <MuiLink
-              component={Link}
-              href={`/items/${uuid}`}
-              underline="hover"
-              sx={{
-                fontWeight: 600,
-                color: "primary.main",
-              }}
-            >
-              {title}
-            </MuiLink>
-          );
+        const href = slug ? `/items/${slug}` : uuid ? `/items/${uuid}` : null;
+
+        if (href) {
+          const linkProps = {
+            href,
+            underline: "hover" as const,
+            sx: {
+              fontWeight: 600,
+              color: "primary.main",
+            },
+          };
+
+          if (isSearchPage) {
+            // Open in new tab on search page to preserve search state
+            return (
+              <MuiLink {...linkProps} target="_blank" rel="noopener noreferrer">
+                {title}
+              </MuiLink>
+            );
+          } else {
+            return (
+              <MuiLink component={Link} {...linkProps}>
+                {title}
+              </MuiLink>
+            );
+          }
         }
 
         return (

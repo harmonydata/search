@@ -34,6 +34,7 @@ import {
   Maximize2,
   X,
 } from "lucide-react";
+import { VariableSchema } from "@/services/api";
 // XLSX will be loaded dynamically when needed to reduce bundle size
 import { loadHarmonyExportComponent } from "@/utilities/harmonyExportLoader";
 
@@ -56,18 +57,48 @@ declare global {
       };
     }
   }
+  // Declare global XLSX object from the loaded script
+  var XLSX: {
+    utils: {
+      json_to_sheet: (data: any[]) => any;
+      book_new: () => any;
+      book_append_sheet: (wb: any, ws: any, name: string) => void;
+    };
+    write: (wb: any, opts: { bookType: string; type: string }) => any;
+  };
 }
 
-interface Variable {
-  name: string;
-  description?: string;
-  uuid?: string;
-  score?: number;
-  options?: string[];
-}
+// Helper function to load XLSX script from public folder
+const loadXLSX = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    // Check if XLSX is already loaded
+    if (typeof window !== "undefined" && (window as any).XLSX) {
+      resolve();
+      return;
+    }
+
+    // Check if script is already being loaded
+    const existingScript = document.querySelector(
+      'script[src="/js/xlsx.min.js"]'
+    );
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve());
+      existingScript.addEventListener("error", reject);
+      return;
+    }
+
+    // Load the script
+    const script = document.createElement("script");
+    script.src = "/js/xlsx.min.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+};
 
 interface MatchedVariablesDataGridProps {
-  variables: Variable[];
+  variables: VariableSchema[];
   studyName?: string;
   // Download state props only
   downloadAnchorEl?: HTMLElement | null;
@@ -76,7 +107,7 @@ interface MatchedVariablesDataGridProps {
 }
 
 interface MatchedVariablesWrapperProps {
-  variables: Variable[];
+  variables: VariableSchema[];
   studyName?: string;
 }
 
@@ -99,15 +130,75 @@ function MatchedVariablesDataGrid({
     });
   }, []);
 
+  // Helper function to process variable data according to the schema
+  const processVariableData = (variable: any, index: number) => {
+    const hasQuestion =
+      variable.question && variable.question.trim().length > 0;
+    const hasDescription =
+      variable.description && variable.description.trim().length > 0;
+    const hasName = variable.name && variable.name.trim().length > 0;
+
+    // question_no: should be `name` IF question or description exist, otherwise just an index number
+    const question_no =
+      (hasQuestion || hasDescription) && hasName ? variable.name : index;
+
+    // question_text logic:
+    // - description if there's no question
+    // - question if there's no description
+    // - name if there's neither question nor description
+    // - "{question} [{description}]" if both question and description exist (unless they're the same)
+    let question_text = "";
+    if (hasQuestion && hasDescription) {
+      const questionTrimmed = variable.question.trim();
+      const descriptionTrimmed = variable.description.trim();
+      // If question and description are the same, just use question
+      if (questionTrimmed === descriptionTrimmed) {
+        question_text = variable.question;
+      } else {
+        question_text = `${variable.question} [${variable.description}]`;
+      }
+    } else if (hasQuestion) {
+      question_text = variable.question;
+    } else if (hasDescription) {
+      question_text = variable.description;
+    } else if (hasName) {
+      question_text = variable.name;
+    } else {
+      question_text = "";
+    }
+
+    // response_options: handle both `options` and `response_options` fields
+    const responseOptions = variable.response_options || variable.options;
+    const response_options =
+      responseOptions && Array.isArray(responseOptions)
+        ? responseOptions.join(" / ")
+        : "";
+
+    return {
+      question_no,
+      question_text,
+      response_options,
+    };
+  };
+
   const columns: GridColDef[] = [
     {
+      field: "question_no",
+      headerName: "Code",
+      width: 120,
+      valueGetter: (value: any, row: any) => {
+        const processed = processVariableData(row, row.originalIndex ?? 0);
+        return processed.question_no;
+      },
+      sortable: true,
+    },
+    {
       field: "description",
-      headerName: "Description / Code",
+      headerName: "Question / Variable name",
       flex: 2,
       valueGetter: (value: any, row: any) => {
-        const nameToShow = row.displayName || row.name;
-        return (row.description || nameToShow) +
-          (row.description && nameToShow ? " (" + nameToShow + ")" : "");
+        const processed = processVariableData(row, row.originalIndex ?? 0);
+        return processed.question_text;
       },
       sortable: true,
     },
@@ -115,10 +206,10 @@ function MatchedVariablesDataGrid({
       field: "options",
       headerName: "Response Options",
       flex: 1,
-      valueGetter: (value: any, row: any) =>
-        row.options && Array.isArray(row.options)
-          ? row.options.join(" / ")
-          : "",
+      valueGetter: (value: any, row: any) => {
+        const processed = processVariableData(row, row.originalIndex ?? 0);
+        return processed.response_options;
+      },
       sortable: true,
     },
   ];
@@ -126,7 +217,7 @@ function MatchedVariablesDataGrid({
   // Only include variables with a name or description
   const rows = variables
     .filter((v) => v.name || v.description)
-    .map((v, i) => ({ id: v.uuid || v.name || i, ...v }));
+    .map((v, i) => ({ id: v.name || i, originalIndex: i, ...v }));
 
   // Get selected variables using the grid API
   const apiRef = useGridApiRef();
@@ -191,10 +282,13 @@ function MatchedVariablesDataGrid({
     }
 
     console.log("selectedItems:", selectedItems);
-    const questions = selectedItems.map((row, i) => ({
-      question_no: row.description ? row.name : i,
-      question_text: row.description || row.name,
-    }));
+    const questions = selectedItems.map((row) => {
+      const processed = processVariableData(row, row.originalIndex ?? 0);
+      return {
+        question_no: processed.question_no,
+        question_text: processed.question_text,
+      };
+    });
     const harmonyLink = document.createElement("harmony-export") as any;
     harmonyLink.size = "32px";
     harmonyLink.instrument_name = `${
@@ -260,14 +354,14 @@ function MatchedVariablesDataGrid({
             return rowModels ? Array.from(rowModels.values()) : [];
           })();
 
-    return rows.map((row, i) => ({
-      question_no: row.description ? row.name : i,
-      question_text: row.description || row.name,
-      response_options:
-        row.options && Array.isArray(row.options)
-          ? row.options.join(" / ")
-          : "",
-    }));
+    return rows.map((row) => {
+      const processed = processVariableData(row, row.originalIndex ?? 0);
+      return {
+        question_no: processed.question_no,
+        question_text: processed.question_text,
+        response_options: processed.response_options,
+      };
+    });
   };
 
   const downloadAsJson = () => {
@@ -309,18 +403,28 @@ function MatchedVariablesDataGrid({
   const downloadAsExcel = async () => {
     const data = getQuestionsData();
 
-    // Dynamically import only the specific XLSX functions we need
-    const { utils, write } = await import("xlsx");
+    // Load XLSX from local script file
+    await loadXLSX();
+
+    // Access XLSX from global scope (declared in global namespace)
+    const XLSXLib =
+      (typeof window !== "undefined" && (window as any).XLSX) ||
+      (globalThis as any).XLSX;
+    if (!XLSXLib) {
+      console.error("XLSX library failed to load");
+      handleDownloadClose();
+      return;
+    }
 
     // Create worksheet
-    const ws = utils.json_to_sheet(data);
+    const ws = XLSXLib.utils.json_to_sheet(data);
 
     // Create workbook
-    const wb = utils.book_new();
-    utils.book_append_sheet(wb, ws, "Questions");
+    const wb = XLSXLib.utils.book_new();
+    XLSXLib.utils.book_append_sheet(wb, ws, "Questions");
 
     // Generate Excel file
-    const excelBuffer = write(wb, { bookType: "xlsx", type: "array" });
+    const excelBuffer = XLSXLib.write(wb, { bookType: "xlsx", type: "array" });
     const blob = new Blob([excelBuffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });

@@ -19,6 +19,7 @@ interface CompactResultCardProps {
   isSelected?: boolean;
   onClick?: () => void;
   onFindSimilar?: (result: SearchResult) => void;
+  onReportResult?: () => void;
 }
 
 export default function CompactResultCard({
@@ -26,6 +27,7 @@ export default function CompactResultCard({
   isSelected,
   onClick,
   onFindSimilar,
+  onReportResult,
 }: CompactResultCardProps) {
   // If we have ancestors, we're showing the ancestor's card
   const isAncestorCard = Boolean(
@@ -304,19 +306,28 @@ export default function CompactResultCard({
             {title}
           </Typography>
 
-          {/* Debug button - only visible in development */}
-          {(true || process.env.NODE_ENV !== "production") && (
+          {/* Report/Debug button */}
+          {(onReportResult ||
+            true ||
+            process.env.NODE_ENV !== "production") && (
             <IconButton
               size="small"
               onClick={(e) => {
                 e.stopPropagation();
-                setDebugDialogOpen(true);
+                if (onReportResult) {
+                  onReportResult();
+                } else {
+                  setDebugDialogOpen(true);
+                }
               }}
               sx={{
                 opacity: 0.6,
                 "&:hover": { opacity: 1 },
                 color: "text.secondary",
               }}
+              title={
+                onReportResult ? "Report search result issue" : "Debug data"
+              }
             >
               <Bug size={16} />
             </IconButton>

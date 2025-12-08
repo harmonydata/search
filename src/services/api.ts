@@ -10,6 +10,7 @@ export interface AggregateFilter {
 export interface VariableSchema {
   name: string;
   description?: string;
+  question?: string;
   options?: string[];
   response_options?: string[];
   cosine_similarity?: number;
@@ -637,7 +638,45 @@ export async function fetchOgData(url: string): Promise<any> {
       cleanedUrl
     )}`
   );
+  
+  // Handle forbidden/blocked errors by returning fallback data
   if (!response.ok) {
+    // If we get a 403 (forbidden) or similar, return usable fallback data
+    if (response.status === 403 || response.status === 429 || response.status === 451) {
+      try {
+        const urlObj = new URL(cleanedUrl);
+        const hostname = urlObj.hostname;
+        const origin = urlObj.origin;
+        
+        return {
+          title: hostname,
+          description: `Link to ${hostname}`,
+          image: `${origin}/favicon.ico`,
+          url: cleanedUrl,
+          siteName: hostname,
+          type: "website",
+          favicon: `${origin}/favicon.ico`,
+          originalUrl: cleanedUrl,
+          finalUrl: cleanedUrl,
+          isFallback: true,
+        };
+      } catch (e) {
+        // If URL parsing fails, still return basic fallback
+        return {
+          title: cleanedUrl,
+          description: "",
+          image: "",
+          url: cleanedUrl,
+          siteName: "",
+          type: "website",
+          favicon: "",
+          originalUrl: cleanedUrl,
+          finalUrl: cleanedUrl,
+          isFallback: true,
+        };
+      }
+    }
+    
     throw new Error("Failed to fetch OpenGraph data");
   }
   return response.json();

@@ -28,16 +28,14 @@
     "firebase": "^11.3.1",
     "framer-motion": "^12.4.7",
     "lucide-react": "^0.475.0",
-    "next": "15.1.7",
+    "next": "15.5.7",
     "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-infinite-scroll-component": "^6.1.0",
     "react-toastify": "^11.0.3",
     "recharts": "^2.15.3",
-    "serve": "^14.2.1",
-    "vercel": "^41.2.0",
-    "xlsx": "^0.18.5"
+    "serve": "^14.2.1"
   },
   "devDependencies": {
     "@emotion/css": "^11.13.5",

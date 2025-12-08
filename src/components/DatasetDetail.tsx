@@ -313,10 +313,34 @@ const DatasetDetail = memo(function DatasetDetail({
             </IconButton>
           </Box>
           <Collapse in={expandedSections.links}>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-              {dataset.additionalLinks.map((link, index) => (
-                <LinkPreviewCard key={index} url={link} />
-              ))}
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, 1fr)",
+                gap: 2,
+                "@media (max-width: 800px)": {
+                  gridTemplateColumns: "1fr",
+                },
+              }}
+            >
+              {dataset.additionalLinks.map((link, index) => {
+                const linksLength = dataset.additionalLinks?.length ?? 0;
+                const isLast = index === linksLength - 1;
+                const isOdd = linksLength % 2 !== 0;
+                const shouldSpanFull = isLast && isOdd;
+
+                return (
+                  <Box
+                    key={index}
+                    sx={{
+                      display: "flex",
+                      gridColumn: shouldSpanFull ? "1 / -1" : "auto",
+                    }}
+                  >
+                    <LinkPreviewCard url={link} />
+                  </Box>
+                );
+              })}
             </Box>
           </Collapse>
         </Box>

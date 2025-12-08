@@ -27,6 +27,11 @@ import FilterPanel from "@/components/FilterPanel";
 import StudyDetail from "@/components/StudyDetail";
 import FeedbackButton from "@/components/FeedbackButton";
 import HeroBanner from "@/components/HeroBanner";
+import SearchFeedbackDialog, {
+  SearchFeedbackData,
+} from "@/components/SearchFeedbackDialog";
+import { submitSearchFeedback } from "@/services/feedback";
+import { Bug } from "lucide-react";
 import {
   fetchSearchResults,
   fetchAggregateFilters,
@@ -93,6 +98,12 @@ function DiscoverPageContent() {
 
   const [savingSearch, setSavingSearch] = useState(false);
   const [saveSearchSuccess, setSaveSearchSuccess] = useState(false);
+
+  // Search feedback dialog state
+  const [searchFeedbackOpen, setSearchFeedbackOpen] = useState(false);
+  const [selectedResultForFeedback, setSelectedResultForFeedback] =
+    useState<SearchResult | null>(null);
+  const [selectedResultIndex, setSelectedResultIndex] = useState(-1);
 
   const resultsPerPage = 50;
 
@@ -478,11 +489,11 @@ function DiscoverPageContent() {
     if (page <= 1) {
       return baseMaxDistance;
     }
-    // Reduce by 10% per page, but ensure it doesn't go below 0.1
+    // Reduce by 10% per page
     // Formula: maxDistance * (1 - (page - 1) * 0.1)
     const reductionFactor = 0.1; // 10% reduction per page
     const adjusted = baseMaxDistance * (1 - (page - 1) * reductionFactor);
-    return Math.max(adjusted, 0.1); // Minimum of 0.1
+    return Math.max(adjusted, 0); // Ensure non-negative, but allow values below 0.1
   };
 
   async function performSearch(
@@ -1217,6 +1228,27 @@ function DiscoverPageContent() {
                         width={20}
                         height={20}
                       />
+                      {results.length > 0 && (
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Open dialog - user will need to select which result
+                            setSelectedResultForFeedback(null);
+                            setSelectedResultIndex(-1);
+                            setSearchFeedbackOpen(true);
+                          }}
+                          sx={{
+                            opacity: 0.7,
+                            "&:hover": { opacity: 1 },
+                            color: "text.secondary",
+                            p: 0.5,
+                          }}
+                          title="Report search result issue"
+                        >
+                          <Bug size={18} />
+                        </IconButton>
+                      )}
                     </Box>
                   ),
                   sx: {
@@ -1441,6 +1473,11 @@ function DiscoverPageContent() {
                       onSelectResult={handleSelectResult}
                       selectedResultId={selectedResult?.extra_data?.uuid}
                       onFindSimilar={handleFindSimilar}
+                      onReportResult={(result, index) => {
+                        setSelectedResultForFeedback(result);
+                        setSelectedResultIndex(index);
+                        setSearchFeedbackOpen(true);
+                      }}
                       hasActiveSearch={
                         searchSettings.query.trim() !== "" ||
                         Object.keys(searchSettings.selectedFilters).length >
@@ -1691,6 +1728,59 @@ function DiscoverPageContent() {
 
       {/* Feedback Button */}
       <FeedbackButton onSubmitFeedback={handleFeedbackSubmit} />
+
+      {/* Search Feedback Dialog */}
+      <SearchFeedbackDialog
+        open={searchFeedbackOpen}
+        onClose={() => {
+          setSearchFeedbackOpen(false);
+          setSelectedResultForFeedback(null);
+          setSelectedResultIndex(-1);
+        }}
+        onSubmit={async (feedbackData: SearchFeedbackData) => {
+          // Ensure we have a reported result
+          const reportedResult =
+            selectedResultForFeedback || feedbackData.reportedResult;
+          const resultIndex =
+            selectedResultIndex >= 0
+              ? selectedResultIndex
+              : feedbackData.searchContext.resultIndex;
+
+          // Capture results up to and including the reported one
+          const displayedResultsUpToReported = results.slice(
+            0,
+            resultIndex + 1
+          );
+
+          const searchFeedbackPayload = {
+            reason: feedbackData.reason,
+            comment: feedbackData.comment,
+            reportedResult: reportedResult,
+            searchContext: {
+              searchSettings: searchSettings,
+              displayedResults: displayedResultsUpToReported,
+              resultIndex: resultIndex,
+            },
+          };
+
+          await submitSearchFeedback(searchFeedbackPayload);
+        }}
+        reportedResult={selectedResultForFeedback || undefined}
+        searchContext={{
+          searchSettings: searchSettings,
+          displayedResults: results,
+          resultIndex:
+            selectedResultIndex >= 0
+              ? selectedResultIndex
+              : selectedResultForFeedback
+              ? results.findIndex(
+                  (r) =>
+                    r.extra_data?.uuid ===
+                    selectedResultForFeedback.extra_data?.uuid
+                )
+              : -1,
+        }}
+      />
     </Box>
   );
 }

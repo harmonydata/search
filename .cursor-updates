@@ -47,3 +47,5 @@
 - Enhanced fetchResultByUuid to support both UUID and slug lookups with automatic fallback
 - Simplified static generation to build studies by both slug and UUID (with UUID redirects to slug)
 - Updated child dataset pages to use StudyDetail component with proper data transformation
+- Switched XLSX library from npm package to local xlsx.min.js (v0.20.3) in public/js to prevent security vulnerabilities
+- Removed vercel package from dependencies (not needed - Vercel builds automatically detect Next.js projects)

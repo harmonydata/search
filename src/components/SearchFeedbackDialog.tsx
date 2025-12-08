@@ -38,7 +38,7 @@ interface SearchFeedbackDialogProps {
 }
 
 export interface SearchFeedbackData {
-  reason: "wrong_place" | "too_high" | "too_low" | "inappropriate" | "";
+  reason: "wrong_place" | "too_high" | "too_low" | "inappropriate" | "something_else" | "";
   comment: string;
   reportedResult: SearchResult;
   searchContext: {
@@ -119,7 +119,8 @@ export default function SearchFeedbackDialog({
           | "wrong_place"
           | "too_high"
           | "too_low"
-          | "inappropriate",
+          | "inappropriate"
+          | "something_else",
         comment: comment.trim(),
         reportedResult,
         searchContext: {
@@ -183,7 +184,7 @@ export default function SearchFeedbackDialog({
                   {searchContext.displayedResults.map((result, index) => (
                     <MenuItem key={index} value={index}>
                       {result.dataset_schema?.name ||
-                        result.extra_data?.title ||
+                        result.extra_data?.name ||
                         `Result ${index + 1}`}
                     </MenuItem>
                   ))}
@@ -198,7 +199,7 @@ export default function SearchFeedbackDialog({
               </Typography>
               <Typography variant="body1" fontWeight={500}>
                 {reportedResult.dataset_schema?.name ||
-                  reportedResult.extra_data?.title ||
+                  reportedResult.extra_data?.name ||
                   "Unknown result"}
               </Typography>
             </Box>
@@ -227,6 +228,11 @@ export default function SearchFeedbackDialog({
                 value="inappropriate"
                 control={<Radio />}
                 label="Shouldn't be in results at all"
+              />
+              <FormControlLabel
+                value="something_else"
+                control={<Radio />}
+                label="Something else"
               />
             </RadioGroup>
           </FormControl>

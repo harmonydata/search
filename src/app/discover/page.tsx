@@ -395,7 +395,12 @@ function DiscoverPageContent() {
         "🔍 Search parameters changed, clearing results and resetting to page 1"
       );
 
+      // Set loading immediately to prevent "No results" message from showing
+      console.log("⏳ Setting loading to true BEFORE clearing results");
+      setLoading(true);
+
       // Clear results immediately when search parameters change
+      console.log("🗑️ Clearing results array");
       setResults([]);
       // Reset pagination state for new search
       setTopLevelIdsSeen([]);
@@ -515,8 +520,10 @@ function DiscoverPageContent() {
 
     // Set appropriate loading state
     if (pageToUse === 1) {
+      console.log("⏳ performSearch: Setting loading to true (page 1)");
       setLoading(true);
     } else {
+      console.log("⏳ performSearch: Setting loadingMore to true (page > 1)");
       setLoadingMore(true);
     }
 
@@ -674,24 +681,32 @@ function DiscoverPageContent() {
         // For new search endpoint (not useSearch2), determine hasMore based on whether we got results
         // For old search endpoint (useSearch2), use the traditional count-based logic
         if (!searchSettings.useSearch2) {
-          // New pagination logic: we have more if we got any results (we'll check next page to see if there are more)
-          const hasMore = newResults.length > 0;
+          // New pagination logic: we have more if num_hits indicates more results available
+          // OR if we got results and next_page_offset is defined (even if 0, it might mean "next page starts at 0")
+          const numHits = res.num_hits || 0;
+          const hasMore =
+            numHits > newResults.length ||
+            (newResults.length > 0 && res.next_page_offset !== undefined);
           setHasMoreResults(hasMore);
 
           // If first page already shows we have all results, update totalHits
           if (!hasMore || newResults.length < resultsPerPage) {
-            setTotalHits(Math.max(res.num_hits || 0, newResults.length));
+            setTotalHits(Math.max(numHits, newResults.length));
           }
 
           // Auto-load more pages if we don't have enough results on first page
-          if (newResults.length > 0) {
+          if (newResults.length > 0 && hasMore) {
             // Define minimum thresholds for first page
             const minResultsThreshold = Math.min(20, resultsPerPage / 2); // At least 20 results or half the page size
 
             // If we got fewer than expected results and haven't reached minimum threshold, auto-load next page
+            // Also check if num_hits indicates there are more results available
+            const hasMoreAvailable = numHits > newResults.length;
+
             if (
               newResults.length < resultsPerPage &&
-              newResults.length < minResultsThreshold
+              newResults.length < minResultsThreshold &&
+              hasMoreAvailable
             ) {
               console.log(
                 "🔄 Auto-loading next page from first page - insufficient results:",
@@ -699,14 +714,21 @@ function DiscoverPageContent() {
                   gotResults: newResults.length,
                   requestedResults: resultsPerPage,
                   minThreshold: minResultsThreshold,
+                  numHits: numHits,
+                  hasMoreAvailable,
+                  nextPageOffset: res.next_page_offset,
                   nextPage: 2,
                 }
               );
 
               // Auto-trigger next page after a short delay to avoid rapid-fire requests
               setTimeout(() => {
-                if (!loadingMore && hasMoreResults) {
+                // Don't check hasMoreResults here since it's async - we already verified hasMore above
+                if (!loadingMore) {
+                  console.log("🔄 Actually triggering page 2 load");
                   setCurrentPage(2);
+                } else {
+                  console.log("🔄 Skipping page 2 load - already loading more");
                 }
               }, 100);
             }
@@ -1363,6 +1385,11 @@ function DiscoverPageContent() {
             <Box sx={{ width: "80%", maxWidth: 1200 }}>
               <HeroBanner
                 onExampleClick={(query) => {
+                  // Set loading immediately to prevent "No results" flash
+                  console.log(
+                    "🎯 Hero banner clicked, setting loading to true immediately"
+                  );
+                  setLoading(true);
                   updateQuery(query);
                 }}
               />
@@ -1484,6 +1511,36 @@ function DiscoverPageContent() {
                           0 ||
                         resourceTypeFilter.length > 0
                       }
+                      loading={(() => {
+                        const loadingState = loading || loadingMore;
+                        console.log(
+                          "🔍 DiscoverPage passing to SearchResults:",
+                          {
+                            resultsLength: results.length,
+                            loading,
+                            loadingMore,
+                            loadingState,
+                            hasActiveSearch:
+                              searchSettings.query.trim() !== "" ||
+                              Object.keys(searchSettings.selectedFilters)
+                                .length > 0 ||
+                              resourceTypeFilter.length > 0,
+                            query: searchSettings.query,
+                            filtersCount: Object.keys(
+                              searchSettings.selectedFilters
+                            ).length,
+                          }
+                        );
+                        return loadingState;
+                      })()}
+                      onClearQuery={() => {
+                        updateQuery("");
+                      }}
+                      onClearFilters={() => {
+                        updateSearchSettings({
+                          selectedFilters: {},
+                        });
+                      }}
                     />
                   </InfiniteScroll>
                 </Box>

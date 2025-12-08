@@ -156,8 +156,8 @@ function searchSettingsToUrl(
     params.set("max_distance", settings.maxDistance.toString());
   }
   if (settings.directMatchWeight !== 0.5) {
-    // Transform 0-1 slider value to 0-10 API value
-    // Piecewise linear: 0->0, 0.5->2, 1->10
+    // Transform 0-1 slider value to 0-100 API value
+    // Piecewise linear: 0->0, 0.5->50, 1->100
     const apiValue =
       settings.directMatchWeight <= 0.5
         ? 4 * settings.directMatchWeight

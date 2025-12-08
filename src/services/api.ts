@@ -638,16 +638,20 @@ export async function fetchOgData(url: string): Promise<any> {
       cleanedUrl
     )}`
   );
-  
+
   // Handle forbidden/blocked errors by returning fallback data
   if (!response.ok) {
     // If we get a 403 (forbidden) or similar, return usable fallback data
-    if (response.status === 403 || response.status === 429 || response.status === 451) {
+    if (
+      response.status === 403 ||
+      response.status === 429 ||
+      response.status === 451
+    ) {
       try {
         const urlObj = new URL(cleanedUrl);
         const hostname = urlObj.hostname;
         const origin = urlObj.origin;
-        
+
         return {
           title: hostname,
           description: `Link to ${hostname}`,
@@ -676,7 +680,7 @@ export async function fetchOgData(url: string): Promise<any> {
         };
       }
     }
-    
+
     throw new Error("Failed to fetch OpenGraph data");
   }
   return response.json();

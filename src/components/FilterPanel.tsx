@@ -98,10 +98,62 @@ interface ExtendedAggregateFilter extends AggregateFilter {
 // Helper function to format labels nicely (replace underscores with spaces and capitalize)
 const formatLabel = (label: string): string => {
   if (label.toLowerCase() === "keywords") return "Topics";
+
+  // If the label already contains spaces and proper capitalization (not all lowercase/uppercase),
+  // it's likely already formatted, so return as-is
+  if (
+    label.includes(" ") &&
+    label !== label.toLowerCase() &&
+    label !== label.toUpperCase()
+  ) {
+    return label;
+  }
+
+  // Otherwise, format by replacing underscores with spaces and capitalizing
   return label
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
+};
+
+// Helper function to generate contextual "Other..." placeholder
+const getOtherPlaceholder = (filterLabel: string): string => {
+  const formatted = formatLabel(filterLabel).toLowerCase();
+
+  // Extract the last word for pluralization
+  const words = formatted.split(" ");
+  const lastWord = words[words.length - 1];
+  const prefix = words.length > 1 ? words.slice(0, -1).join(" ") + " " : "";
+
+  // Handle pluralization of the last word
+  let pluralizedLastWord: string;
+  if (
+    lastWord.endsWith("y") &&
+    !["ay", "ey", "iy", "oy", "uy"].some((ending) => lastWord.endsWith(ending))
+  ) {
+    // e.g., "study" -> "studies", but "key" -> "keys"
+    pluralizedLastWord = lastWord.slice(0, -1) + "ies";
+  } else if (
+    lastWord.endsWith("s") ||
+    lastWord.endsWith("x") ||
+    lastWord.endsWith("z") ||
+    lastWord.endsWith("ch") ||
+    lastWord.endsWith("sh")
+  ) {
+    // Already plural or ends with sounds that don't change
+    pluralizedLastWord = lastWord;
+  } else if (lastWord.endsWith("f") && !lastWord.endsWith("ff")) {
+    // e.g., "leaf" -> "leaves", but "staff" -> "staffs"
+    pluralizedLastWord = lastWord.slice(0, -1) + "ves";
+  } else if (lastWord.endsWith("fe")) {
+    // e.g., "life" -> "lives"
+    pluralizedLastWord = lastWord.slice(0, -2) + "ves";
+  } else {
+    // Default: just add 's'
+    pluralizedLastWord = lastWord + "s";
+  }
+
+  return `Other ${prefix}${pluralizedLastWord}...`;
 };
 
 // Numeric filter component using a range slider
@@ -470,6 +522,50 @@ const HybridChipsFilter: React.FC<{
     return formatLabel(option);
   };
 
+  // Extract last bracket content if label has 2+ sets of brackets
+  // e.g., "Strengths & Difficulties Questionnaire (25-item) (SDQ)" -> "SDQ"
+  // Returns both the extracted label and whether extraction happened
+  const getChipLabel = (
+    option: string
+  ): { label: string; extracted: boolean; extractedValue: string | null } => {
+    const fullLabel = getLabel(option);
+
+    // Count opening brackets
+    const openBrackets = (fullLabel.match(/\(/g) || []).length;
+
+    // If we have 2 or more sets of brackets, extract the last one
+    if (openBrackets >= 2) {
+      // Find the last opening bracket
+      const lastOpenIndex = fullLabel.lastIndexOf("(");
+      const lastCloseIndex = fullLabel.lastIndexOf(")");
+
+      if (
+        lastOpenIndex !== -1 &&
+        lastCloseIndex !== -1 &&
+        lastCloseIndex > lastOpenIndex
+      ) {
+        const lastBracketContent = fullLabel
+          .substring(lastOpenIndex + 1, lastCloseIndex)
+          .trim();
+        // Only use it if it's not empty
+        if (lastBracketContent) {
+          return {
+            label: lastBracketContent,
+            extracted: true,
+            extractedValue: lastBracketContent,
+          };
+        }
+      }
+    }
+
+    // Otherwise return the full label
+    return {
+      label: fullLabel,
+      extracted: false,
+      extractedValue: null,
+    };
+  };
+
   // Get frequency data and sort options by frequency (descending)
   const sortedOptions = useMemo(() => {
     if (!filter.frequencies) {
@@ -481,25 +577,60 @@ const HybridChipsFilter: React.FC<{
       .map(([option]) => option);
   }, [filter.options, filter.frequencies]);
 
-  // Get top options for chips (2 for instruments, 3 for others)
-  const topCount = filter.id === "instruments" ? 2 : 3;
+  // Get top options for chips - always 3, sorted by frequency
+  const topCount = 3;
   const topOptions = sortedOptions.slice(0, topCount);
-  // Get remaining options for autocomplete and sort them alphabetically
+
+  // Get extracted values from top options to exclude from dropdown
+  const extractedValues = useMemo(() => {
+    return topOptions
+      .map((option) => {
+        const chipInfo = getChipLabel(option);
+        return chipInfo.extracted ? chipInfo.extractedValue : null;
+      })
+      .filter((val): val is string => val !== null);
+  }, [topOptions]);
+
+  // Get ALL options for autocomplete, sorted alphabetically
+  // Include all options from the API, but exclude extracted values (like "SDQ") if they exist as separate options
   const remainingOptions = useMemo(() => {
-    const remaining = sortedOptions.slice(topCount);
-    return remaining.sort((a, b) => {
+    // Get all options (not just from sortedOptions, but from filter.options to include all)
+    const allOptions = filter.options || [];
+
+    // Only filter out extracted values if they exist as separate options
+    // Keep all original options (including topOptions) - they should be selectable in dropdown
+    const filtered = allOptions.filter((option) => {
+      // Only exclude if it's an extracted value (like "SDQ" as a standalone option)
+      // But keep the original options even if they have extracted values
+      if (extractedValues.includes(option)) {
+        return false;
+      }
+
+      return true;
+    });
+
+    // Sort alphabetically by label
+    return filtered.sort((a, b) => {
       const labelA = getLabel(a);
       const labelB = getLabel(b);
       return labelA.localeCompare(labelB);
     });
-  }, [sortedOptions, topCount, getLabel, sourceMapping, mapping]);
+  }, [filter.options, getLabel, sourceMapping, mapping, extractedValues]);
 
   const handleToggle = (option: string) => {
+    // Check if this option has an extracted chip label
+    const chipInfo = getChipLabel(option);
+
+    // If we have an extracted value, use that instead of the original option
+    const valueToToggle = chipInfo.extracted
+      ? chipInfo.extractedValue!
+      : option;
+
     let newSelected: string[];
-    if (selected.includes(option)) {
-      newSelected = selected.filter((item) => item !== option);
+    if (selected.includes(valueToToggle)) {
+      newSelected = selected.filter((item) => item !== valueToToggle);
     } else {
-      newSelected = [...selected, option];
+      newSelected = [...selected, valueToToggle];
     }
     setSelected(newSelected);
     onChange(newSelected);
@@ -507,11 +638,25 @@ const HybridChipsFilter: React.FC<{
 
   const handleAutocompleteChange = (
     event: React.SyntheticEvent,
-    newValue: string[]
+    newValue: (string | { inputValue?: string; title?: string })[]
   ) => {
-    // Merge with existing selected items from chips
-    const chipSelected = selected.filter((item) => topOptions.includes(item));
-    const allSelected = [...chipSelected, ...newValue];
+    // Get selected items from chips - only preserve extracted values, not the original options
+    // This allows users to remove the full options from the dropdown even if they produced chips
+    const chipSelected = selected.filter((item) => {
+      // Only preserve extracted values (like "SDQ"), not the original options that produced them
+      return extractedValues.includes(item);
+    });
+
+    // Convert newValue to string array, handling both strings and free text objects
+    const stringValues = newValue.map((item) => {
+      if (typeof item === "string") {
+        return item;
+      }
+      // Handle free text input objects from MUI Autocomplete
+      return item.inputValue || item.title || String(item);
+    });
+
+    const allSelected = [...chipSelected, ...stringValues];
     setSelected(allSelected);
     onChange(allSelected);
   };
@@ -575,8 +720,14 @@ const HybridChipsFilter: React.FC<{
           ) : (
             <Chip
               key={option}
-              label={getLabel(option)}
-              color={selected.includes(option) ? "primary" : "default"}
+              label={getChipLabel(option).label}
+              color={(() => {
+                const chipInfo = getChipLabel(option);
+                const valueToCheck = chipInfo.extracted
+                  ? chipInfo.extractedValue!
+                  : option;
+                return selected.includes(valueToCheck) ? "primary" : "default";
+              })()}
               onClick={() => handleToggle(option)}
               sx={{
                 maxWidth: "350px",
@@ -589,12 +740,19 @@ const HybridChipsFilter: React.FC<{
             />
           );
 
-        return isSourceFilter && logo ? (
-          <Tooltip key={option} title={getLabel(option)}>
+        return (
+          <Tooltip
+            key={option}
+            title={(() => {
+              const chipInfo = getChipLabel(option);
+              // Show what the chip actually searches for (the extracted value or the option)
+              return chipInfo.extracted
+                ? chipInfo.extractedValue!
+                : getLabel(option);
+            })()}
+          >
             {chip}
           </Tooltip>
-        ) : (
-          chip
         );
       })}
 
@@ -605,35 +763,91 @@ const HybridChipsFilter: React.FC<{
             multiple
             freeSolo
             options={remainingOptions}
-            getOptionLabel={getLabel}
-            value={selected.filter((item) => remainingOptions.includes(item))}
+            getOptionLabel={(option) => {
+              // For free text input (string), return as-is verbatim
+              if (typeof option === "string") {
+                // Check if it's a known option
+                if (remainingOptions.includes(option)) {
+                  return getLabel(option);
+                }
+                // Return free text verbatim (as user typed it)
+                return option;
+              }
+              // Handle MUI's free text object format
+              if (option && typeof option === "object") {
+                const freeTextOption = option as {
+                  inputValue?: string;
+                  title?: string;
+                };
+                if (
+                  "inputValue" in freeTextOption &&
+                  freeTextOption.inputValue
+                ) {
+                  return freeTextOption.inputValue;
+                }
+                if ("title" in freeTextOption && freeTextOption.title) {
+                  return freeTextOption.title;
+                }
+              }
+              return getLabel(option as string);
+            }}
+            value={selected.filter((item) => {
+              // Only show items in the dropdown that are:
+              // 1. In remainingOptions (all options except extracted values)
+              // 2. Not extracted values from chips (like "SDQ" - those are shown as top chips only)
+              return (
+                remainingOptions.includes(item) &&
+                !extractedValues.includes(item)
+              );
+            })}
             onChange={handleAutocompleteChange}
             renderTags={(value, getTagProps) =>
-              value.map((option, index) => (
-                <Chip
-                  {...getTagProps({ index })}
-                  key={option}
-                  label={getLabel(option)}
-                  sx={{
-                    backgroundColor: "primary.main",
-                    color: "primary.contrastText",
-                    "& .MuiChip-deleteIcon": {
+              value.map((option, index) => {
+                // Handle both string options and free text
+                const displayLabel =
+                  typeof option === "string"
+                    ? remainingOptions.includes(option)
+                      ? getLabel(option)
+                      : option
+                    : getLabel(option);
+
+                return (
+                  <Chip
+                    {...getTagProps({ index })}
+                    key={typeof option === "string" ? option : String(option)}
+                    label={displayLabel}
+                    sx={{
+                      backgroundColor: "primary.main",
                       color: "primary.contrastText",
-                      "&:hover": {
+                      "& .MuiChip-deleteIcon": {
                         color: "primary.contrastText",
+                        "&:hover": {
+                          color: "primary.contrastText",
+                        },
                       },
-                    },
-                  }}
-                />
-              ))
+                    }}
+                  />
+                );
+              })
             }
             renderInput={(params) => (
               <TextField
                 {...params}
                 variant="outlined"
-                placeholder="Others..."
+                placeholder={getOtherPlaceholder(filter.label)}
               />
             )}
+            filterOptions={(options, params) => {
+              const filtered = options.filter((option) => {
+                const label = getLabel(option);
+                return label
+                  .toLowerCase()
+                  .includes(params.inputValue.toLowerCase());
+              });
+
+              // freeSolo will automatically add the inputValue as an option if it doesn't match
+              return filtered;
+            }}
           />
         </Box>
       )}
@@ -1361,13 +1575,20 @@ export default function FilterPanel({
   return (
     <Box>
       {/* Top row: filter categories as chips with badge showing number of selections and reset button */}
-      <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "flex-end",
+          gap: 2,
+          mb: 2,
+          flexWrap: "wrap",
+        }}
+      >
         <Box
           sx={{
             display: "flex",
             gap: 1,
             flexWrap: "nowrap", // Prevent wrapping to ensure single row
-            flex: 1,
             overflowX: "auto", // Allow horizontal scrolling on smaller screens
             pt: 2, // Add horizontal padding to prevent badges from being cut off
             "&::-webkit-scrollbar": {
@@ -1497,6 +1718,7 @@ export default function FilterPanel({
               height: 40,
               borderRadius: "50%",
               p: 0,
+              flexShrink: 0, // Prevent button from shrinking
             }}
           >
             <FilterAltOff />

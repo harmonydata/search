@@ -1,7 +1,5 @@
-import { notFound } from "next/navigation";
-import Script from "next/script";
 import { Suspense } from "react";
-import StudyDetail from "@/components/StudyDetail";
+import DatasetPageClient from "@/components/DatasetPageClient";
 import {
   fetchAllStudiesWithUuids,
   fetchAllDatasetsWithUuids,
@@ -10,6 +8,7 @@ import {
 } from "@/services/api";
 import {
   getCachedDatasetsWithUuids,
+  getCachedStudiesWithUuids,
   getCachedChildDatasetsForStudy,
   getCachedDatasetBySlugOrUuid,
 } from "@/services/cachedData";
@@ -35,7 +34,39 @@ export async function generateStaticParams() {
 
     const params = [];
 
-    if (!usingCachedData && studiesWithUuids) {
+    // Process studies and their child datasets
+    if (usingCachedData) {
+      // When using cached data, get studies from cache
+      try {
+        const cachedStudies = getCachedStudiesWithUuids();
+        for (const study of cachedStudies) {
+          // Add study by slug
+          if (study.slug) {
+            params.push({ slug: study.slug });
+          }
+          // Add study by UUID
+          if (study.uuid) {
+            params.push({ slug: study.uuid });
+          }
+          // Add child datasets
+          try {
+            const childDatasets = getCachedChildDatasetsForStudy(study.uuid);
+            for (const childDataset of childDatasets) {
+              if (childDataset.slug) {
+                params.push({ slug: childDataset.slug });
+              }
+            }
+          } catch (error) {
+            console.warn(
+              `Failed to get child datasets for study ${study.uuid}:`,
+              error
+            );
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to get cached studies:", error);
+      }
+    } else if (studiesWithUuids) {
       // Process studies and their child datasets in batches using batch lookup
       const batchSize = 50;
       for (let i = 0; i < studiesWithUuids.length; i += batchSize) {
@@ -258,56 +289,30 @@ export default async function DatasetPage({
 }) {
   const { slug } = await params;
 
+  // Try to find the dataset in cache at build time
+  // If not found, pass null and let the client component fetch it at runtime
+  let fullDatasetResult = null;
   try {
-    // Find the dataset by slug (could be from studies or standalone datasets)
-    let fullDatasetResult;
-    try {
-      // Try by slug first
-      fullDatasetResult = getCachedDatasetBySlugOrUuid(slug);
-    } catch (error) {
-      // Fallback to API if not found in cache
-      console.log(`Fetching dataset from API ${slug}`);
-      fullDatasetResult = await fetchResultByUuid(slug);
-    }
-
-    // Dataset data found successfully
-
-    // Using raw SearchResult data directly with StudyDetail
-
-    // Prepare JSON-LD structured data (only include main dataset info)
-    const structuredData = {
-      "@context": "https://schema.org/",
-      "@type": "Dataset",
-      name: fullDatasetResult.dataset_schema?.name,
-      description: fullDatasetResult.dataset_schema?.description,
-      url: `https://harmonydata.ac.uk/search/items/${slug}`,
-      identifier: fullDatasetResult.dataset_schema?.identifier,
-      keywords: fullDatasetResult.dataset_schema?.keywords,
-      temporalCoverage: fullDatasetResult.dataset_schema?.temporalCoverage,
-      spatialCoverage: fullDatasetResult.dataset_schema?.spatialCoverage,
-      publisher: fullDatasetResult.dataset_schema?.publisher,
-      creator: fullDatasetResult.dataset_schema?.creator,
-      dateCreated: fullDatasetResult.dataset_schema?.dateCreated,
-      dateModified: fullDatasetResult.dataset_schema?.dateModified,
-      license: fullDatasetResult.dataset_schema?.license,
-      distribution: fullDatasetResult.dataset_schema?.distribution,
-    };
-
-    return (
-      <Suspense fallback={<div>Loading...</div>}>
-        <Script
-          strategy="beforeInteractive"
-          id="structured-data"
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(structuredData),
-          }}
-        />
-        <StudyDetail study={fullDatasetResult} />
-      </Suspense>
-    );
+    // Try by slug first
+    fullDatasetResult = getCachedDatasetBySlugOrUuid(slug);
   } catch (error) {
-    console.error(`Failed to generate page for dataset: ${slug}`, error);
-    notFound();
+    // If not in cache, try API during build time
+    // This only runs during static generation, not at runtime
+    try {
+      console.log(`Fetching dataset from API during build: ${slug}`);
+      fullDatasetResult = await fetchResultByUuid(slug);
+    } catch (apiError) {
+      // If API fails during build, pass null - client will fetch at runtime
+      console.log(
+        `Dataset ${slug} not found during build, will fetch client-side`
+      );
+      fullDatasetResult = null;
+    }
   }
+
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DatasetPageClient slug={slug} initialData={fullDatasetResult} />
+    </Suspense>
+  );
 }

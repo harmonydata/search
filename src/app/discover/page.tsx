@@ -96,6 +96,8 @@ function DiscoverPageContent() {
   const [nextPageOffset, setNextPageOffset] = useState<number | undefined>(
     undefined
   );
+  // Track consecutive empty calls - need 2 consecutive empty calls to stop
+  const [consecutiveEmptyCalls, setConsecutiveEmptyCalls] = useState(0);
 
   const [savingSearch, setSavingSearch] = useState(false);
   const [saveSearchSuccess, setSaveSearchSuccess] = useState(false);
@@ -546,6 +548,7 @@ function DiscoverPageContent() {
     if (pageToUse === 1) {
       setHasMoreResults(true);
       setLoadingMore(false);
+      setConsecutiveEmptyCalls(0); // Reset consecutive empty calls counter
     }
 
     try {
@@ -595,7 +598,7 @@ function DiscoverPageContent() {
       // Determine what IDs to exclude from search results
       let idsToExclude: string[] | undefined;
       if (pageToUse > 1) {
-        // For pagination, use the existing top level IDs
+        // For pagination, use the existing top level IDs to exclude
         idsToExclude = currentTopLevelIdsRef.current;
       } else if (searchSettings.similarUid) {
         // For similar study searches, exclude the original study
@@ -612,6 +615,9 @@ function DiscoverPageContent() {
         pageToUse
       );
 
+      // Using exclusion filter method - always use offset 0
+      const calculatedOffset = 0;
+      
       // Race the actual API call against the timeout
       const res: SearchResponse = await Promise.race([
         fetchSearchResults(
@@ -621,8 +627,8 @@ function DiscoverPageContent() {
           resultsPerPage,
           searchSettings.useSearch2,
           searchSettings.hybridWeight,
-          idsToExclude, // Use the determined IDs to exclude
-          pageToUse > 1 ? currentNextPageOffsetRef.current : undefined, // Pass next page offset for subsequent pages
+          idsToExclude, // Use the determined IDs to exclude (for pagination and similar searches)
+          calculatedOffset, // Always 0 when using exclusion method
           undefined, // returnVariablesWithinParent
           adjustedMaxDistance, // maxVectorDistance - adjusted based on page number
           searchSettings.directMatchWeight // directMatchWeight
@@ -668,19 +674,16 @@ function DiscoverPageContent() {
         console.log("No top_level_ids_seen_so_far in response");
       }
 
-      // Update nextPageOffset with the new offset from the response (new pagination logic)
+      // NOTE: We're now using offset-based pagination calculated from page number
+      // We still track next_page_offset from response for potential future use, but don't rely on it
       if (res.next_page_offset !== undefined) {
-        console.log("Received next_page_offset:", {
+        console.log("Received next_page_offset (tracked but not used):", {
           offset: res.next_page_offset,
-          previousOffset: currentNextPageOffsetRef.current,
+          calculatedOffset: calculatedOffset,
         });
-        // Update both state and ref immediately
+        // Update both state and ref for tracking (but we use calculated offset instead)
         setNextPageOffset(res.next_page_offset);
         currentNextPageOffsetRef.current = res.next_page_offset;
-      } else {
-        console.log(
-          "No next_page_offset in response (using calculated offset)"
-        );
       }
 
       if (pageToUse === 1) {
@@ -690,57 +693,67 @@ function DiscoverPageContent() {
 
         // URL updates are now handled by SearchContext
 
-        // For new search endpoint (not useSearch2), determine hasMore based on whether we got results
+        // For new search endpoint (not useSearch2), determine hasMore based on offset pagination
         // For old search endpoint (useSearch2), use the traditional count-based logic
         if (!searchSettings.useSearch2) {
-          // New pagination logic: we have more if num_hits indicates more results available
-          // OR if we got results and next_page_offset is defined (even if 0, it might mean "next page starts at 0")
+          // New offset-based pagination logic:
+          // - Track consecutive empty calls
+          // - Only stop when we get 2 consecutive empty calls (0 results)
           const numHits = res.num_hits || 0;
-          const hasMore =
-            numHits > newResults.length ||
-            (newResults.length > 0 && res.next_page_offset !== undefined);
-          setHasMoreResults(hasMore);
-
-          // If first page already shows we have all results, update totalHits
-          if (!hasMore || newResults.length < resultsPerPage) {
-            setTotalHits(Math.max(numHits, newResults.length));
+          
+          if (newResults.length === 0) {
+            // Got 0 results - increment consecutive empty calls counter
+            const newConsecutiveEmpty = consecutiveEmptyCalls + 1;
+            setConsecutiveEmptyCalls(newConsecutiveEmpty);
+            
+            // Only stop if we've had 2 consecutive empty calls
+            const hasMore = newConsecutiveEmpty < 2;
+            setHasMoreResults(hasMore);
+            
+            if (!hasMore) {
+              // Two consecutive empty calls - we've reached the end
+              setTotalHits(calculatedOffset);
+            }
+          } else {
+            // Got results - reset consecutive empty calls counter
+            setConsecutiveEmptyCalls(0);
+            setHasMoreResults(true); // If we got any results, there might be more
+            
+            // Update totalHits - use num_hits if available
+            if (numHits > 0) {
+              setTotalHits(numHits);
+            } else if (totalHits === 0) {
+              setTotalHits(-1); // Indicate unknown total
+            }
           }
 
-          // Auto-load more pages if we don't have enough results on first page
-          if (newResults.length > 0 && hasMore) {
+          // Auto-load more pages if we got results but fewer than expected
+          // Since API merges/restructures data, we might get fewer results even when more exist
+          if (newResults.length > 0 && newResults.length < resultsPerPage) {
             // Define minimum thresholds for first page
             const minResultsThreshold = Math.min(20, resultsPerPage / 2); // At least 20 results or half the page size
 
-            // If we got fewer than expected results and haven't reached minimum threshold, auto-load next page
-            // Also check if num_hits indicates there are more results available
-            const hasMoreAvailable = numHits > newResults.length;
-
-            if (
-              newResults.length < resultsPerPage &&
-              newResults.length < minResultsThreshold &&
-              hasMoreAvailable
-            ) {
+            // Auto-load next page if we got fewer than minimum threshold
+            // This ensures we try to get more results even if the API returned fewer than requested
+            if (newResults.length < minResultsThreshold) {
               console.log(
-                "🔄 Auto-loading next page from first page - insufficient results:",
+                "🔄 Auto-loading next page from first page - got fewer results than threshold:",
                 {
                   gotResults: newResults.length,
                   requestedResults: resultsPerPage,
                   minThreshold: minResultsThreshold,
                   numHits: numHits,
-                  hasMoreAvailable,
-                  nextPageOffset: res.next_page_offset,
                   nextPage: 2,
                 }
               );
 
               // Auto-trigger next page after a short delay to avoid rapid-fire requests
               setTimeout(() => {
-                // Don't check hasMoreResults here since it's async - we already verified hasMore above
-                if (!loadingMore) {
+                if (!loadingMore && hasMoreResults) {
                   console.log("🔄 Actually triggering page 2 load");
                   setCurrentPage(2);
                 } else {
-                  console.log("🔄 Skipping page 2 load - already loading more");
+                  console.log("🔄 Skipping page 2 load - already loading more or no more results");
                 }
               }, 100);
             }
@@ -792,27 +805,60 @@ function DiscoverPageContent() {
           return [...prevResults, ...newResults];
         });
 
-        // For pagination: if we got no results, we're at the end
+        // For pagination: determine if we have more results based on offset pagination
+        if (!searchSettings.useSearch2) {
+          // New offset-based pagination logic:
+          // - Track consecutive empty calls
+          // - Only stop when we get 2 consecutive empty calls (0 results)
+          const numHits = res.num_hits || 0;
+          const totalResultsSoFar = results.length + newResults.length;
+          
+          if (newResults.length === 0) {
+            // Got 0 results - increment consecutive empty calls counter
+            const newConsecutiveEmpty = consecutiveEmptyCalls + 1;
+            setConsecutiveEmptyCalls(newConsecutiveEmpty);
+            
+            // Only stop if we've had 2 consecutive empty calls
+            const hasMore = newConsecutiveEmpty < 2;
+            setHasMoreResults(hasMore);
+            
+            if (!hasMore) {
+              // Two consecutive empty calls - we've reached the end
+              setTotalHits(calculatedOffset);
+            }
+          } else {
+            // Got results - reset consecutive empty calls counter
+            setConsecutiveEmptyCalls(0);
+            setHasMoreResults(true); // If we got any results, there might be more
+            
+            // Update totalHits - use num_hits if available
+            if (numHits > 0) {
+              setTotalHits(numHits);
+            } else if (totalHits === 0) {
+              setTotalHits(-1); // Indicate unknown total
+            }
+          }
+        } else {
+          // Old pagination logic: based on count comparison
+          const hasMore = newResults.length > 0;
+          setHasMoreResults(hasMore);
 
-        // New pagination logic: we're done if this page returned no results
-        const hasMore = newResults.length > 0;
-        setHasMoreResults(hasMore);
-
-        // If we've reached the end, update totalHits to reflect actual results
-        if (!hasMore) {
-          setTotalHits(
-            Math.max(
-              totalHits,
-              results.length +
-                newResults.filter(
-                  (r) =>
-                    !results.some(
-                      (existing) =>
-                        existing.extra_data?.uuid === r.extra_data?.uuid
-                    )
-                ).length
-            )
-          );
+          // If we've reached the end, update totalHits to reflect actual results
+          if (!hasMore) {
+            setTotalHits(
+              Math.max(
+                totalHits,
+                results.length +
+                  newResults.filter(
+                    (r) =>
+                      !results.some(
+                        (existing) =>
+                          existing.extra_data?.uuid === r.extra_data?.uuid
+                      )
+                  ).length
+              )
+            );
+          }
         }
       }
 

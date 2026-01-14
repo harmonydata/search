@@ -175,7 +175,9 @@ const StudyDetailComponent = ({
   const hasTopics = filteredTopics.length > 0;
   const hasInstruments =
     (displayStudy.extra_data?.instruments || []).length > 0;
+  // Check if we have variables - either from API (study UUID) or from static data
   const hasVariables =
+    !!displayStudy.extra_data?.uuid || // If we have UUID, API will fetch variables
     (displayStudy.variables_which_matched || []).length > 0 ||
     (displayStudy.dataset_schema?.variableMeasured || []).length > 0 ||
     (displayStudy.dataset_schema?.number_of_variables || 0) > 0;
@@ -670,7 +672,9 @@ const StudyDetailComponent = ({
             sx={{ justifyContent: "space-between", py: 2, height: "auto" }}
           >
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              {!matchedCount
+              {displayStudy.extra_data?.uuid
+                ? "Variables"
+                : !matchedCount
                 ? `Variables (${totalCount})`
                 : `Related Variables (${matchedCount} / ${totalCount})`}
               <Tooltip title="This list is intended as an overview of variables and may not be comprehensive. Metadata is limited to information available from available sources. Always refer to source metadata.">
@@ -688,8 +692,15 @@ const StudyDetailComponent = ({
               }}
             >
               <MatchedVariablesDataGrid
-                variables={allStudyVariables}
+                variables={displayStudy.extra_data?.uuid ? undefined : allStudyVariables}
                 studyName={title}
+                studyUuid={displayStudy.extra_data?.uuid}
+                studyAncestors={displayStudy.ancestors}
+                query={debouncedQuery}
+                variablesWhichMatched={displayStudy.variables_which_matched}
+                alpha={debouncedHybridWeight}
+                maxVectorDistance={debouncedMaxDistance}
+                directMatchWeight={searchSettings.directMatchWeight}
               />
             </Box>
           </Collapse>

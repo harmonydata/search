@@ -48,7 +48,23 @@ export interface SearchResult {
       "@type"?: string;
       name?: string;
     }[];
+    copyrightHolder?: {
+      "@type"?: string;
+      name?: string;
+    }[];
+    sponsor?: {
+      "@type"?: string;
+      name?: string;
+    }[];
+    image?: string;
+    size?: string;
     temporalCoverage?: string;
+    license?: string[];
+    // Optional fields that may be added in the future
+    spatialCoverage?: string;
+    distribution?: any;
+    dateCreated?: string;
+    dateModified?: string;
     number_of_variables?: number;
   };
   extra_data: {
@@ -235,7 +251,10 @@ export async function fetchSearchResults(
   // Set query parameter - use "*" as a wildcard if query is empty but we have filters
   const safeQuery = !query || query.trim() === "" ? "" : query.trim();
 
-  // Determine if we need to use POST (when we have top_level_ids_seen_so_far)
+  // Use exclusion filter method - always use offset 0, filter by top_level_ids_seen_so_far
+  const offset = 0; // Always use 0 when using exclusion method
+  
+  // Determine if we need to use POST (when we have top_level_ids_seen_so_far to exclude)
   const needsPost =
     topLevelIdsSeen && topLevelIdsSeen.length > 0 && !useSearch2;
 
@@ -246,29 +265,25 @@ export async function fetchSearchResults(
   let requestOptions: RequestInit;
 
   if (needsPost) {
-    // Use POST request with body for large data
+    // Use POST request with body for subsequent pages
     url = baseUrl;
 
     // Prepare request body
     const requestBody: any = {
       query: [safeQuery],
       num_results: resultsPerPage,
+      offset: offset, // Always 0 when using exclusion method
     };
-
-    // Add offset (use nextPageOffset if provided, otherwise calculate)
-    const offset =
-      nextPageOffset !== undefined
-        ? nextPageOffset
-        : (page - 1) * resultsPerPage;
-    requestBody.offset = offset;
 
     // Add hybrid weight if provided
     if (hybridWeight !== undefined) {
       requestBody.alpha = hybridWeight;
     }
 
-    // Add top_level_ids_seen_so_far array
-    requestBody.top_level_ids_seen_so_far = topLevelIdsSeen;
+    // Add top_level_ids_seen_so_far array for exclusion filtering
+    if (topLevelIdsSeen && topLevelIdsSeen.length > 0) {
+      requestBody.top_level_ids_seen_so_far = topLevelIdsSeen;
+    }
 
     // Add filters to request body
     if (filters) {
@@ -319,7 +334,7 @@ export async function fetchSearchResults(
 
     console.log("Using POST request for pagination with body:", {
       query: [safeQuery],
-      topLevelIdsCount: topLevelIdsSeen.length,
+      topLevelIdsCount: topLevelIdsSeen?.length || 0,
       offset,
       endpoint,
     });
@@ -336,11 +351,7 @@ export async function fetchSearchResults(
     params.append("query", safeQuery);
 
     // Add limit parameter and offset
-    // Use nextPageOffset if provided (new pagination), otherwise calculate offset (backward compatibility)
-    const offset =
-      nextPageOffset !== undefined
-        ? nextPageOffset
-        : (page - 1) * resultsPerPage;
+    // Use nextPageOffset if provided, otherwise calculate offset
     params.set("num_results", resultsPerPage.toString());
     params.set("offset", offset.toString());
 
@@ -427,6 +438,41 @@ export async function fetchSearchResults(
 
   const data = await response.json();
 
+  // Track top_level_ids_seen_so_far for duplicate detection (but don't send it to API)
+  const seenIds = new Set<string>(topLevelIdsSeen || []);
+  const duplicateIds: string[] = [];
+  
+  // Check for duplicates in the response
+  if (data.results && Array.isArray(data.results)) {
+    data.results.forEach((result: any) => {
+      const resultId = result.extra_data?.uuid || result.dataset_schema?.identifier?.[0];
+      if (resultId) {
+        if (seenIds.has(resultId)) {
+          duplicateIds.push(resultId);
+        } else {
+          seenIds.add(resultId);
+        }
+      }
+    });
+  }
+  
+  // Alert if duplicates found (shouldn't happen with offset-based pagination)
+  if (duplicateIds.length > 0 && typeof window !== "undefined") {
+    alert(
+      `⚠️ Duplicate results detected!\n\n` +
+      `Found ${duplicateIds.length} duplicate result(s) that were already seen.\n` +
+      `This shouldn't happen with offset-based pagination.\n\n` +
+      `Duplicate IDs: ${duplicateIds.slice(0, 5).join(", ")}${duplicateIds.length > 5 ? "..." : ""}\n\n` +
+      `Please check the console for more details.`
+    );
+    console.error("Duplicate results detected:", {
+      count: duplicateIds.length,
+      ids: duplicateIds,
+      currentOffset: offset,
+      resultsReturned: data.results?.length || 0,
+    });
+  }
+
   // Store response in window object for debugging
   if (typeof window !== "undefined") {
     // @ts-ignore - Adding debug property to window
@@ -444,16 +490,19 @@ export async function fetchSearchResults(
       endpoint: endpoint,
       method: needsPost ? "POST" : "GET",
       hybridWeight: hybridWeight,
+      offset: offset,
+      duplicatesDetected: duplicateIds.length,
     });
   }
 
   // Transform the response if needed to match the expected structure
   // The new API returns a structure with results and aggregations directly
+  // NOTE: We still return top_level_ids_seen_so_far for tracking, but don't send it in requests
   return {
     results: data.results || [],
     aggregations: data.aggregations || {},
     num_hits: data.num_hits,
-    top_level_ids_seen_so_far: data.top_level_ids_seen_so_far || [],
+    top_level_ids_seen_so_far: Array.from(seenIds), // Return updated tracking set
     next_page_offset: data.next_page_offset,
   } as SearchResponse;
 }
@@ -1091,4 +1140,88 @@ export async function cleanupTextFromKnowledge(
     result: result.result || result, // Handle different response formats
     type: "summarise_text",
   };
+}
+
+// Response interface for get-variables endpoint
+export interface VariablesResponse {
+  results: VariableSchema[];
+  num_hits?: number;
+  next_page_offset?: number;
+}
+
+// Function to fetch variables from the new get-variables endpoint
+export async function fetchVariables(
+  options: {
+    ancestor_uuid?: string;
+    query?: string;
+    num_results?: number;
+    offset?: number;
+    alpha?: number;
+    max_vector_distance?: number;
+    direct_match_weight?: number;
+  }
+): Promise<VariablesResponse> {
+  const params = new URLSearchParams();
+
+  // Add ancestor_uuid (applies to both top-level studies and child datasets)
+  if (options.ancestor_uuid) {
+    params.set("ancestor_uuid", options.ancestor_uuid);
+  }
+
+  // Add query parameter if provided
+  if (options.query && options.query.trim()) {
+    params.set("query", options.query.trim());
+  }
+
+  // Add pagination parameters
+  if (options.num_results !== undefined) {
+    params.set("num_results", options.num_results.toString());
+  }
+  if (options.offset !== undefined) {
+    params.set("offset", options.offset.toString());
+  }
+
+  // Add search config parameters
+  if (options.alpha !== undefined) {
+    params.set("alpha", options.alpha.toString());
+  }
+  if (options.max_vector_distance !== undefined) {
+    params.set("max_vector_distance", options.max_vector_distance.toString());
+  }
+  if (options.direct_match_weight !== undefined) {
+    // Transform 0-1 slider value to 0-10 API value (same as search)
+    // Piecewise linear: 0->0, 0.5->2, 1->10
+    const apiValue =
+      options.direct_match_weight <= 0.5
+        ? 4 * options.direct_match_weight
+        : 16 * options.direct_match_weight - 6;
+    params.set("direct_match_weight", apiValue.toString());
+  }
+
+  const url = `${API_BASE}/discover/get-variables?${params.toString()}`;
+  console.log(`🔗 API CALL: fetchVariables(${url})`);
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    console.error("Failed to fetch variables:", response.statusText);
+    throw new Error(`Failed to fetch variables: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+
+  // Store response in window object for debugging
+  if (typeof window !== "undefined") {
+    // @ts-ignore - Adding debug property to window
+    window.__lastVariablesResponse = data;
+    console.log(
+      "Variables API response cached in window.__lastVariablesResponse for debugging"
+    );
+  }
+
+  return {
+    results: data.results || [],
+    num_hits: data.num_hits,
+    next_page_offset: data.next_page_offset,
+  } as VariablesResponse;
 }

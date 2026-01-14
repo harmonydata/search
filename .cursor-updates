@@ -49,3 +49,6 @@
 - Updated child dataset pages to use StudyDetail component with proper data transformation
 - Switched XLSX library from npm package to local xlsx.min.js (v0.20.3) in public/js to prevent security vulnerabilities
 - Removed vercel package from dependencies (not needed - Vercel builds automatically detect Next.js projects)
+- Removed all/matching toggle from variable table and simplified to always use QuickFilter with initial query value
+- Reorganized variable table toolbar to have search box and harmony/save buttons on a single line
+- Set initial QuickFilter value to mainSearchQuery when page loads with a query for immediate matching results

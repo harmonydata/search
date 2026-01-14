@@ -33,8 +33,9 @@ import {
   Table,
   Maximize2,
   X,
+  Search,
 } from "lucide-react";
-import { VariableSchema } from "@/services/api";
+import { VariableSchema, fetchVariables, SearchResult } from "@/services/api";
 // XLSX will be loaded dynamically when needed to reduce bundle size
 import { loadHarmonyExportComponent } from "@/utilities/harmonyExportLoader";
 
@@ -98,8 +99,16 @@ const loadXLSX = (): Promise<void> => {
 };
 
 interface MatchedVariablesDataGridProps {
-  variables: VariableSchema[];
+  variables?: VariableSchema[]; // Optional - if studyUuid provided, will fetch from API
   studyName?: string;
+  // Server-side fetching props
+  studyUuid?: string; // If provided, will fetch variables from API using ancestor_uuid
+  studyAncestors?: SearchResult[]; // Ancestors array (kept for potential future use, but not used for API calls)
+  query?: string; // Main search query (for matching mode)
+  variablesWhichMatched?: VariableSchema[]; // Variables that matched the search
+  alpha?: number;
+  maxVectorDistance?: number;
+  directMatchWeight?: number;
   // Download state props only
   downloadAnchorEl?: HTMLElement | null;
   onDownloadClick?: (event: React.MouseEvent<HTMLElement>) => void;
@@ -107,13 +116,28 @@ interface MatchedVariablesDataGridProps {
 }
 
 interface MatchedVariablesWrapperProps {
-  variables: VariableSchema[];
+  variables?: VariableSchema[];
   studyName?: string;
+  // Server-side fetching props
+  studyUuid?: string;
+  studyAncestors?: SearchResult[];
+  query?: string;
+  variablesWhichMatched?: VariableSchema[];
+  alpha?: number;
+  maxVectorDistance?: number;
+  directMatchWeight?: number;
 }
 
 function MatchedVariablesDataGrid({
-  variables,
+  variables: propsVariables,
   studyName,
+  studyUuid,
+  studyAncestors,
+  query: mainSearchQuery,
+  variablesWhichMatched,
+  alpha,
+  maxVectorDistance,
+  directMatchWeight,
   downloadAnchorEl,
   onDownloadClick,
   onDownloadClose,
@@ -122,6 +146,122 @@ function MatchedVariablesDataGrid({
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
   const [isApiReady, setIsApiReady] = useState(false);
+  
+  // Initialize filter model with mainSearchQuery if available
+  const initialState = useMemo(() => {
+    if (mainSearchQuery && mainSearchQuery.trim().length > 0) {
+      return {
+        filter: {
+          filterModel: {
+            items: [],
+            quickFilterValues: [mainSearchQuery.trim()],
+          },
+        },
+      };
+    }
+    return undefined;
+  }, [mainSearchQuery]);
+  
+  // Create dataSource for server-side fetching - DataGrid will call this automatically
+  const dataSource = useMemo(() => {
+    if (!studyUuid) return undefined;
+    
+    return {
+      getRows: async (params: any) => {
+        // Extract search query from filterModel (QuickFilter sets this)
+        // QuickFilter uses the "quickFilterValues" in filterModel
+        const quickFilterValue = params.filterModel?.quickFilterValues?.[0] || "";
+        const searchQuery = quickFilterValue;
+        
+        // Handle paginationModel (can be undefined in some cases)
+        const paginationModel = params.paginationModel || { page: 0, pageSize: 50 };
+        
+        const fetchOptions: Parameters<typeof fetchVariables>[0] = {
+          // Use ancestor_uuid for all cases (works for both top-level studies and child datasets)
+          ancestor_uuid: studyUuid,
+          // Only include query if we have one
+          query: searchQuery && searchQuery.trim() ? searchQuery.trim() : undefined,
+          num_results: paginationModel.pageSize,
+          offset: paginationModel.page * paginationModel.pageSize,
+          alpha: alpha,
+          max_vector_distance: maxVectorDistance,
+          direct_match_weight: directMatchWeight,
+        };
+        
+        try {
+          const response = await fetchVariables(fetchOptions);
+          const results = response.results || [];
+          
+          // Count occurrences of each variable name within the current page
+          const nameCounts = new Map<string, number>();
+          results.forEach((row: any) => {
+            const key = row.name || 'unnamed';
+            nameCounts.set(key, (nameCounts.get(key) || 0) + 1);
+          });
+          
+          // Create rows with unique IDs and display names with counters
+          const rowsWithIds = results.map((row: any, index: number) => {
+            const name = row.name || 'unnamed';
+            const count = nameCounts.get(name) || 1;
+            
+            // Create unique ID using name, index, and offset to ensure uniqueness
+            const offset = paginationModel.page * paginationModel.pageSize;
+            const uniqueId = `${name}-${offset}-${index}`;
+            
+            // Add display name with counter if there are duplicates
+            const displayName = count > 1 
+              ? `${name} (x${count})`
+              : name;
+            
+            return {
+              ...row,
+              id: uniqueId, // Ensure unique ID
+              originalIndex: index,
+              displayName: displayName,
+              repeatCount: count,
+            };
+          });
+          
+          // Determine the actual row count
+          // If we got fewer results than requested, we've reached the end
+          // Calculate total as: current offset + number of results returned
+          const currentOffset = paginationModel.page * paginationModel.pageSize;
+          
+          let actualRowCount: number;
+          if (response.num_hits !== undefined && response.num_hits !== null) {
+            // API provided the count
+            actualRowCount = response.num_hits;
+          } else if (rowsWithIds.length < paginationModel.pageSize) {
+            // Got fewer results than requested - we've reached the end
+            // Total is current offset + number of results
+            actualRowCount = currentOffset + rowsWithIds.length;
+          } else {
+            // Got a full page, but don't know total - use -1 to allow pagination
+            actualRowCount = -1;
+          }
+          
+          return {
+            rows: rowsWithIds,
+            rowCount: actualRowCount,
+          };
+        } catch (error) {
+          console.error("Failed to fetch variables:", error);
+          return {
+            rows: [],
+            rowCount: 0,
+          };
+        }
+      },
+    };
+  }, [
+    studyUuid,
+    alpha,
+    maxVectorDistance,
+    directMatchWeight,
+  ]);
+  
+  // Use props variables for client-side mode
+  const variables = studyUuid ? [] : (propsVariables || []);
 
   useEffect(() => {
     // Load the Harmony Export web component using centralized loader
@@ -131,7 +271,7 @@ function MatchedVariablesDataGrid({
   }, []);
 
   // Helper function to process variable data according to the schema
-  const processVariableData = (variable: any, index: number) => {
+  const processVariableData = useCallback((variable: any, index: number) => {
     const hasQuestion =
       variable.question && variable.question.trim().length > 0;
     const hasDescription =
@@ -179,7 +319,7 @@ function MatchedVariablesDataGrid({
       question_text,
       response_options,
     };
-  };
+  }, []);
 
   const columns: GridColDef[] = [
     {
@@ -197,6 +337,13 @@ function MatchedVariablesDataGrid({
       headerName: "Question / Variable name",
       flex: 2,
       valueGetter: (value: any, row: any) => {
+        // Use displayName if available (for server-side with deduplication), otherwise process normally
+        if (row.displayName && row.repeatCount > 1) {
+          // For duplicates, show the display name with counter, but still process the question text
+          const processed = processVariableData(row, row.originalIndex ?? 0);
+          // If we have a display name with counter, prepend it to the question text
+          return processed.question_text || row.displayName;
+        }
         const processed = processVariableData(row, row.originalIndex ?? 0);
         return processed.question_text;
       },
@@ -440,22 +587,23 @@ function MatchedVariablesDataGrid({
     handleDownloadClose();
   };
 
+
   return (
     <>
       <Box sx={{ height: "100%", minHeight: 400 }}>
-        {rows.length > 0 && (
+        {(rows.length > 0 || dataSource) && (
           <DataGrid
-            //autoPageSize
             apiRef={apiRef}
-            paginationMode="server"
-            rowCount={rows.length}
-            rows={rows}
+            {...(dataSource ? { dataSource } : { rows })}
             columns={columns}
             checkboxSelection
             sortModel={[{ field: "score", sort: "desc" }]}
             getRowClassName={(params) =>
               params.row.matched ? "matched-row" : ""
             }
+            filterMode={studyUuid ? "server" : "client"}
+            sortingMode={studyUuid ? "server" : "client"}
+            paginationMode={studyUuid ? "server" : "client"}
             sx={{
               background: "white",
               borderRadius: 2,
@@ -468,9 +616,11 @@ function MatchedVariablesDataGrid({
                 },
               },
             }}
-            hideFooter
+            hideFooter={!studyUuid}
             pageSizeOptions={[20, 50, 100]}
+            pagination
             showToolbar
+            initialState={initialState}
             slots={{
               toolbar: () => (
                 <Box
@@ -480,21 +630,24 @@ function MatchedVariablesDataGrid({
                     gap: 2,
                     p: 1,
                     mr: 2,
+                    flexWrap: "wrap",
                   }}
                 >
-                  <QuickFilter expanded={true} style={{ width: "100%" }}>
-                    <QuickFilterControl
-                      placeholder="Search within variables"
-                      style={{
-                        background: "white",
-                        borderRadius: 192,
-                        fontSize: 14,
-                        margin: 15,
-                        width: "calc(100% - 15px)",
-                        height: "auto",
-                      }}
-                    />
-                  </QuickFilter>
+                  {/* QuickFilter - always shown */}
+                  <Box sx={{ flex: 1, minWidth: 200 }}>
+                    <QuickFilter expanded={true} style={{ width: "100%" }}>
+                      <QuickFilterControl
+                        placeholder="Search within variables"
+                        style={{
+                          background: "white",
+                          borderRadius: 192,
+                          fontSize: 14,
+                        }}
+                      />
+                    </QuickFilter>
+                  </Box>
+                  
+                  {/* Action buttons */}
                   <Tooltip title="Harmonise selected items">
                     <IconButton size="small" sx={{ width: 40, height: 40 }}>
                       <Box
@@ -575,6 +728,13 @@ function MatchedVariablesDataGrid({
 export default function MatchedVariablesWrapper({
   variables,
   studyName,
+  studyUuid,
+  studyAncestors,
+  query,
+  variablesWhichMatched,
+  alpha,
+  maxVectorDistance,
+  directMatchWeight,
 }: MatchedVariablesWrapperProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const dataGridRef = useRef<HTMLDivElement>(null);
@@ -611,6 +771,13 @@ export default function MatchedVariablesWrapper({
     <MatchedVariablesDataGrid
       variables={variables}
       studyName={studyName}
+      studyUuid={studyUuid}
+      studyAncestors={studyAncestors}
+      query={query}
+      variablesWhichMatched={variablesWhichMatched}
+      alpha={alpha}
+      maxVectorDistance={maxVectorDistance}
+      directMatchWeight={directMatchWeight}
       downloadAnchorEl={downloadAnchorEl}
       onDownloadClick={handleDownloadClick}
       onDownloadClose={handleDownloadClose}

@@ -147,6 +147,12 @@ function MatchedVariablesDataGrid({
 
   const [isApiReady, setIsApiReady] = useState(false);
   
+  // Debouncing for search queries
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingRequestRef = useRef<{ resolve: (value: any) => void; reject: (error: any) => void } | null>(null);
+  const lastFilterQueryRef = useRef<string>("");
+  const lastPaginationRef = useRef<{ page: number; pageSize: number } | null>(null);
+  
   // Initialize filter model with mainSearchQuery if available
   const initialState = useMemo(() => {
     if (mainSearchQuery && mainSearchQuery.trim().length > 0) {
@@ -176,15 +182,61 @@ function MatchedVariablesDataGrid({
         // Handle paginationModel (can be undefined in some cases)
         const paginationModel = params.paginationModel || { page: 0, pageSize: 50 };
         
-        const fetchOptions: Parameters<typeof fetchVariables>[0] = {
-          // Use ancestor_uuid for all cases (works for both top-level studies and child datasets)
-          ancestor_uuid: studyUuid,
-          // Only include query if we have one
-          query: searchQuery && searchQuery.trim() ? searchQuery.trim() : undefined,
-          num_results: paginationModel.pageSize,
-          offset: paginationModel.page * paginationModel.pageSize,
+        // Check if this is a filter change (query changed) or pagination change
+        const isFilterChange = searchQuery !== lastFilterQueryRef.current;
+        const isPaginationChange = 
+          !lastPaginationRef.current ||
+          paginationModel.page !== lastPaginationRef.current.page ||
+          paginationModel.pageSize !== lastPaginationRef.current.pageSize;
+        
+        // Update refs
+        lastFilterQueryRef.current = searchQuery;
+        lastPaginationRef.current = paginationModel;
+        
+        // For filter changes, debounce the request
+        // For pagination changes, execute immediately
+        if (isFilterChange && !isPaginationChange) {
+          // Cancel previous debounce timeout
+          if (debounceTimeoutRef.current) {
+            clearTimeout(debounceTimeoutRef.current);
+          }
+          
+          // Cancel previous pending request if any
+          if (pendingRequestRef.current) {
+            pendingRequestRef.current.reject(new Error("Request cancelled by new filter"));
+          }
+          
+          // Return a promise that will be resolved after debounce
+          return new Promise<{ rows: any[]; rowCount: number }>((resolve, reject) => {
+            pendingRequestRef.current = { resolve, reject };
+            
+            debounceTimeoutRef.current = setTimeout(async () => {
+              try {
+                const result = await executeFetch();
+                pendingRequestRef.current?.resolve(result);
+                pendingRequestRef.current = null;
+              } catch (error) {
+                pendingRequestRef.current?.reject(error);
+                pendingRequestRef.current = null;
+              }
+            }, 500); // 500ms debounce delay
+          });
+        }
+        
+        // For pagination changes or initial load, execute immediately
+        return executeFetch();
+        
+        // Helper function to execute the actual fetch
+        async function executeFetch() {
+          const fetchOptions: Parameters<typeof fetchVariables>[0] = {
+            // Use ancestor_uuid for all cases (works for both top-level studies and child datasets)
+            ancestor_uuid: studyUuid,
+            // Only include query if we have one
+            query: searchQuery && searchQuery.trim() ? searchQuery.trim() : undefined,
+            num_results: paginationModel.pageSize,
+            offset: paginationModel.page * paginationModel.pageSize,
           alpha: alpha,
-          max_vector_distance: maxVectorDistance,
+          max_vector_distance: maxVectorDistance, // Converted to min_original_vector_score (1 - maxVectorDistance) in API
           direct_match_weight: directMatchWeight,
         };
         
@@ -251,6 +303,7 @@ function MatchedVariablesDataGrid({
             rowCount: 0,
           };
         }
+        }
       },
     };
   }, [
@@ -259,6 +312,18 @@ function MatchedVariablesDataGrid({
     maxVectorDistance,
     directMatchWeight,
   ]);
+  
+  // Cleanup debounce timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+      if (pendingRequestRef.current) {
+        pendingRequestRef.current.reject(new Error("Component unmounted"));
+      }
+    };
+  }, []);
   
   // Use props variables for client-side mode
   const variables = studyUuid ? [] : (propsVariables || []);

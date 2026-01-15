@@ -308,9 +308,9 @@ export async function fetchSearchResults(
       requestBody.return_variables_within_parent = returnVariablesWithinParent;
     }
 
-    // Add max_vector_distance parameter if provided
+    // Add min_original_vector_score parameter if provided (calculated as 1 - maxVectorDistance)
     if (maxVectorDistance !== undefined) {
-      requestBody.max_vector_distance = maxVectorDistance;
+      requestBody.min_original_vector_score = 1 - maxVectorDistance;
     }
 
     // Add direct_match_weight parameter if provided
@@ -401,9 +401,9 @@ export async function fetchSearchResults(
       );
     }
 
-    // Add max_vector_distance parameter if provided
+    // Add min_original_vector_score parameter if provided (calculated as 1 - maxVectorDistance)
     if (maxVectorDistance !== undefined) {
-      params.set("max_vector_distance", maxVectorDistance.toString());
+      params.set("min_original_vector_score", (1 - maxVectorDistance).toString());
     }
 
     // Add direct_match_weight parameter if provided
@@ -531,9 +531,9 @@ export async function fetchResultsByUuids(
     params.set("alpha", alpha.toString());
   }
 
-  // Append max_vector_distance parameter if provided
+  // Append min_original_vector_score parameter if provided (calculated as 1 - maxVectorDistance)
   if (maxVectorDistance !== undefined) {
-    params.set("max_vector_distance", maxVectorDistance.toString());
+    params.set("min_original_vector_score", (1 - maxVectorDistance).toString());
   }
 
   const url = `${API_BASE}/discover/lookup?${params.toString()}`;
@@ -579,9 +579,9 @@ export async function fetchResultByUuid(
     params.set("alpha", alpha.toString());
   }
 
-  // Append max_vector_distance parameter if provided
+  // Append min_original_vector_score parameter if provided (calculated as 1 - maxVectorDistance)
   if (maxVectorDistance !== undefined) {
-    params.set("max_vector_distance", maxVectorDistance.toString());
+    params.set("min_original_vector_score", (1 - maxVectorDistance).toString());
   }
 
   const url = `${API_BASE}/discover/lookup?${params.toString()}`;
@@ -604,9 +604,9 @@ export async function fetchResultByUuid(
       slugParams.set("alpha", alpha.toString());
     }
 
-    // Append max_vector_distance parameter if provided
+    // Append min_original_vector_score parameter if provided (calculated as 1 - maxVectorDistance)
     if (maxVectorDistance !== undefined) {
-      slugParams.set("max_vector_distance", maxVectorDistance.toString());
+      slugParams.set("min_original_vector_score", (1 - maxVectorDistance).toString());
     }
 
     const slugUrl = `${API_BASE}/discover/lookup?${slugParams.toString()}`;
@@ -1186,7 +1186,7 @@ export async function fetchVariables(
     params.set("alpha", options.alpha.toString());
   }
   if (options.max_vector_distance !== undefined) {
-    params.set("max_vector_distance", options.max_vector_distance.toString());
+    params.set("min_original_vector_score", (1 - options.max_vector_distance).toString());
   }
   if (options.direct_match_weight !== undefined) {
     // Transform 0-1 slider value to 0-10 API value (same as search)

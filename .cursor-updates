@@ -52,3 +52,5 @@
 - Removed all/matching toggle from variable table and simplified to always use QuickFilter with initial query value
 - Reorganized variable table toolbar to have search box and harmony/save buttons on a single line
 - Set initial QuickFilter value to mainSearchQuery when page loads with a query for immediate matching results
+- Added debouncing to variable table search (500ms delay) to reduce server calls while typing, ensuring last call always executes
+- Modified API calls to pass min_original_vector_score (1 - max_vector_distance) instead of max_vector_distance

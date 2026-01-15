@@ -253,7 +253,7 @@ export async function fetchSearchResults(
 
   // Use exclusion filter method - always use offset 0, filter by top_level_ids_seen_so_far
   const offset = 0; // Always use 0 when using exclusion method
-  
+
   // Determine if we need to use POST (when we have top_level_ids_seen_so_far to exclude)
   const needsPost =
     topLevelIdsSeen && topLevelIdsSeen.length > 0 && !useSearch2;
@@ -403,7 +403,10 @@ export async function fetchSearchResults(
 
     // Add min_original_vector_score parameter if provided (calculated as 1 - maxVectorDistance)
     if (maxVectorDistance !== undefined) {
-      params.set("min_original_vector_score", (1 - maxVectorDistance).toString());
+      params.set(
+        "min_original_vector_score",
+        (1 - maxVectorDistance).toString()
+      );
     }
 
     // Add direct_match_weight parameter if provided
@@ -441,11 +444,12 @@ export async function fetchSearchResults(
   // Track top_level_ids_seen_so_far for duplicate detection (but don't send it to API)
   const seenIds = new Set<string>(topLevelIdsSeen || []);
   const duplicateIds: string[] = [];
-  
+
   // Check for duplicates in the response
   if (data.results && Array.isArray(data.results)) {
     data.results.forEach((result: any) => {
-      const resultId = result.extra_data?.uuid || result.dataset_schema?.identifier?.[0];
+      const resultId =
+        result.extra_data?.uuid || result.dataset_schema?.identifier?.[0];
       if (resultId) {
         if (seenIds.has(resultId)) {
           duplicateIds.push(resultId);
@@ -455,15 +459,17 @@ export async function fetchSearchResults(
       }
     });
   }
-  
+
   // Alert if duplicates found (shouldn't happen with offset-based pagination)
   if (duplicateIds.length > 0 && typeof window !== "undefined") {
     alert(
       `⚠️ Duplicate results detected!\n\n` +
-      `Found ${duplicateIds.length} duplicate result(s) that were already seen.\n` +
-      `This shouldn't happen with offset-based pagination.\n\n` +
-      `Duplicate IDs: ${duplicateIds.slice(0, 5).join(", ")}${duplicateIds.length > 5 ? "..." : ""}\n\n` +
-      `Please check the console for more details.`
+        `Found ${duplicateIds.length} duplicate result(s) that were already seen.\n` +
+        `This shouldn't happen with offset-based pagination.\n\n` +
+        `Duplicate IDs: ${duplicateIds.slice(0, 5).join(", ")}${
+          duplicateIds.length > 5 ? "..." : ""
+        }\n\n` +
+        `Please check the console for more details.`
     );
     console.error("Duplicate results detected:", {
       count: duplicateIds.length,
@@ -606,7 +612,10 @@ export async function fetchResultByUuid(
 
     // Append min_original_vector_score parameter if provided (calculated as 1 - maxVectorDistance)
     if (maxVectorDistance !== undefined) {
-      slugParams.set("min_original_vector_score", (1 - maxVectorDistance).toString());
+      slugParams.set(
+        "min_original_vector_score",
+        (1 - maxVectorDistance).toString()
+      );
     }
 
     const slugUrl = `${API_BASE}/discover/lookup?${slugParams.toString()}`;
@@ -1150,17 +1159,15 @@ export interface VariablesResponse {
 }
 
 // Function to fetch variables from the new get-variables endpoint
-export async function fetchVariables(
-  options: {
-    ancestor_uuid?: string;
-    query?: string;
-    num_results?: number;
-    offset?: number;
-    alpha?: number;
-    max_vector_distance?: number;
-    direct_match_weight?: number;
-  }
-): Promise<VariablesResponse> {
+export async function fetchVariables(options: {
+  ancestor_uuid?: string;
+  query?: string;
+  num_results?: number;
+  offset?: number;
+  alpha?: number;
+  max_vector_distance?: number;
+  direct_match_weight?: number;
+}): Promise<VariablesResponse> {
   const params = new URLSearchParams();
 
   // Add ancestor_uuid (applies to both top-level studies and child datasets)
@@ -1186,7 +1193,10 @@ export async function fetchVariables(
     params.set("alpha", options.alpha.toString());
   }
   if (options.max_vector_distance !== undefined) {
-    params.set("min_original_vector_score", (1 - options.max_vector_distance).toString());
+    params.set(
+      "min_original_vector_score",
+      (1 - options.max_vector_distance).toString()
+    );
   }
   if (options.direct_match_weight !== undefined) {
     // Transform 0-1 slider value to 0-10 API value (same as search)

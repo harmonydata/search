@@ -61,6 +61,9 @@ const StudyDetailComponent = ({
   // Internal lookup state
   const [enhancedStudy, setEnhancedStudy] = useState<SearchResult | null>(null);
   const [isLoadingEnhancedData, setIsLoadingEnhancedData] = useState(false);
+  
+  // Store total variable count from API (when using server-side fetching)
+  const [apiVariableCount, setApiVariableCount] = useState<number | null>(null);
 
   // Ref for scroll container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -103,6 +106,7 @@ const StudyDetailComponent = ({
   // Reset enhanced study when the study prop changes
   useEffect(() => {
     setEnhancedStudy(null);
+    setApiVariableCount(null); // Reset variable count when study changes
   }, [study.extra_data?.uuid]);
 
   // Helper function to add filter values additively
@@ -673,7 +677,9 @@ const StudyDetailComponent = ({
           >
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               {displayStudy.extra_data?.uuid
-                ? "Variables"
+                ? apiVariableCount !== null
+                  ? `Variables (${apiVariableCount})`
+                  : "Variables"
                 : !matchedCount
                 ? `Variables (${totalCount})`
                 : `Related Variables (${matchedCount} / ${totalCount})`}
@@ -701,6 +707,7 @@ const StudyDetailComponent = ({
                 alpha={debouncedHybridWeight}
                 maxVectorDistance={debouncedMaxDistance}
                 directMatchWeight={searchSettings.directMatchWeight}
+                onTotalCountChange={setApiVariableCount}
               />
             </Box>
           </Collapse>

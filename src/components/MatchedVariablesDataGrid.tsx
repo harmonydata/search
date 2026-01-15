@@ -109,6 +109,8 @@ interface MatchedVariablesDataGridProps {
   alpha?: number;
   maxVectorDistance?: number;
   directMatchWeight?: number;
+  // Callback to notify parent of total variable count
+  onTotalCountChange?: (count: number | null) => void;
   // Download state props only
   downloadAnchorEl?: HTMLElement | null;
   onDownloadClick?: (event: React.MouseEvent<HTMLElement>) => void;
@@ -126,6 +128,8 @@ interface MatchedVariablesWrapperProps {
   alpha?: number;
   maxVectorDistance?: number;
   directMatchWeight?: number;
+  // Callback to notify parent of total variable count
+  onTotalCountChange?: (count: number | null) => void;
 }
 
 function MatchedVariablesDataGrid({
@@ -138,6 +142,7 @@ function MatchedVariablesDataGrid({
   alpha,
   maxVectorDistance,
   directMatchWeight,
+  onTotalCountChange,
   downloadAnchorEl,
   onDownloadClick,
   onDownloadClose,
@@ -146,6 +151,7 @@ function MatchedVariablesDataGrid({
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
 
   const [isApiReady, setIsApiReady] = useState(false);
+  const [totalVariableCount, setTotalVariableCount] = useState<number | null>(null);
   
   // Debouncing for search queries
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -244,6 +250,16 @@ function MatchedVariablesDataGrid({
           const response = await fetchVariables(fetchOptions);
           const results = response.results || [];
           
+          // Create a Set of matched variable names for quick lookup
+          const matchedVariableNames = new Set<string>();
+          if (variablesWhichMatched && variablesWhichMatched.length > 0) {
+            variablesWhichMatched.forEach((matchedVar) => {
+              if (matchedVar.name) {
+                matchedVariableNames.add(matchedVar.name);
+              }
+            });
+          }
+          
           // Count occurrences of each variable name within the current page
           const nameCounts = new Map<string, number>();
           results.forEach((row: any) => {
@@ -265,12 +281,16 @@ function MatchedVariablesDataGrid({
               ? `${name} (x${count})`
               : name;
             
+            // Determine if this variable is matched by checking if it's in variablesWhichMatched array
+            const isMatched = matchedVariableNames.has(name);
+            
             return {
               ...row,
               id: uniqueId, // Ensure unique ID
               originalIndex: index,
               displayName: displayName,
               repeatCount: count,
+              matched: isMatched, // Set matched property for highlighting
             };
           });
           
@@ -281,15 +301,21 @@ function MatchedVariablesDataGrid({
           
           let actualRowCount: number;
           if (response.num_hits !== undefined && response.num_hits !== null) {
-            // API provided the count
+            // API provided the count (only on first call with offset 0)
             actualRowCount = response.num_hits;
+            
+            // Store the total count if this is the first page (offset 0)
+            if (currentOffset === 0 && totalVariableCount !== response.num_hits) {
+              setTotalVariableCount(response.num_hits);
+              onTotalCountChange?.(response.num_hits);
+            }
           } else if (rowsWithIds.length < paginationModel.pageSize) {
             // Got fewer results than requested - we've reached the end
             // Total is current offset + number of results
             actualRowCount = currentOffset + rowsWithIds.length;
           } else {
-            // Got a full page, but don't know total - use -1 to allow pagination
-            actualRowCount = -1;
+            // Got a full page, but don't know total - use stored count if available, otherwise -1
+            actualRowCount = totalVariableCount !== null ? totalVariableCount : -1;
           }
           
           return {
@@ -311,6 +337,7 @@ function MatchedVariablesDataGrid({
     alpha,
     maxVectorDistance,
     directMatchWeight,
+    variablesWhichMatched, // Include variablesWhichMatched so dataSource updates when it changes
   ]);
   
   // Cleanup debounce timeout on unmount
@@ -324,6 +351,12 @@ function MatchedVariablesDataGrid({
       }
     };
   }, []);
+  
+  // Reset total count when study UUID or query changes
+  useEffect(() => {
+    setTotalVariableCount(null);
+    onTotalCountChange?.(null);
+  }, [studyUuid, mainSearchQuery, onTotalCountChange]);
   
   // Use props variables for client-side mode
   const variables = studyUuid ? [] : (propsVariables || []);
@@ -800,6 +833,7 @@ export default function MatchedVariablesWrapper({
   alpha,
   maxVectorDistance,
   directMatchWeight,
+  onTotalCountChange,
 }: MatchedVariablesWrapperProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const dataGridRef = useRef<HTMLDivElement>(null);
@@ -843,6 +877,7 @@ export default function MatchedVariablesWrapper({
       alpha={alpha}
       maxVectorDistance={maxVectorDistance}
       directMatchWeight={directMatchWeight}
+      onTotalCountChange={onTotalCountChange}
       downloadAnchorEl={downloadAnchorEl}
       onDownloadClick={handleDownloadClick}
       onDownloadClose={handleDownloadClose}

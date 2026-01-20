@@ -65,3 +65,4 @@
 - Offset strategy: uses offset-based pagination with client-side duplicate filtering (scores comparable)
 - Changed default page size from 50 to 100 results per page
 - Changed empty results handling: automatically fetch next page when empty, stop only after 3 consecutive empty pages (was 2)
+- Added probe call with limit=10000 when empty results are received to check for any remaining results

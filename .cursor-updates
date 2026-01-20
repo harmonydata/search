@@ -63,3 +63,4 @@
 - Added pagination strategy toggle (Filter/Offset) to advanced search settings
 - Filter strategy: uses top_level_ids_seen_so_far to exclude results (current behavior, scores not comparable)
 - Offset strategy: uses offset-based pagination with client-side duplicate filtering (scores comparable)
+- Changed default page size from 50 to 100 results per page

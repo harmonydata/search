@@ -113,7 +113,7 @@ function DiscoverPageContent() {
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
   const [comingSoonFeature, setComingSoonFeature] = useState<string>("");
 
-  const resultsPerPage = 50;
+  const resultsPerPage = 100;
 
   const { currentUser } = useAuth();
 

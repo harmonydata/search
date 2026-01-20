@@ -35,11 +35,6 @@ export default function PaginationStrategyToggle() {
           Offset
         </ToggleButton>
       </ToggleButtonGroup>
-      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
-        {searchSettings.paginationStrategy === "filter" 
-          ? "Uses top_level_ids_seen to exclude results (scores not comparable between pages)"
-          : "Uses offset-based pagination (scores comparable, may have duplicates)"}
-      </Typography>
     </Box>
   );
 }

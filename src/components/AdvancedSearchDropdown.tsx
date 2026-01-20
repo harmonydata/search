@@ -70,11 +70,12 @@ export default function AdvancedSearchDropdown() {
             Search Configuration
           </Typography>
 
-          <SearchVersionToggle />
+          {/* SearchVersionToggle hidden but code left in place */}
+          {/* <SearchVersionToggle /> */}
           <HybridWeightSlider />
           <MaxDistanceSlider />
-          <DirectMatchWeightSlider />
           <PaginationStrategyToggle />
+          <DirectMatchWeightSlider />
 
           {/* Information */}
           <Box sx={{ mt: 3, p: 2, bgcolor: "grey.50", borderRadius: 1 }}>

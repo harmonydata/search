@@ -79,7 +79,7 @@ export default function MaxDistanceSlider() {
       </Box>
       <Box sx={{ mt: 2 }}>
         <Typography variant="caption" color="text.secondary" gutterBottom display="block">
-          Send to API:
+          Distance Strategy:
         </Typography>
         <ToggleButtonGroup
           value={searchSettings.maxDistanceMode}

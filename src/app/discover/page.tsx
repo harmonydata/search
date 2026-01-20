@@ -698,7 +698,7 @@ function DiscoverPageContent() {
         const newSeenIds: string[] = [...currentTopLevelIdsRef.current];
 
         newResults.forEach((result) => {
-          const resultId = result.extra_data?.uuid || result.extra_data?.id;
+          const resultId = result.extra_data?.uuid;
           if (resultId && !seenIdsSet.has(resultId)) {
             uniqueResults.push(result);
             seenIdsSet.add(resultId);
@@ -1410,7 +1410,7 @@ function DiscoverPageContent() {
         const newSeenIds: string[] = [...currentTopLevelIdsRef.current];
 
         resultsToAdd.forEach((result) => {
-          const resultId = result.extra_data?.uuid || result.extra_data?.id;
+          const resultId = result.extra_data?.uuid;
           if (resultId && !seenIdsSet.has(resultId)) {
             uniqueResults.push(result);
             seenIdsSet.add(resultId);

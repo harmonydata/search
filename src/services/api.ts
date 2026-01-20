@@ -550,9 +550,14 @@ export async function fetchResultsByUuids(
     params.set("alpha", alpha.toString());
   }
 
-  // Append min_original_vector_score parameter if provided (calculated as 1 - maxVectorDistance)
+  // Add max_vector_distance and/or min_original_vector_score based on mode
   if (maxVectorDistance !== undefined) {
-    params.set("min_original_vector_score", (1 - maxVectorDistance).toString());
+    if (maxDistanceMode === "max_distance" || maxDistanceMode === "both") {
+      params.set("max_vector_distance", maxVectorDistance.toString());
+    }
+    if (maxDistanceMode === "min_score" || maxDistanceMode === "both") {
+      params.set("min_original_vector_score", (1 - maxVectorDistance).toString());
+    }
   }
 
   const url = `${API_BASE}/discover/lookup?${params.toString()}`;

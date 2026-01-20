@@ -80,6 +80,9 @@ const StudyDetailComponent = ({
   const [debouncedMaxDistance, setDebouncedMaxDistance] = useState(
     searchSettings.maxDistance
   );
+  const [debouncedMaxDistanceMode, setDebouncedMaxDistanceMode] = useState(
+    searchSettings.maxDistanceMode
+  );
   const router = useRouter();
   const pathname = usePathname();
 
@@ -340,7 +343,8 @@ const StudyDetailComponent = ({
           displayStudy.extra_data.uuid!,
           debouncedQuery,
           debouncedHybridWeight,
-          debouncedMaxDistance
+          debouncedMaxDistance,
+          debouncedMaxDistanceMode
         );
 
         if (!cancelled) {
@@ -366,6 +370,7 @@ const StudyDetailComponent = ({
     debouncedQuery,
     debouncedHybridWeight,
     debouncedMaxDistance,
+    debouncedMaxDistanceMode,
   ]);
 
   useEffect(() => {
@@ -373,6 +378,7 @@ const StudyDetailComponent = ({
       setDebouncedQuery(searchSettings.query);
       setDebouncedHybridWeight(searchSettings.hybridWeight);
       setDebouncedMaxDistance(searchSettings.maxDistance);
+      setDebouncedMaxDistanceMode(searchSettings.maxDistanceMode);
     }, 800);
 
     return () => clearTimeout(timer);
@@ -380,6 +386,7 @@ const StudyDetailComponent = ({
     searchSettings.query,
     searchSettings.hybridWeight,
     searchSettings.maxDistance,
+    searchSettings.maxDistanceMode,
   ]);
 
   const toggleSection = (section: string) => {

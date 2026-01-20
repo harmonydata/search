@@ -145,6 +145,7 @@ function DiscoverPageContent() {
   const useSearch2Ref = useRef(searchSettings.useSearch2);
   const hybridWeightRef = useRef(searchSettings.hybridWeight);
   const maxDistanceRef = useRef(searchSettings.maxDistance);
+  const maxDistanceModeRef = useRef(searchSettings.maxDistanceMode);
   const directMatchWeightRef = useRef(searchSettings.directMatchWeight);
   const topLevelIdsSeenRef = useRef(topLevelIdsSeen);
   const isResettingPageRef = useRef(false);
@@ -398,6 +399,7 @@ function DiscoverPageContent() {
       searchSettings.useSearch2 !== useSearch2Ref.current ||
       searchSettings.hybridWeight !== hybridWeightRef.current ||
       searchSettings.maxDistance !== maxDistanceRef.current ||
+      searchSettings.maxDistanceMode !== maxDistanceModeRef.current ||
       searchSettings.directMatchWeight !== directMatchWeightRef.current;
 
     // If we're in similar studies mode, use the original description as the query
@@ -448,6 +450,7 @@ function DiscoverPageContent() {
         useSearch2Ref.current = searchSettings.useSearch2;
         hybridWeightRef.current = searchSettings.hybridWeight;
         maxDistanceRef.current = searchSettings.maxDistance;
+        maxDistanceModeRef.current = searchSettings.maxDistanceMode;
         directMatchWeightRef.current = searchSettings.directMatchWeight;
         topLevelIdsSeenRef.current = topLevelIdsSeen;
       });

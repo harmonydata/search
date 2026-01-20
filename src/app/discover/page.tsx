@@ -147,6 +147,7 @@ function DiscoverPageContent() {
   const maxDistanceRef = useRef(searchSettings.maxDistance);
   const maxDistanceModeRef = useRef(searchSettings.maxDistanceMode);
   const directMatchWeightRef = useRef(searchSettings.directMatchWeight);
+  const paginationStrategyRef = useRef(searchSettings.paginationStrategy);
   const topLevelIdsSeenRef = useRef(topLevelIdsSeen);
   const isResettingPageRef = useRef(false);
 
@@ -367,7 +368,8 @@ function DiscoverPageContent() {
           undefined, // returnVariablesWithinParent
           adjustedMaxDistance, // maxVectorDistance - adjusted based on page number
           searchSettings.directMatchWeight, // directMatchWeight
-          searchSettings.maxDistanceMode // maxDistanceMode
+          searchSettings.maxDistanceMode, // maxDistanceMode
+          searchSettings.paginationStrategy // paginationStrategy
         );
 
         setResults(searchResponse.results || []);
@@ -400,7 +402,8 @@ function DiscoverPageContent() {
       searchSettings.hybridWeight !== hybridWeightRef.current ||
       searchSettings.maxDistance !== maxDistanceRef.current ||
       searchSettings.maxDistanceMode !== maxDistanceModeRef.current ||
-      searchSettings.directMatchWeight !== directMatchWeightRef.current;
+      searchSettings.directMatchWeight !== directMatchWeightRef.current ||
+      searchSettings.paginationStrategy !== paginationStrategyRef.current;
 
     // If we're in similar studies mode, use the original description as the query
     const queryToUse = searchSettings.similarUid
@@ -423,6 +426,10 @@ function DiscoverPageContent() {
       console.log("🗑️ Clearing results array");
       setResults([]);
       // Reset pagination state for new search
+      // Also reset if pagination strategy changed
+      if (searchSettings.paginationStrategy !== paginationStrategyRef.current) {
+        console.log("Pagination strategy changed, resetting seen IDs");
+      }
       setTopLevelIdsSeen([]);
       currentTopLevelIdsRef.current = [];
       setNextPageOffset(undefined);
@@ -452,6 +459,7 @@ function DiscoverPageContent() {
         maxDistanceRef.current = searchSettings.maxDistance;
         maxDistanceModeRef.current = searchSettings.maxDistanceMode;
         directMatchWeightRef.current = searchSettings.directMatchWeight;
+        paginationStrategyRef.current = searchSettings.paginationStrategy;
         topLevelIdsSeenRef.current = topLevelIdsSeen;
       });
     }
@@ -465,6 +473,7 @@ function DiscoverPageContent() {
     searchSettings.maxDistance,
     searchSettings.maxDistanceMode,
     searchSettings.directMatchWeight,
+    searchSettings.paginationStrategy,
     // Remove currentPage from dependencies - page changes will be handled separately
   ]);
 
@@ -608,19 +617,22 @@ function DiscoverPageContent() {
       // Track API time specifically
       const apiStartTime = Date.now();
 
-      // Determine what IDs to exclude from search results
+      // Determine what IDs to exclude from search results (only for filter strategy)
       let idsToExclude: string[] | undefined;
-      if (pageToUse > 1) {
-        // For pagination, use the existing top level IDs to exclude
-        idsToExclude = currentTopLevelIdsRef.current;
-      } else if (searchSettings.similarUid) {
-        // For similar study searches, exclude the original study
-        idsToExclude = [searchSettings.similarUid];
-        console.log(
-          "Excluding original study from similar search:",
-          searchSettings.similarUid
-        );
+      if (searchSettings.paginationStrategy === "filter") {
+        if (pageToUse > 1) {
+          // For pagination, use the existing top level IDs to exclude
+          idsToExclude = currentTopLevelIdsRef.current;
+        } else if (searchSettings.similarUid) {
+          // For similar study searches, exclude the original study
+          idsToExclude = [searchSettings.similarUid];
+          console.log(
+            "Excluding original study from similar search:",
+            searchSettings.similarUid
+          );
+        }
       }
+      // For offset strategy, we don't send idsToExclude to API, but we'll filter duplicates client-side
 
       // Adjust maxDistance based on page number to account for vector distance normalization
       const adjustedMaxDistance = getAdjustedMaxDistance(
@@ -628,8 +640,12 @@ function DiscoverPageContent() {
         pageToUse
       );
 
-      // Using exclusion filter method - always use offset 0
-      const calculatedOffset = 0;
+      // Calculate offset based on pagination strategy
+      // Filter strategy: offset is calculated in API (always 0, uses top_level_ids_seen)
+      // Offset strategy: calculate offset as (page - 1) * resultsPerPage
+      const calculatedOffset = searchSettings.paginationStrategy === "offset"
+        ? (pageToUse - 1) * resultsPerPage
+        : 0;
       
       // Race the actual API call against the timeout
       const res: SearchResponse = await Promise.race([
@@ -640,12 +656,13 @@ function DiscoverPageContent() {
           resultsPerPage,
           searchSettings.useSearch2,
           searchSettings.hybridWeight,
-          idsToExclude, // Use the determined IDs to exclude (for pagination and similar searches)
-          calculatedOffset, // Always 0 when using exclusion method
+          idsToExclude, // Only used for filter strategy
+          calculatedOffset, // Calculated offset for offset strategy, 0 for filter
           undefined, // returnVariablesWithinParent
           adjustedMaxDistance, // maxVectorDistance - adjusted based on page number
           searchSettings.directMatchWeight, // directMatchWeight
-          searchSettings.maxDistanceMode // maxDistanceMode
+          searchSettings.maxDistanceMode, // maxDistanceMode
+          searchSettings.paginationStrategy // paginationStrategy
         ),
         timeoutPromise,
       ]);
@@ -672,20 +689,47 @@ function DiscoverPageContent() {
       console.groupEnd();
 
       // Handle results for infinite scroll
-      const newResults = res.results || [];
+      let newResults = res.results || [];
 
-      // Update topLevelIdsSeen with the new IDs from the response
-      if (res.top_level_ids_seen_so_far) {
-        console.log("Received top_level_ids_seen_so_far:", {
-          count: res.top_level_ids_seen_so_far.length,
-          sample: res.top_level_ids_seen_so_far.slice(0, 5),
-          previousCount: topLevelIdsSeen.length,
+      // For offset strategy, filter out duplicates client-side
+      if (searchSettings.paginationStrategy === "offset") {
+        const seenIdsSet = new Set(currentTopLevelIdsRef.current);
+        const uniqueResults: SearchResult[] = [];
+        const newSeenIds: string[] = [...currentTopLevelIdsRef.current];
+
+        newResults.forEach((result) => {
+          const resultId = result.extra_data?.uuid || result.extra_data?.id;
+          if (resultId && !seenIdsSet.has(resultId)) {
+            uniqueResults.push(result);
+            seenIdsSet.add(resultId);
+            newSeenIds.push(resultId);
+          }
         });
-        // Update both state and ref immediately
-        setTopLevelIdsSeen(res.top_level_ids_seen_so_far);
-        currentTopLevelIdsRef.current = res.top_level_ids_seen_so_far;
+
+        console.log("Offset strategy: filtered duplicates", {
+          originalCount: newResults.length,
+          uniqueCount: uniqueResults.length,
+          duplicatesRemoved: newResults.length - uniqueResults.length,
+        });
+
+        newResults = uniqueResults;
+        // Update seen IDs for client-side tracking (not sent to API)
+        setTopLevelIdsSeen(newSeenIds);
+        currentTopLevelIdsRef.current = newSeenIds;
       } else {
-        console.log("No top_level_ids_seen_so_far in response");
+        // For filter strategy, use the IDs from the API response
+        if (res.top_level_ids_seen_so_far) {
+          console.log("Received top_level_ids_seen_so_far:", {
+            count: res.top_level_ids_seen_so_far.length,
+            sample: res.top_level_ids_seen_so_far.slice(0, 5),
+            previousCount: topLevelIdsSeen.length,
+          });
+          // Update both state and ref immediately
+          setTopLevelIdsSeen(res.top_level_ids_seen_so_far);
+          currentTopLevelIdsRef.current = res.top_level_ids_seen_so_far;
+        } else {
+          console.log("No top_level_ids_seen_so_far in response");
+        }
       }
 
       // NOTE: We're now using offset-based pagination calculated from page number
@@ -1167,6 +1211,21 @@ function DiscoverPageContent() {
         currentPage
       );
 
+      // Determine what IDs to exclude (only for filter strategy)
+      let idsToExclude: string[] | undefined;
+      if (searchSettings.paginationStrategy === "filter") {
+        if (originalStudyUuid) {
+          idsToExclude = [originalStudyUuid];
+        } else if (currentPage > 1) {
+          idsToExclude = currentTopLevelIdsRef.current;
+        }
+      }
+
+      // Calculate offset based on pagination strategy
+      const calculatedOffset = searchSettings.paginationStrategy === "offset"
+        ? (currentPage - 1) * resultsPerPage
+        : 0;
+
       const res: SearchResponse = await fetchSearchResults(
         searchQuery,
         combinedFilters,
@@ -1174,20 +1233,50 @@ function DiscoverPageContent() {
         resultsPerPage,
         searchSettings.useSearch2,
         searchSettings.hybridWeight,
-        // For LIKE searches, exclude the original study by passing its UUID in top_level_ids_seen_so_far
-        // For regular pagination, use the current ref
-        originalStudyUuid
-          ? [originalStudyUuid] // Exclude original study from LIKE search results
-          : currentPage > 1
-          ? currentTopLevelIdsRef.current
-          : undefined,
-        currentPage > 1 ? currentNextPageOffsetRef.current : undefined,
+        idsToExclude, // Only used for filter strategy
+        calculatedOffset, // Calculated offset for offset strategy
         undefined, // returnVariablesWithinParent
         adjustedMaxDistance, // maxVectorDistance - adjusted based on page number
         searchSettings.directMatchWeight, // directMatchWeight
-        searchSettings.maxDistanceMode // maxDistanceMode
+        searchSettings.maxDistanceMode, // maxDistanceMode
+        searchSettings.paginationStrategy // paginationStrategy
       );
-      setResults(res.results || []);
+
+      // For offset strategy, filter duplicates client-side
+      let resultsToAdd = res.results || [];
+      if (searchSettings.paginationStrategy === "offset") {
+        const seenIdsSet = new Set(currentTopLevelIdsRef.current);
+        const uniqueResults: SearchResult[] = [];
+        const newSeenIds: string[] = [...currentTopLevelIdsRef.current];
+
+        resultsToAdd.forEach((result) => {
+          const resultId = result.extra_data?.uuid || result.extra_data?.id;
+          if (resultId && !seenIdsSet.has(resultId)) {
+            uniqueResults.push(result);
+            seenIdsSet.add(resultId);
+            newSeenIds.push(resultId);
+          }
+        });
+
+        console.log("Offset strategy (loadMore): filtered duplicates", {
+          originalCount: resultsToAdd.length,
+          uniqueCount: uniqueResults.length,
+          duplicatesRemoved: resultsToAdd.length - uniqueResults.length,
+        });
+
+        resultsToAdd = uniqueResults;
+        // Update seen IDs for client-side tracking
+        setTopLevelIdsSeen(newSeenIds);
+        currentTopLevelIdsRef.current = newSeenIds;
+      } else {
+        // For filter strategy, use IDs from API response
+        if (res.top_level_ids_seen_so_far) {
+          setTopLevelIdsSeen(res.top_level_ids_seen_so_far);
+          currentTopLevelIdsRef.current = res.top_level_ids_seen_so_far;
+        }
+      }
+
+      setResults(resultsToAdd);
       setTotalHits(res.num_hits || 0);
       setIsResultCountLowerBound(res.is_result_count_lower_bound || false);
     } catch (error) {

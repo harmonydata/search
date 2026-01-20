@@ -236,7 +236,8 @@ export async function fetchSearchResults(
   returnVariablesWithinParent?: boolean,
   maxVectorDistance?: number,
   directMatchWeight?: number,
-  maxDistanceMode: "max_distance" | "min_score" | "both" = "min_score"
+  maxDistanceMode: "max_distance" | "min_score" | "both" = "min_score",
+  paginationStrategy: "filter" | "offset" = "filter"
 ): Promise<SearchResponse> {
   // Check if we have any filters
   const hasFilters = filters && Object.keys(filters).length > 0;
@@ -253,12 +254,19 @@ export async function fetchSearchResults(
   // Set query parameter - use "*" as a wildcard if query is empty but we have filters
   const safeQuery = !query || query.trim() === "" ? "" : query.trim();
 
-  // Use exclusion filter method - always use offset 0, filter by top_level_ids_seen_so_far
-  const offset = 0; // Always use 0 when using exclusion method
+  // Calculate offset based on pagination strategy
+  // Filter strategy: always use offset 0, filter by top_level_ids_seen_so_far
+  // Offset strategy: use calculated offset (page - 1) * resultsPerPage
+  const offset = paginationStrategy === "offset" 
+    ? (page - 1) * resultsPerPage 
+    : 0;
 
-  // Determine if we need to use POST (when we have top_level_ids_seen_so_far to exclude)
+  // Determine if we need to use POST (only for filter strategy when we have top_level_ids_seen_so_far to exclude)
   const needsPost =
-    topLevelIdsSeen && topLevelIdsSeen.length > 0 && !useSearch2;
+    paginationStrategy === "filter" &&
+    topLevelIdsSeen && 
+    topLevelIdsSeen.length > 0 && 
+    !useSearch2;
 
   const endpoint = useSearch2 ? "search2" : "search";
   const baseUrl = `${API_BASE}/discover/${endpoint}`;
@@ -274,7 +282,7 @@ export async function fetchSearchResults(
     const requestBody: any = {
       query: [safeQuery],
       num_results: resultsPerPage,
-      offset: offset, // Always 0 when using exclusion method
+      offset: offset, // 0 for filter strategy, calculated for offset strategy
     };
 
     // Add hybrid weight if provided
@@ -282,8 +290,8 @@ export async function fetchSearchResults(
       requestBody.alpha = hybridWeight;
     }
 
-    // Add top_level_ids_seen_so_far array for exclusion filtering
-    if (topLevelIdsSeen && topLevelIdsSeen.length > 0) {
+    // Add top_level_ids_seen_so_far array for exclusion filtering (only for filter strategy)
+    if (paginationStrategy === "filter" && topLevelIdsSeen && topLevelIdsSeen.length > 0) {
       requestBody.top_level_ids_seen_so_far = topLevelIdsSeen;
     }
 

@@ -8,6 +8,7 @@ import SearchVersionToggle from "./advanced-search/SearchVersionToggle";
 import HybridWeightSlider from "./advanced-search/HybridWeightSlider";
 import MaxDistanceSlider from "./advanced-search/MaxDistanceSlider";
 import DirectMatchWeightSlider from "./advanced-search/DirectMatchWeightSlider";
+import PaginationStrategyToggle from "./advanced-search/PaginationStrategyToggle";
 
 export default function AdvancedSearchDropdown() {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -73,6 +74,7 @@ export default function AdvancedSearchDropdown() {
           <HybridWeightSlider />
           <MaxDistanceSlider />
           <DirectMatchWeightSlider />
+          <PaginationStrategyToggle />
 
           {/* Information */}
           <Box sx={{ mt: 3, p: 2, bgcolor: "grey.50", borderRadius: 1 }}>

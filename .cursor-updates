@@ -60,3 +60,6 @@
 - Fixed toggle change not triggering search by adding maxDistanceMode to useEffect dependency array
 - Changed API functions to always send max_distance/min_score parameters (using default 0.4 if not provided) instead of only when maxVectorDistance is defined
 - Disabled maxDistance page-based adjustment (getAdjustedMaxDistance now returns base value unchanged)
+- Added pagination strategy toggle (Filter/Offset) to advanced search settings
+- Filter strategy: uses top_level_ids_seen_so_far to exclude results (current behavior, scores not comparable)
+- Offset strategy: uses offset-based pagination with client-side duplicate filtering (scores comparable)

@@ -20,6 +20,7 @@ export interface SearchSettings {
   maxDistance: number;
   maxDistanceMode: "max_distance" | "min_score" | "both"; // How to send maxDistance to API
   directMatchWeight: number;
+  paginationStrategy: "filter" | "offset"; // Pagination strategy: filter (top_level_ids_seen) or offset-based
   selectedCategory: string | null;
   resourceType: string | null;
   similarUid: string | null;
@@ -40,6 +41,7 @@ interface SearchContextType {
     maxDistance?: number;
     maxDistanceMode?: "max_distance" | "min_score" | "both";
     directMatchWeight?: number;
+    paginationStrategy?: "filter" | "offset";
     selectedCategory?: string | null;
   }) => void;
 }
@@ -53,6 +55,7 @@ const defaultSearchSettings: SearchSettings = {
   maxDistance: 0.4,
   maxDistanceMode: "min_score", // Default to current behavior
   directMatchWeight: 0.5,
+  paginationStrategy: "filter", // Default to filter strategy (current behavior)
   selectedCategory: null,
   resourceType: null,
   similarUid: null,
@@ -170,6 +173,9 @@ function searchSettingsToUrl(
         : 16 * settings.directMatchWeight - 6;
     params.set("direct_match_weight", apiValue.toString());
   }
+  if (settings.paginationStrategy !== "filter") {
+    params.set("pagination_strategy", settings.paginationStrategy);
+  }
   if (settings.selectedCategory) {
     params.set("category", settings.selectedCategory);
   }
@@ -197,6 +203,7 @@ function urlToSearchSettings(
   const maxDistance = searchParams.get("max_distance");
   const maxDistanceMode = searchParams.get("max_distance_mode");
   const directMatchWeight = searchParams.get("direct_match_weight");
+  const paginationStrategy = searchParams.get("pagination_strategy");
   const category = searchParams.get("category");
 
   const urlFilters: Record<string, string[]> = {};
@@ -221,6 +228,7 @@ function urlToSearchSettings(
     "max_distance",
     "max_distance_mode",
     "direct_match_weight",
+    "pagination_strategy",
     "category",
   ]);
 
@@ -253,6 +261,9 @@ function urlToSearchSettings(
           return apiVal <= 2 ? apiVal / 4 : (apiVal + 6) / 16;
         })()
       : 0.5,
+    paginationStrategy: (paginationStrategy === "offset" || paginationStrategy === "filter")
+      ? paginationStrategy
+      : "filter",
     resourceType: resourceType || null,
     similarUid: like || null,
   };
@@ -285,6 +296,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       urlSettings.maxDistance !== 0.4 ||
       urlSettings.maxDistanceMode !== "min_score" ||
       urlSettings.directMatchWeight !== 0.5 ||
+      urlSettings.paginationStrategy !== "filter" ||
       urlSettings.selectedCategory
     );
 
@@ -344,6 +356,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     searchSettings.maxDistance,
     searchSettings.maxDistanceMode,
     searchSettings.directMatchWeight,
+    searchSettings.paginationStrategy,
     searchSettings.selectedCategory,
     searchSettings.resourceType,
     searchSettings.similarUid,
@@ -373,6 +386,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       urlSettings.maxDistance !== searchSettings.maxDistance ||
       urlSettings.maxDistanceMode !== searchSettings.maxDistanceMode ||
       urlSettings.directMatchWeight !== searchSettings.directMatchWeight ||
+      urlSettings.paginationStrategy !== searchSettings.paginationStrategy ||
       urlSettings.selectedCategory !== searchSettings.selectedCategory ||
       urlSettings.resourceType !== searchSettings.resourceType ||
       urlSettings.similarUid !== searchSettings.similarUid;
@@ -424,6 +438,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       maxDistance?: number;
       maxDistanceMode?: "max_distance" | "min_score" | "both";
       directMatchWeight?: number;
+      paginationStrategy?: "filter" | "offset";
       selectedCategory?: string | null;
     }) => {
       setSearchSettings({
@@ -441,6 +456,8 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
         directMatchWeight:
           savedSearch.directMatchWeight ??
           defaultSearchSettings.directMatchWeight,
+        paginationStrategy:
+          savedSearch.paginationStrategy ?? defaultSearchSettings.paginationStrategy,
         selectedCategory:
           savedSearch.selectedCategory ??
           defaultSearchSettings.selectedCategory,

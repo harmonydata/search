@@ -97,7 +97,7 @@ function DiscoverPageContent() {
   const [nextPageOffset, setNextPageOffset] = useState<number | undefined>(
     undefined
   );
-  // Track consecutive empty calls - need 2 consecutive empty calls to stop
+  // Track consecutive empty calls - need 3 consecutive empty calls to stop
   const [consecutiveEmptyCalls, setConsecutiveEmptyCalls] = useState(0);
 
   const [savingSearch, setSavingSearch] = useState(false);
@@ -757,7 +757,8 @@ function DiscoverPageContent() {
         if (!searchSettings.useSearch2) {
           // New offset-based pagination logic:
           // - Track consecutive empty calls
-          // - Only stop when we get 2 consecutive empty calls (0 results)
+          // - Automatically fetch next page when empty results come in
+          // - Only stop when we get 3 consecutive empty calls (0 results)
           const numHits = res.num_hits || 0;
           
           if (newResults.length === 0) {
@@ -765,13 +766,24 @@ function DiscoverPageContent() {
             const newConsecutiveEmpty = consecutiveEmptyCalls + 1;
             setConsecutiveEmptyCalls(newConsecutiveEmpty);
             
-            // Only stop if we've had 2 consecutive empty calls
-            const hasMore = newConsecutiveEmpty < 2;
+            // Only stop if we've had 3 consecutive empty calls
+            const hasMore = newConsecutiveEmpty < 3;
             setHasMoreResults(hasMore);
             
             if (!hasMore) {
-              // Two consecutive empty calls - we've reached the end
+              // Three consecutive empty calls - we've reached the end
               setTotalHits(calculatedOffset);
+              console.log("🛑 Stopping pagination after 3 consecutive empty pages");
+            } else {
+              // Automatically fetch next page when we get empty results
+              console.log(`🔄 Empty results (${newConsecutiveEmpty}/3), auto-fetching next page`);
+              setTimeout(() => {
+                if (!loadingMore && hasMoreResults) {
+                  const nextPage = pageToUse + 1;
+                  console.log(`🔄 Auto-triggering page ${nextPage} after empty results`);
+                  setCurrentPage(nextPage);
+                }
+              }, 100);
             }
           } else {
             // Got results - reset consecutive empty calls counter
@@ -870,7 +882,8 @@ function DiscoverPageContent() {
         if (!searchSettings.useSearch2) {
           // New offset-based pagination logic:
           // - Track consecutive empty calls
-          // - Only stop when we get 2 consecutive empty calls (0 results)
+          // - Automatically fetch next page when empty results come in
+          // - Only stop when we get 3 consecutive empty calls (0 results)
           const numHits = res.num_hits || 0;
           const totalResultsSoFar = results.length + newResults.length;
           
@@ -879,13 +892,24 @@ function DiscoverPageContent() {
             const newConsecutiveEmpty = consecutiveEmptyCalls + 1;
             setConsecutiveEmptyCalls(newConsecutiveEmpty);
             
-            // Only stop if we've had 2 consecutive empty calls
-            const hasMore = newConsecutiveEmpty < 2;
+            // Only stop if we've had 3 consecutive empty calls
+            const hasMore = newConsecutiveEmpty < 3;
             setHasMoreResults(hasMore);
             
             if (!hasMore) {
-              // Two consecutive empty calls - we've reached the end
+              // Three consecutive empty calls - we've reached the end
               setTotalHits(calculatedOffset);
+              console.log("🛑 Stopping pagination after 3 consecutive empty pages");
+            } else {
+              // Automatically fetch next page when we get empty results
+              console.log(`🔄 Empty results (${newConsecutiveEmpty}/3), auto-fetching next page`);
+              setTimeout(() => {
+                if (!loadingMore && hasMoreResults) {
+                  const nextPage = pageToUse + 1;
+                  console.log(`🔄 Auto-triggering page ${nextPage} after empty results`);
+                  setCurrentPage(nextPage);
+                }
+              }, 100);
             }
           } else {
             // Got results - reset consecutive empty calls counter

@@ -509,18 +509,23 @@ function DiscoverPageContent() {
   // Helper function to adjust maxDistance based on page number
   // Gradually reduces maxDistance as page number increases to account for
   // vector distance normalization within the remaining search window
+  // NOTE: Adjustment is currently disabled - function returns baseMaxDistance as-is
   const getAdjustedMaxDistance = (
     baseMaxDistance: number,
     page: number
   ): number => {
-    if (page <= 1) {
-      return baseMaxDistance;
-    }
-    // Reduce by 10% per page
-    // Formula: maxDistance * (1 - (page - 1) * 0.1)
-    const reductionFactor = 0.1; // 10% reduction per page
-    const adjusted = baseMaxDistance * (1 - (page - 1) * reductionFactor);
-    return Math.max(adjusted, 0); // Ensure non-negative, but allow values below 0.1
+    // Adjustment disabled for now - return base value unchanged
+    return baseMaxDistance;
+    
+    // Original adjustment logic (commented out for future use):
+    // if (page <= 1) {
+    //   return baseMaxDistance;
+    // }
+    // // Reduce by 10% per page
+    // // Formula: maxDistance * (1 - (page - 1) * 0.1)
+    // const reductionFactor = 0.1; // 10% reduction per page
+    // const adjusted = baseMaxDistance * (1 - (page - 1) * reductionFactor);
+    // return Math.max(adjusted, 0); // Ensure non-negative, but allow values below 0.1
   };
 
   async function performSearch(

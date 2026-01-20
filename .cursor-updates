@@ -59,3 +59,4 @@
 - Fixed discover page to trigger search rerun when maxDistanceMode toggle changes
 - Fixed toggle change not triggering search by adding maxDistanceMode to useEffect dependency array
 - Changed API functions to always send max_distance/min_score parameters (using default 0.4 if not provided) instead of only when maxVectorDistance is defined
+- Disabled maxDistance page-based adjustment (getAdjustedMaxDistance now returns base value unchanged)

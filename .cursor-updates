@@ -66,3 +66,4 @@
 - Changed default page size from 50 to 100 results per page
 - Changed empty results handling: automatically fetch next page when empty, stop only after 3 consecutive empty pages (was 2)
 - Added probe call with limit=10000 when empty results are received to check for any remaining results
+- Changed get_variables API calls to always send alpha=0, ignoring the current alpha setting

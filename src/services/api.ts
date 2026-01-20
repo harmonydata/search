@@ -1227,9 +1227,8 @@ export async function fetchVariables(options: {
   }
 
   // Add search config parameters
-  if (options.alpha !== undefined) {
-    params.set("alpha", options.alpha.toString());
-  }
+  // Always send alpha=0 for get_variables (ignores the alpha option)
+  params.set("alpha", "0");
   // Add max_vector_distance and/or min_original_vector_score based on mode
   // Always send these parameters (use default 0.4 if not provided)
   const mode = options.max_distance_mode || "min_score";

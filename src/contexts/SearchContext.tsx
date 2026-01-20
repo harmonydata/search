@@ -53,9 +53,9 @@ const defaultSearchSettings: SearchSettings = {
   useSearch2: false,
   hybridWeight: 0.5,
   maxDistance: 0.4,
-  maxDistanceMode: "min_score", // Default to current behavior
+  maxDistanceMode: "max_distance", // Default to max_distance
   directMatchWeight: 0.5,
-  paginationStrategy: "filter", // Default to filter strategy (current behavior)
+  paginationStrategy: "offset", // Default to offset strategy
   selectedCategory: null,
   resourceType: null,
   similarUid: null,
@@ -161,7 +161,7 @@ function searchSettingsToUrl(
   if (settings.maxDistance !== 0.4) {
     params.set("max_distance", settings.maxDistance.toString());
   }
-  if (settings.maxDistanceMode !== "min_score") {
+  if (settings.maxDistanceMode !== "max_distance") {
     params.set("max_distance_mode", settings.maxDistanceMode);
   }
   if (settings.directMatchWeight !== 0.5) {
@@ -173,7 +173,7 @@ function searchSettingsToUrl(
         : 16 * settings.directMatchWeight - 6;
     params.set("direct_match_weight", apiValue.toString());
   }
-  if (settings.paginationStrategy !== "filter") {
+  if (settings.paginationStrategy !== "offset") {
     params.set("pagination_strategy", settings.paginationStrategy);
   }
   if (settings.selectedCategory) {
@@ -250,9 +250,9 @@ function urlToSearchSettings(
     useSearch2: useSearch2 === "true",
     hybridWeight: hybridWeight ? parseFloat(hybridWeight) : 0.5,
     maxDistance: maxDistance ? parseFloat(maxDistance) : 0.4,
-    maxDistanceMode: (maxDistanceMode === "max_distance" || maxDistanceMode === "both") 
+    maxDistanceMode: (maxDistanceMode === "min_score" || maxDistanceMode === "both") 
       ? maxDistanceMode 
-      : "min_score",
+      : "max_distance",
     directMatchWeight: directMatchWeight
       ? (() => {
           // Transform API value (0-10) back to slider value (0-1)
@@ -261,9 +261,9 @@ function urlToSearchSettings(
           return apiVal <= 2 ? apiVal / 4 : (apiVal + 6) / 16;
         })()
       : 0.5,
-    paginationStrategy: (paginationStrategy === "offset" || paginationStrategy === "filter")
+    paginationStrategy: (paginationStrategy === "filter" || paginationStrategy === "offset")
       ? paginationStrategy
-      : "filter",
+      : "offset",
     resourceType: resourceType || null,
     similarUid: like || null,
   };
@@ -294,9 +294,9 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       urlSettings.useSearch2 ||
       urlSettings.hybridWeight !== 0.5 ||
       urlSettings.maxDistance !== 0.4 ||
-      urlSettings.maxDistanceMode !== "min_score" ||
+      urlSettings.maxDistanceMode !== "max_distance" ||
       urlSettings.directMatchWeight !== 0.5 ||
-      urlSettings.paginationStrategy !== "filter" ||
+      urlSettings.paginationStrategy !== "offset" ||
       urlSettings.selectedCategory
     );
 

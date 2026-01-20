@@ -68,3 +68,4 @@
 - Added probe call with limit=10000 when empty results are received to check for any remaining results
 - Changed get_variables API calls to always send alpha=0, ignoring the current alpha setting
 - Reorganized advanced search: moved pagination strategy toggle under max distance, renamed to 'Distance Strategy', removed explanatory note, hid search version toggle
+- Changed defaults: maxDistanceMode to 'max_distance' and paginationStrategy to 'offset'

@@ -18,6 +18,7 @@ export interface SearchSettings {
   useSearch2: boolean;
   hybridWeight: number;
   maxDistance: number;
+  maxDistanceMode: "max_distance" | "min_score" | "both"; // How to send maxDistance to API
   directMatchWeight: number;
   selectedCategory: string | null;
   resourceType: string | null;
@@ -37,6 +38,7 @@ interface SearchContextType {
     useSearch2?: boolean;
     hybridWeight?: number;
     maxDistance?: number;
+    maxDistanceMode?: "max_distance" | "min_score" | "both";
     directMatchWeight?: number;
     selectedCategory?: string | null;
   }) => void;
@@ -49,6 +51,7 @@ const defaultSearchSettings: SearchSettings = {
   useSearch2: false,
   hybridWeight: 0.5,
   maxDistance: 0.4,
+  maxDistanceMode: "min_score", // Default to current behavior
   directMatchWeight: 0.5,
   selectedCategory: null,
   resourceType: null,
@@ -155,6 +158,9 @@ function searchSettingsToUrl(
   if (settings.maxDistance !== 0.4) {
     params.set("max_distance", settings.maxDistance.toString());
   }
+  if (settings.maxDistanceMode !== "min_score") {
+    params.set("max_distance_mode", settings.maxDistanceMode);
+  }
   if (settings.directMatchWeight !== 0.5) {
     // Transform 0-1 slider value to 0-100 API value
     // Piecewise linear: 0->0, 0.5->50, 1->100
@@ -189,6 +195,7 @@ function urlToSearchSettings(
   const useSearch2 = searchParams.get("use_search2");
   const hybridWeight = searchParams.get("hybrid_weight");
   const maxDistance = searchParams.get("max_distance");
+  const maxDistanceMode = searchParams.get("max_distance_mode");
   const directMatchWeight = searchParams.get("direct_match_weight");
   const category = searchParams.get("category");
 
@@ -212,6 +219,7 @@ function urlToSearchSettings(
     "use_search2",
     "hybrid_weight",
     "max_distance",
+    "max_distance_mode",
     "direct_match_weight",
     "category",
   ]);
@@ -234,6 +242,9 @@ function urlToSearchSettings(
     useSearch2: useSearch2 === "true",
     hybridWeight: hybridWeight ? parseFloat(hybridWeight) : 0.5,
     maxDistance: maxDistance ? parseFloat(maxDistance) : 0.4,
+    maxDistanceMode: (maxDistanceMode === "max_distance" || maxDistanceMode === "both") 
+      ? maxDistanceMode 
+      : "min_score",
     directMatchWeight: directMatchWeight
       ? (() => {
           // Transform API value (0-10) back to slider value (0-1)
@@ -272,6 +283,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       urlSettings.useSearch2 ||
       urlSettings.hybridWeight !== 0.5 ||
       urlSettings.maxDistance !== 0.4 ||
+      urlSettings.maxDistanceMode !== "min_score" ||
       urlSettings.directMatchWeight !== 0.5 ||
       urlSettings.selectedCategory
     );
@@ -330,6 +342,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     searchSettings.useSearch2,
     searchSettings.hybridWeight,
     searchSettings.maxDistance,
+    searchSettings.maxDistanceMode,
     searchSettings.directMatchWeight,
     searchSettings.selectedCategory,
     searchSettings.resourceType,
@@ -358,6 +371,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       urlSettings.useSearch2 !== searchSettings.useSearch2 ||
       urlSettings.hybridWeight !== searchSettings.hybridWeight ||
       urlSettings.maxDistance !== searchSettings.maxDistance ||
+      urlSettings.maxDistanceMode !== searchSettings.maxDistanceMode ||
       urlSettings.directMatchWeight !== searchSettings.directMatchWeight ||
       urlSettings.selectedCategory !== searchSettings.selectedCategory ||
       urlSettings.resourceType !== searchSettings.resourceType ||
@@ -408,6 +422,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       useSearch2?: boolean;
       hybridWeight?: number;
       maxDistance?: number;
+      maxDistanceMode?: "max_distance" | "min_score" | "both";
       directMatchWeight?: number;
       selectedCategory?: string | null;
     }) => {
@@ -421,6 +436,8 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
           savedSearch.hybridWeight ?? defaultSearchSettings.hybridWeight,
         maxDistance:
           savedSearch.maxDistance ?? defaultSearchSettings.maxDistance,
+        maxDistanceMode:
+          savedSearch.maxDistanceMode ?? defaultSearchSettings.maxDistanceMode,
         directMatchWeight:
           savedSearch.directMatchWeight ??
           defaultSearchSettings.directMatchWeight,

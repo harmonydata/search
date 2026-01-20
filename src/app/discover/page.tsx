@@ -75,6 +75,7 @@ function DiscoverPageContent() {
   const [hasMoreResults, setHasMoreResults] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalHits, setTotalHits] = useState(0);
+  const [isResultCountLowerBound, setIsResultCountLowerBound] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(
     null
@@ -330,7 +331,8 @@ function DiscoverPageContent() {
           searchSettings.similarUid,
           undefined,
           undefined,
-          searchSettings.maxDistance
+          searchSettings.maxDistance,
+          searchSettings.maxDistanceMode
         );
         setSimilarStudy(studyResult);
 
@@ -363,11 +365,13 @@ function DiscoverPageContent() {
           undefined, // nextPageOffset
           undefined, // returnVariablesWithinParent
           adjustedMaxDistance, // maxVectorDistance - adjusted based on page number
-          searchSettings.directMatchWeight // directMatchWeight
+          searchSettings.directMatchWeight, // directMatchWeight
+          searchSettings.maxDistanceMode // maxDistanceMode
         );
 
         setResults(searchResponse.results || []);
         setTotalHits(searchResponse.num_hits || 0);
+        setIsResultCountLowerBound(searchResponse.is_result_count_lower_bound || false);
       } catch (err) {
         console.error("Failed to load similar studies:", err);
         setApiOffline(true);
@@ -631,7 +635,8 @@ function DiscoverPageContent() {
           calculatedOffset, // Always 0 when using exclusion method
           undefined, // returnVariablesWithinParent
           adjustedMaxDistance, // maxVectorDistance - adjusted based on page number
-          searchSettings.directMatchWeight // directMatchWeight
+          searchSettings.directMatchWeight, // directMatchWeight
+          searchSettings.maxDistanceMode // maxDistanceMode
         ),
         timeoutPromise,
       ]);
@@ -690,6 +695,7 @@ function DiscoverPageContent() {
         // First page - replace all results
         setResults(newResults);
         setTotalHits(res.num_hits || 0);
+        setIsResultCountLowerBound(res.is_result_count_lower_bound || false);
 
         // URL updates are now handled by SearchContext
 
@@ -722,8 +728,10 @@ function DiscoverPageContent() {
             // Update totalHits - use num_hits if available
             if (numHits > 0) {
               setTotalHits(numHits);
+              setIsResultCountLowerBound(res.is_result_count_lower_bound || false);
             } else if (totalHits === 0) {
               setTotalHits(-1); // Indicate unknown total
+              setIsResultCountLowerBound(false);
             }
           }
 
@@ -834,8 +842,10 @@ function DiscoverPageContent() {
             // Update totalHits - use num_hits if available
             if (numHits > 0) {
               setTotalHits(numHits);
+              setIsResultCountLowerBound(res.is_result_count_lower_bound || false);
             } else if (totalHits === 0) {
               setTotalHits(-1); // Indicate unknown total
+              setIsResultCountLowerBound(false);
             }
           }
         } else {
@@ -1165,10 +1175,12 @@ function DiscoverPageContent() {
         currentPage > 1 ? currentNextPageOffsetRef.current : undefined,
         undefined, // returnVariablesWithinParent
         adjustedMaxDistance, // maxVectorDistance - adjusted based on page number
-        searchSettings.directMatchWeight // directMatchWeight
+        searchSettings.directMatchWeight, // directMatchWeight
+        searchSettings.maxDistanceMode // maxDistanceMode
       );
       setResults(res.results || []);
       setTotalHits(res.num_hits || 0);
+      setIsResultCountLowerBound(res.is_result_count_lower_bound || false);
     } catch (error) {
       setApiOffline(true);
     } finally {
@@ -1372,10 +1384,16 @@ function DiscoverPageContent() {
                       return `${results.length} results found`;
                     } else if (results.length > totalHits) {
                       // We have more results than original estimate - show estimate was low
-                      return `${results.length} results loaded (${totalHits}+ estimated)`;
+                      const countDisplay = isResultCountLowerBound 
+                        ? `more than ${totalHits}` 
+                        : `${totalHits}+`;
+                      return `${results.length} results loaded (${countDisplay} estimated)`;
                     } else if (totalHits > 0) {
                       // Normal case - show loaded vs estimated
-                      return `${results.length} of ~${totalHits} results loaded`;
+                      const countDisplay = isResultCountLowerBound 
+                        ? `more than ${totalHits}` 
+                        : `~${totalHits}`;
+                      return `${results.length} of ${countDisplay} results loaded`;
                     } else {
                       // Fallback - just show loaded count
                       return `${results.length} results loaded`;

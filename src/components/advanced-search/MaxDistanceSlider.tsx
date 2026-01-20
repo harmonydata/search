@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Box, Typography, Slider } from "@mui/material";
+import { Box, Typography, Slider, ToggleButtonGroup, ToggleButton } from "@mui/material";
 import { useSearch } from "@/contexts/SearchContext";
 
 export default function MaxDistanceSlider() {
@@ -39,6 +39,15 @@ export default function MaxDistanceSlider() {
     }, 300); // 300ms delay after user stops sliding
   };
 
+  const handleModeChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newMode: "max_distance" | "min_score" | "both" | null
+  ) => {
+    if (newMode !== null) {
+      updateSearchSettings({ maxDistanceMode: newMode });
+    }
+  };
+
   return (
     <Box sx={{ mb: 2 }}>
       <Typography variant="body2" fontWeight={500} gutterBottom>
@@ -67,6 +76,29 @@ export default function MaxDistanceSlider() {
             { value: 1, label: "1" },
           ]}
         />
+      </Box>
+      <Box sx={{ mt: 2 }}>
+        <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+          Send to API:
+        </Typography>
+        <ToggleButtonGroup
+          value={searchSettings.maxDistanceMode}
+          exclusive
+          onChange={handleModeChange}
+          aria-label="max distance mode"
+          size="small"
+          fullWidth
+        >
+          <ToggleButton value="max_distance" aria-label="max distance">
+            Max Distance
+          </ToggleButton>
+          <ToggleButton value="min_score" aria-label="min score">
+            Min Score
+          </ToggleButton>
+          <ToggleButton value="both" aria-label="both">
+            Both
+          </ToggleButton>
+        </ToggleButtonGroup>
       </Box>
     </Box>
   );

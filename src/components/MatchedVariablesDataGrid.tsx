@@ -108,6 +108,7 @@ interface MatchedVariablesDataGridProps {
   variablesWhichMatched?: VariableSchema[]; // Variables that matched the search
   alpha?: number;
   maxVectorDistance?: number;
+  maxDistanceMode?: "max_distance" | "min_score" | "both";
   directMatchWeight?: number;
   // Callback to notify parent of total variable count
   onTotalCountChange?: (count: number | null) => void;
@@ -127,6 +128,7 @@ interface MatchedVariablesWrapperProps {
   variablesWhichMatched?: VariableSchema[];
   alpha?: number;
   maxVectorDistance?: number;
+  maxDistanceMode?: "max_distance" | "min_score" | "both";
   directMatchWeight?: number;
   // Callback to notify parent of total variable count
   onTotalCountChange?: (count: number | null) => void;
@@ -141,6 +143,7 @@ function MatchedVariablesDataGrid({
   variablesWhichMatched,
   alpha,
   maxVectorDistance,
+  maxDistanceMode,
   directMatchWeight,
   onTotalCountChange,
   downloadAnchorEl,
@@ -242,7 +245,8 @@ function MatchedVariablesDataGrid({
             num_results: paginationModel.pageSize,
             offset: paginationModel.page * paginationModel.pageSize,
           alpha: alpha,
-          max_vector_distance: maxVectorDistance, // Converted to min_original_vector_score (1 - maxVectorDistance) in API
+          max_vector_distance: maxVectorDistance,
+          max_distance_mode: maxDistanceMode,
           direct_match_weight: directMatchWeight,
         };
         
@@ -336,6 +340,7 @@ function MatchedVariablesDataGrid({
     studyUuid,
     alpha,
     maxVectorDistance,
+    maxDistanceMode,
     directMatchWeight,
     variablesWhichMatched, // Include variablesWhichMatched so dataSource updates when it changes
   ]);
@@ -832,6 +837,7 @@ export default function MatchedVariablesWrapper({
   variablesWhichMatched,
   alpha,
   maxVectorDistance,
+  maxDistanceMode,
   directMatchWeight,
   onTotalCountChange,
 }: MatchedVariablesWrapperProps) {
@@ -876,6 +882,7 @@ export default function MatchedVariablesWrapper({
       variablesWhichMatched={variablesWhichMatched}
       alpha={alpha}
       maxVectorDistance={maxVectorDistance}
+      maxDistanceMode={maxDistanceMode}
       directMatchWeight={directMatchWeight}
       onTotalCountChange={onTotalCountChange}
       downloadAnchorEl={downloadAnchorEl}

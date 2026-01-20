@@ -706,6 +706,7 @@ const StudyDetailComponent = ({
                 variablesWhichMatched={displayStudy.variables_which_matched}
                 alpha={debouncedHybridWeight}
                 maxVectorDistance={debouncedMaxDistance}
+                maxDistanceMode={searchSettings.maxDistanceMode}
                 directMatchWeight={searchSettings.directMatchWeight}
                 onTotalCountChange={setApiVariableCount}
               />

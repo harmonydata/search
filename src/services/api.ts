@@ -311,13 +311,13 @@ export async function fetchSearchResults(
     }
 
     // Add max_vector_distance and/or min_original_vector_score based on mode
-    if (maxVectorDistance !== undefined) {
-      if (maxDistanceMode === "max_distance" || maxDistanceMode === "both") {
-        requestBody.max_vector_distance = maxVectorDistance;
-      }
-      if (maxDistanceMode === "min_score" || maxDistanceMode === "both") {
-        requestBody.min_original_vector_score = 1 - maxVectorDistance;
-      }
+    // Always send these parameters (use default 0.4 if not provided)
+    const distanceValue = maxVectorDistance !== undefined ? maxVectorDistance : 0.4;
+    if (maxDistanceMode === "max_distance" || maxDistanceMode === "both") {
+      requestBody.max_vector_distance = distanceValue;
+    }
+    if (maxDistanceMode === "min_score" || maxDistanceMode === "both") {
+      requestBody.min_original_vector_score = 1 - distanceValue;
     }
 
     // Add direct_match_weight parameter if provided
@@ -409,16 +409,16 @@ export async function fetchSearchResults(
     }
 
     // Add max_vector_distance and/or min_original_vector_score based on mode
-    if (maxVectorDistance !== undefined) {
-      if (maxDistanceMode === "max_distance" || maxDistanceMode === "both") {
-        params.set("max_vector_distance", maxVectorDistance.toString());
-      }
-      if (maxDistanceMode === "min_score" || maxDistanceMode === "both") {
-        params.set(
-          "min_original_vector_score",
-          (1 - maxVectorDistance).toString()
-        );
-      }
+    // Always send these parameters (use default 0.4 if not provided)
+    const distanceValue = maxVectorDistance !== undefined ? maxVectorDistance : 0.4;
+    if (maxDistanceMode === "max_distance" || maxDistanceMode === "both") {
+      params.set("max_vector_distance", distanceValue.toString());
+    }
+    if (maxDistanceMode === "min_score" || maxDistanceMode === "both") {
+      params.set(
+        "min_original_vector_score",
+        (1 - distanceValue).toString()
+      );
     }
 
     // Add direct_match_weight parameter if provided
@@ -551,13 +551,13 @@ export async function fetchResultsByUuids(
   }
 
   // Add max_vector_distance and/or min_original_vector_score based on mode
-  if (maxVectorDistance !== undefined) {
-    if (maxDistanceMode === "max_distance" || maxDistanceMode === "both") {
-      params.set("max_vector_distance", maxVectorDistance.toString());
-    }
-    if (maxDistanceMode === "min_score" || maxDistanceMode === "both") {
-      params.set("min_original_vector_score", (1 - maxVectorDistance).toString());
-    }
+  // Always send these parameters (use default 0.4 if not provided)
+  const distanceValue = maxVectorDistance !== undefined ? maxVectorDistance : 0.4;
+  if (maxDistanceMode === "max_distance" || maxDistanceMode === "both") {
+    params.set("max_vector_distance", distanceValue.toString());
+  }
+  if (maxDistanceMode === "min_score" || maxDistanceMode === "both") {
+    params.set("min_original_vector_score", (1 - distanceValue).toString());
   }
 
   const url = `${API_BASE}/discover/lookup?${params.toString()}`;
@@ -605,13 +605,13 @@ export async function fetchResultByUuid(
   }
 
   // Add max_vector_distance and/or min_original_vector_score based on mode
-  if (maxVectorDistance !== undefined) {
-    if (maxDistanceMode === "max_distance" || maxDistanceMode === "both") {
-      params.set("max_vector_distance", maxVectorDistance.toString());
-    }
-    if (maxDistanceMode === "min_score" || maxDistanceMode === "both") {
-      params.set("min_original_vector_score", (1 - maxVectorDistance).toString());
-    }
+  // Always send these parameters (use default 0.4 if not provided)
+  const distanceValue = maxVectorDistance !== undefined ? maxVectorDistance : 0.4;
+  if (maxDistanceMode === "max_distance" || maxDistanceMode === "both") {
+    params.set("max_vector_distance", distanceValue.toString());
+  }
+  if (maxDistanceMode === "min_score" || maxDistanceMode === "both") {
+    params.set("min_original_vector_score", (1 - distanceValue).toString());
   }
 
   const url = `${API_BASE}/discover/lookup?${params.toString()}`;
@@ -635,16 +635,16 @@ export async function fetchResultByUuid(
     }
 
     // Add max_vector_distance and/or min_original_vector_score based on mode
-    if (maxVectorDistance !== undefined) {
-      if (maxDistanceMode === "max_distance" || maxDistanceMode === "both") {
-        slugParams.set("max_vector_distance", maxVectorDistance.toString());
-      }
-      if (maxDistanceMode === "min_score" || maxDistanceMode === "both") {
-        slugParams.set(
-          "min_original_vector_score",
-          (1 - maxVectorDistance).toString()
-        );
-      }
+    // Always send these parameters (use default 0.4 if not provided)
+    const distanceValue = maxVectorDistance !== undefined ? maxVectorDistance : 0.4;
+    if (maxDistanceMode === "max_distance" || maxDistanceMode === "both") {
+      slugParams.set("max_vector_distance", distanceValue.toString());
+    }
+    if (maxDistanceMode === "min_score" || maxDistanceMode === "both") {
+      slugParams.set(
+        "min_original_vector_score",
+        (1 - distanceValue).toString()
+      );
     }
 
     const slugUrl = `${API_BASE}/discover/lookup?${slugParams.toString()}`;
@@ -1223,17 +1223,17 @@ export async function fetchVariables(options: {
     params.set("alpha", options.alpha.toString());
   }
   // Add max_vector_distance and/or min_original_vector_score based on mode
+  // Always send these parameters (use default 0.4 if not provided)
   const mode = options.max_distance_mode || "min_score";
-  if (options.max_vector_distance !== undefined) {
-    if (mode === "max_distance" || mode === "both") {
-      params.set("max_vector_distance", options.max_vector_distance.toString());
-    }
-    if (mode === "min_score" || mode === "both") {
-      params.set(
-        "min_original_vector_score",
-        (1 - options.max_vector_distance).toString()
-      );
-    }
+  const distanceValue = options.max_vector_distance !== undefined ? options.max_vector_distance : 0.4;
+  if (mode === "max_distance" || mode === "both") {
+    params.set("max_vector_distance", distanceValue.toString());
+  }
+  if (mode === "min_score" || mode === "both") {
+    params.set(
+      "min_original_vector_score",
+      (1 - distanceValue).toString()
+    );
   }
   if (options.direct_match_weight !== undefined) {
     // Transform 0-1 slider value to 0-10 API value (same as search)

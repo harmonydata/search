@@ -463,6 +463,7 @@ function DiscoverPageContent() {
     searchSettings.useSearch2,
     searchSettings.hybridWeight,
     searchSettings.maxDistance,
+    searchSettings.maxDistanceMode,
     searchSettings.directMatchWeight,
     // Remove currentPage from dependencies - page changes will be handled separately
   ]);

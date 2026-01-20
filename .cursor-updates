@@ -54,3 +54,8 @@
 - Set initial QuickFilter value to mainSearchQuery when page loads with a query for immediate matching results
 - Added debouncing to variable table search (500ms delay) to reduce server calls while typing, ensuring last call always executes
 - Modified API calls to pass min_original_vector_score (1 - max_vector_distance) instead of max_vector_distance
+- Fixed fetchResultsByUuids to properly use maxDistanceMode parameter instead of always sending min_score
+- Fixed StudyDetail to pass maxDistanceMode to fetchResultByUuid and retrigger lookup when toggle changes
+- Fixed discover page to trigger search rerun when maxDistanceMode toggle changes
+- Fixed toggle change not triggering search by adding maxDistanceMode to useEffect dependency array
+- Changed API functions to always send max_distance/min_score parameters (using default 0.4 if not provided) instead of only when maxVectorDistance is defined

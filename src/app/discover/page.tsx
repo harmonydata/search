@@ -756,25 +756,25 @@ function DiscoverPageContent() {
         // For old search endpoint (useSearch2), use the traditional count-based logic
         if (!searchSettings.useSearch2) {
           // New offset-based pagination logic:
-          // - Track consecutive empty calls
-          // - When empty results come in, make a probe call with limit=10000 to check for any remaining results
-          // - Only stop when we get 3 consecutive empty calls (0 results)
+          // - When empty results or all duplicates come in, make ONE probe call at last offset with limit=10000
+          // - If probe returns empty or all duplicates, stop immediately
           const numHits = res.num_hits || 0;
           
-          if (newResults.length === 0) {
-            // Got 0 results - make a probe call with limit=10000 to check for any remaining results
-            console.log(`🔍 Empty results on page ${pageToUse}, making probe call with limit=10000`);
+          // Check if results are empty OR all duplicates (for offset strategy)
+          const originalResultCount = (res.results || []).length;
+          const isAllDuplicates = searchSettings.paginationStrategy === "offset" && 
+                                  newResults.length === 0 && 
+                                  originalResultCount > 0;
+          const isEmpty = newResults.length === 0;
+          
+          if (isEmpty || isAllDuplicates) {
+            // Got 0 results or all duplicates - make ONE probe call at last offset with limit=10000
+            const reason = isAllDuplicates ? "all duplicates" : "empty";
+            console.log(`🔍 ${reason} results on page ${pageToUse}, making ONE probe call at offset ${calculatedOffset} with limit=10000`);
             
             try {
-              // Make probe call with large limit to check for any remaining results
-              // For offset strategy: use current offset to check from current position
-              // For filter strategy: use offset 0 but with same exclusion list
-              const probeOffset = searchSettings.paginationStrategy === "offset"
-                ? calculatedOffset
-                : 0;
-              
-              // Calculate probe page based on offset (for offset strategy)
-              // For filter strategy, page doesn't matter since we use exclusion list
+              // Make ONE probe call at the last offset we searched
+              const probeOffset = calculatedOffset;
               const probePage = searchSettings.paginationStrategy === "offset"
                 ? Math.floor(probeOffset / resultsPerPage) + 1
                 : 1;
@@ -795,11 +795,19 @@ function DiscoverPageContent() {
                 searchSettings.paginationStrategy
               );
               
-              const probeResults = probeRes.results || [];
+              // Filter duplicates from probe results (for offset strategy)
+              let probeUniqueResults = probeRes.results || [];
+              if (searchSettings.paginationStrategy === "offset") {
+                const probeSeenIdsSet = new Set(currentTopLevelIdsRef.current);
+                probeUniqueResults = probeRes.results?.filter((result: SearchResult) => {
+                  const resultId = result.extra_data?.uuid;
+                  return resultId && !probeSeenIdsSet.has(resultId);
+                }) || [];
+              }
               
-              if (probeResults.length > 0) {
-                // Found results in probe - continue pagination normally
-                console.log(`✅ Probe found ${probeResults.length} results, continuing pagination`);
+              if (probeUniqueResults.length > 0) {
+                // Found unique results in probe - continue pagination normally
+                console.log(`✅ Probe found ${probeUniqueResults.length} unique results, continuing pagination`);
                 setConsecutiveEmptyCalls(0);
                 setHasMoreResults(true);
                 
@@ -812,46 +820,18 @@ function DiscoverPageContent() {
                   }
                 }, 100);
               } else {
-                // Probe also returned empty - increment consecutive empty calls
-                const newConsecutiveEmpty = consecutiveEmptyCalls + 1;
-                setConsecutiveEmptyCalls(newConsecutiveEmpty);
-                
-                // Only stop if we've had 3 consecutive empty calls (including probe)
-                const hasMore = newConsecutiveEmpty < 3;
-                setHasMoreResults(hasMore);
-                
-                if (!hasMore) {
-                  // Three consecutive empty calls - we've reached the end
-                  setTotalHits(calculatedOffset);
-                  console.log("🛑 Stopping pagination after 3 consecutive empty pages (including probe)");
-                } else {
-                  // Try one more regular page
-                  console.log(`🔄 Probe empty (${newConsecutiveEmpty}/3), trying next page`);
-                  setTimeout(() => {
-                    if (!loadingMore && hasMoreResults) {
-                      const nextPage = pageToUse + 1;
-                      console.log(`🔄 Auto-triggering page ${nextPage} after empty probe`);
-                      setCurrentPage(nextPage);
-                    }
-                  }, 100);
-                }
+                // Probe returned empty or all duplicates - we've reached the end
+                console.log(`🛑 Probe returned ${probeRes.results?.length || 0} results (${probeUniqueResults.length} unique) - stopping pagination`);
+                setHasMoreResults(false);
+                setConsecutiveEmptyCalls(0);
+                setTotalHits(calculatedOffset);
               }
             } catch (probeError) {
               console.error("Probe call failed:", probeError);
-              // On probe error, just try next page normally
-              const newConsecutiveEmpty = consecutiveEmptyCalls + 1;
-              setConsecutiveEmptyCalls(newConsecutiveEmpty);
-              const hasMore = newConsecutiveEmpty < 3;
-              setHasMoreResults(hasMore);
-              
-              if (hasMore) {
-                setTimeout(() => {
-                  if (!loadingMore && hasMoreResults) {
-                    const nextPage = pageToUse + 1;
-                    setCurrentPage(nextPage);
-                  }
-                }, 100);
-              }
+              // On probe error, stop pagination
+              setHasMoreResults(false);
+              setConsecutiveEmptyCalls(0);
+              setTotalHits(calculatedOffset);
             }
           } else {
             // Got results - reset consecutive empty calls counter
@@ -949,26 +929,26 @@ function DiscoverPageContent() {
         // For pagination: determine if we have more results based on offset pagination
         if (!searchSettings.useSearch2) {
           // New offset-based pagination logic:
-          // - Track consecutive empty calls
-          // - When empty results come in, make a probe call with limit=10000 to check for any remaining results
-          // - Only stop when we get 3 consecutive empty calls (0 results)
+          // - When empty results or all duplicates come in, make ONE probe call at last offset with limit=10000
+          // - If probe returns empty or all duplicates, stop immediately
           const numHits = res.num_hits || 0;
           const totalResultsSoFar = results.length + newResults.length;
           
-          if (newResults.length === 0) {
-            // Got 0 results - make a probe call with limit=10000 to check for any remaining results
-            console.log(`🔍 Empty results on page ${pageToUse}, making probe call with limit=10000`);
+          // Check if results are empty OR all duplicates (for offset strategy)
+          const originalResultCount = (res.results || []).length;
+          const isAllDuplicates = searchSettings.paginationStrategy === "offset" && 
+                                  newResults.length === 0 && 
+                                  originalResultCount > 0;
+          const isEmpty = newResults.length === 0;
+          
+          if (isEmpty || isAllDuplicates) {
+            // Got 0 results or all duplicates - make ONE probe call at last offset with limit=10000
+            const reason = isAllDuplicates ? "all duplicates" : "empty";
+            console.log(`🔍 ${reason} results on page ${pageToUse}, making ONE probe call at offset ${calculatedOffset} with limit=10000`);
             
             try {
-              // Make probe call with large limit to check for any remaining results
-              // For offset strategy: use current offset to check from current position
-              // For filter strategy: use offset 0 but with same exclusion list
-              const probeOffset = searchSettings.paginationStrategy === "offset"
-                ? calculatedOffset
-                : 0;
-              
-              // Calculate probe page based on offset (for offset strategy)
-              // For filter strategy, page doesn't matter since we use exclusion list
+              // Make ONE probe call at the last offset we searched
+              const probeOffset = calculatedOffset;
               const probePage = searchSettings.paginationStrategy === "offset"
                 ? Math.floor(probeOffset / resultsPerPage) + 1
                 : 1;
@@ -989,11 +969,19 @@ function DiscoverPageContent() {
                 searchSettings.paginationStrategy
               );
               
-              const probeResults = probeRes.results || [];
+              // Filter duplicates from probe results (for offset strategy)
+              let probeUniqueResults = probeRes.results || [];
+              if (searchSettings.paginationStrategy === "offset") {
+                const probeSeenIdsSet = new Set(currentTopLevelIdsRef.current);
+                probeUniqueResults = probeRes.results?.filter((result: SearchResult) => {
+                  const resultId = result.extra_data?.uuid;
+                  return resultId && !probeSeenIdsSet.has(resultId);
+                }) || [];
+              }
               
-              if (probeResults.length > 0) {
-                // Found results in probe - continue pagination normally
-                console.log(`✅ Probe found ${probeResults.length} results, continuing pagination`);
+              if (probeUniqueResults.length > 0) {
+                // Found unique results in probe - continue pagination normally
+                console.log(`✅ Probe found ${probeUniqueResults.length} unique results, continuing pagination`);
                 setConsecutiveEmptyCalls(0);
                 setHasMoreResults(true);
                 
@@ -1006,46 +994,18 @@ function DiscoverPageContent() {
                   }
                 }, 100);
               } else {
-                // Probe also returned empty - increment consecutive empty calls
-                const newConsecutiveEmpty = consecutiveEmptyCalls + 1;
-                setConsecutiveEmptyCalls(newConsecutiveEmpty);
-                
-                // Only stop if we've had 3 consecutive empty calls (including probe)
-                const hasMore = newConsecutiveEmpty < 3;
-                setHasMoreResults(hasMore);
-                
-                if (!hasMore) {
-                  // Three consecutive empty calls - we've reached the end
-                  setTotalHits(calculatedOffset);
-                  console.log("🛑 Stopping pagination after 3 consecutive empty pages (including probe)");
-                } else {
-                  // Try one more regular page
-                  console.log(`🔄 Probe empty (${newConsecutiveEmpty}/3), trying next page`);
-                  setTimeout(() => {
-                    if (!loadingMore && hasMoreResults) {
-                      const nextPage = pageToUse + 1;
-                      console.log(`🔄 Auto-triggering page ${nextPage} after empty probe`);
-                      setCurrentPage(nextPage);
-                    }
-                  }, 100);
-                }
+                // Probe returned empty or all duplicates - we've reached the end
+                console.log(`🛑 Probe returned ${probeRes.results?.length || 0} results (${probeUniqueResults.length} unique) - stopping pagination`);
+                setHasMoreResults(false);
+                setConsecutiveEmptyCalls(0);
+                setTotalHits(calculatedOffset);
               }
             } catch (probeError) {
               console.error("Probe call failed:", probeError);
-              // On probe error, just try next page normally
-              const newConsecutiveEmpty = consecutiveEmptyCalls + 1;
-              setConsecutiveEmptyCalls(newConsecutiveEmpty);
-              const hasMore = newConsecutiveEmpty < 3;
-              setHasMoreResults(hasMore);
-              
-              if (hasMore) {
-                setTimeout(() => {
-                  if (!loadingMore && hasMoreResults) {
-                    const nextPage = pageToUse + 1;
-                    setCurrentPage(nextPage);
-                  }
-                }, 100);
-              }
+              // On probe error, stop pagination
+              setHasMoreResults(false);
+              setConsecutiveEmptyCalls(0);
+              setTotalHits(calculatedOffset);
             }
           } else {
             // Got results - reset consecutive empty calls counter

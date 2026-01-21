@@ -69,3 +69,4 @@
 - Changed get_variables API calls to always send alpha=0, ignoring the current alpha setting
 - Reorganized advanced search: moved pagination strategy toggle under max distance, renamed to 'Distance Strategy', removed explanatory note, hid search version toggle
 - Changed defaults: maxDistanceMode to 'max_distance' and paginationStrategy to 'offset'
+- Updated search API to use POST method for any query with an offset > 0 instead of GET

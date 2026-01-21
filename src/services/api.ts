@@ -261,12 +261,13 @@ export async function fetchSearchResults(
     ? (page - 1) * resultsPerPage 
     : 0;
 
-  // Determine if we need to use POST (only for filter strategy when we have top_level_ids_seen_so_far to exclude)
-  const needsPost =
+  // Use POST if offset > 0, or for filter strategy when we have top_level_ids_seen_so_far to exclude
+  const needsPost = offset > 0 || (
     paginationStrategy === "filter" &&
     topLevelIdsSeen && 
     topLevelIdsSeen.length > 0 && 
-    !useSearch2;
+    !useSearch2
+  );
 
   const endpoint = useSearch2 ? "search2" : "search";
   const baseUrl = `${API_BASE}/discover/${endpoint}`;

@@ -768,13 +768,15 @@ function DiscoverPageContent() {
           const isEmpty = newResults.length === 0;
           
           if (isEmpty || isAllDuplicates) {
-            // Got 0 results or all duplicates - make ONE probe call at last offset with limit=10000
+            // Got 0 results or all duplicates - make ONE probe call at NEXT offset with limit=10000
             const reason = isAllDuplicates ? "all duplicates" : "empty";
-            console.log(`🔍 ${reason} results on page ${pageToUse}, making ONE probe call at offset ${calculatedOffset} with limit=10000`);
+            // Probe at the NEXT offset we would have searched (current + resultsPerPage)
+            const nextOffset = calculatedOffset + resultsPerPage;
+            console.log(`🔍 ${reason} results on page ${pageToUse}, making ONE probe call at offset ${nextOffset} with limit=10000`);
             
             try {
-              // Make ONE probe call at the last offset we searched
-              const probeOffset = calculatedOffset;
+              // Make ONE probe call at the NEXT offset we would have searched
+              const probeOffset = nextOffset;
               const probePage = searchSettings.paginationStrategy === "offset"
                 ? Math.floor(probeOffset / resultsPerPage) + 1
                 : 1;
@@ -942,13 +944,15 @@ function DiscoverPageContent() {
           const isEmpty = newResults.length === 0;
           
           if (isEmpty || isAllDuplicates) {
-            // Got 0 results or all duplicates - make ONE probe call at last offset with limit=10000
+            // Got 0 results or all duplicates - make ONE probe call at NEXT offset with limit=10000
             const reason = isAllDuplicates ? "all duplicates" : "empty";
-            console.log(`🔍 ${reason} results on page ${pageToUse}, making ONE probe call at offset ${calculatedOffset} with limit=10000`);
+            // Probe at the NEXT offset we would have searched (current + resultsPerPage)
+            const nextOffset = calculatedOffset + resultsPerPage;
+            console.log(`🔍 ${reason} results on page ${pageToUse}, making ONE probe call at offset ${nextOffset} with limit=10000`);
             
             try {
-              // Make ONE probe call at the last offset we searched
-              const probeOffset = calculatedOffset;
+              // Make ONE probe call at the NEXT offset we would have searched
+              const probeOffset = nextOffset;
               const probePage = searchSettings.paginationStrategy === "offset"
                 ? Math.floor(probeOffset / resultsPerPage) + 1
                 : 1;

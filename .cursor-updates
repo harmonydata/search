@@ -71,3 +71,4 @@
 - Changed defaults: maxDistanceMode to 'max_distance' and paginationStrategy to 'offset'
 - Updated search API to use POST method for any query with an offset > 0 instead of GET
 - Fixed end-of-search detection: treat all-duplicate results as empty, do ONE probe call at last offset instead of increasing offsets, stop immediately if probe returns empty or all duplicates
+- Fixed probe offset: probe at next offset (current + resultsPerPage) instead of current offset when detecting all duplicates

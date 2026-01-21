@@ -256,9 +256,9 @@ export async function fetchSearchResults(
 
   // Calculate offset based on pagination strategy
   // Filter strategy: always use offset 0, filter by top_level_ids_seen_so_far
-  // Offset strategy: use calculated offset (page - 1) * resultsPerPage
+  // Offset strategy: use nextPageOffset if provided, otherwise calculate from page
   const offset = paginationStrategy === "offset" 
-    ? (page - 1) * resultsPerPage 
+    ? (nextPageOffset !== undefined ? nextPageOffset : (page - 1) * resultsPerPage)
     : 0;
 
   // Use POST if offset > 0, or for filter strategy when we have top_level_ids_seen_so_far to exclude

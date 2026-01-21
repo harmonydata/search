@@ -777,15 +777,15 @@ function DiscoverPageContent() {
             try {
               // Make ONE probe call at the NEXT offset we would have searched
               const probeOffset = nextOffset;
-              const probePage = searchSettings.paginationStrategy === "offset"
-                ? Math.floor(probeOffset / resultsPerPage) + 1
-                : 1;
+              const probeLimit = 10000; // Large limit to check for any results
+              // Use page=1 and pass offset directly via nextPageOffset
+              const probePage = 1;
               
               const probeRes = await fetchSearchResults(
                 query,
                 combinedFilters,
                 probePage,
-                10000, // Large limit to check for any results
+                probeLimit,
                 searchSettings.useSearch2,
                 searchSettings.hybridWeight,
                 idsToExclude, // Use same exclusion list
@@ -953,15 +953,15 @@ function DiscoverPageContent() {
             try {
               // Make ONE probe call at the NEXT offset we would have searched
               const probeOffset = nextOffset;
-              const probePage = searchSettings.paginationStrategy === "offset"
-                ? Math.floor(probeOffset / resultsPerPage) + 1
-                : 1;
+              const probeLimit = 10000; // Large limit to check for any results
+              // Use page=1 and pass offset directly via nextPageOffset
+              const probePage = 1;
               
               const probeRes = await fetchSearchResults(
                 query,
                 combinedFilters,
                 probePage,
-                10000, // Large limit to check for any results
+                probeLimit,
                 searchSettings.useSearch2,
                 searchSettings.hybridWeight,
                 idsToExclude, // Use same exclusion list

@@ -744,11 +744,21 @@ function DiscoverPageContent() {
         currentNextPageOffsetRef.current = res.next_page_offset;
       }
 
+      // Check if this is the reliable first page call (page 1, no offset, no exclusions)
+      const isFirstPageCall = pageToUse === 1 && 
+                              calculatedOffset === 0 && 
+                              (!idsToExclude || idsToExclude.length === 0);
+      
       if (pageToUse === 1) {
         // First page - replace all results
         setResults(newResults);
-        setTotalHits(res.num_hits || 0);
-        setIsResultCountLowerBound(res.is_result_count_lower_bound || false);
+        
+        // Only update totalHits from the reliable first page call (no offset, no exclusions)
+        if (isFirstPageCall) {
+          setTotalHits(res.num_hits || 0);
+          setIsResultCountLowerBound(res.is_result_count_lower_bound || false);
+        }
+        // Otherwise, keep the totalHits from the first reliable call
 
         // URL updates are now handled by SearchContext
 
@@ -840,11 +850,9 @@ function DiscoverPageContent() {
             setConsecutiveEmptyCalls(0);
             setHasMoreResults(true); // If we got any results, there might be more
             
-            // Update totalHits - use num_hits if available
-            if (numHits > 0) {
-              setTotalHits(numHits);
-              setIsResultCountLowerBound(res.is_result_count_lower_bound || false);
-            } else if (totalHits === 0) {
+            // Don't update totalHits here - keep the value from the first reliable call
+            // Only set to -1 if we haven't gotten a reliable count yet
+            if (totalHits === 0 && !isFirstPageCall) {
               setTotalHits(-1); // Indicate unknown total
               setIsResultCountLowerBound(false);
             }
@@ -1016,11 +1024,9 @@ function DiscoverPageContent() {
             setConsecutiveEmptyCalls(0);
             setHasMoreResults(true); // If we got any results, there might be more
             
-            // Update totalHits - use num_hits if available
-            if (numHits > 0) {
-              setTotalHits(numHits);
-              setIsResultCountLowerBound(res.is_result_count_lower_bound || false);
-            } else if (totalHits === 0) {
+            // Don't update totalHits here - keep the value from the first reliable call
+            // Only set to -1 if we haven't gotten a reliable count yet
+            if (totalHits === 0 && !isFirstPageCall) {
               setTotalHits(-1); // Indicate unknown total
               setIsResultCountLowerBound(false);
             }
@@ -1030,22 +1036,8 @@ function DiscoverPageContent() {
           const hasMore = newResults.length > 0;
           setHasMoreResults(hasMore);
 
-          // If we've reached the end, update totalHits to reflect actual results
-          if (!hasMore) {
-            setTotalHits(
-              Math.max(
-                totalHits,
-                results.length +
-                  newResults.filter(
-                    (r) =>
-                      !results.some(
-                        (existing) =>
-                          existing.extra_data?.uuid === r.extra_data?.uuid
-                      )
-                  ).length
-              )
-            );
-          }
+          // Don't update totalHits here - keep the value from the first reliable call
+          // The old pagination logic doesn't update totalHits anymore
         }
       }
 
@@ -1401,8 +1393,11 @@ function DiscoverPageContent() {
       }
 
       setResults(resultsToAdd);
-      setTotalHits(res.num_hits || 0);
-      setIsResultCountLowerBound(res.is_result_count_lower_bound || false);
+      // Don't update totalHits here - keep the value from the first reliable call
+      // Only update isResultCountLowerBound if we haven't set it yet
+      if (totalHits === 0) {
+        setIsResultCountLowerBound(res.is_result_count_lower_bound || false);
+      }
     } catch (error) {
       setApiOffline(true);
     } finally {

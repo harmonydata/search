@@ -55,3 +55,4 @@
 - Added debouncing to variable table search (500ms delay) to reduce server calls while typing, ensuring last call always executes
 - Modified API calls to pass min_original_vector_score (1 - max_vector_distance) instead of max_vector_distance
 - Added three-way toggle to Max Distance slider to switch between sending max_distance, min_score, or both parameters to API calls (search, lookup, get_variables)- Changed default resultsPerPage from 100 to 500 to work better with Weaviate fusion
+- Only update totalHits (num_results) from the first page call (page 1, no offset, no exclusions) to keep reliable estimate

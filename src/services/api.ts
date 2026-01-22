@@ -116,6 +116,7 @@ export interface SearchResponse {
   is_result_count_lower_bound?: boolean;
   top_level_ids_seen_so_far?: string[];
   next_page_offset?: number;
+  top_level_uuids?: string[];
 }
 
 // Improved function to format labels nicely
@@ -462,6 +463,16 @@ export async function fetchSearchResults(
 
   const data = await response.json();
 
+  // Debug: Log raw response structure to check for top_level_uuids
+  if (typeof window !== "undefined") {
+    console.log("🔍 Raw API response keys:", Object.keys(data));
+    if (data.top_level_uuids) {
+      console.log("✅ Found top_level_uuids in response:", data.top_level_uuids.length, "UUIDs");
+    } else {
+      console.log("❌ No top_level_uuids in response");
+    }
+  }
+
   // Track top_level_ids_seen_so_far for duplicate detection (but don't send it to API)
   const seenIds = new Set<string>(topLevelIdsSeen || []);
   const duplicateIds: string[] = [];
@@ -519,6 +530,9 @@ export async function fetchSearchResults(
       hybridWeight: hybridWeight,
       offset: offset,
       duplicatesDetected: duplicateIds.length,
+      topLevelUuids: data.top_level_uuids?.length || 0,
+      hasTopLevelUuids: !!data.top_level_uuids,
+      responseKeys: Object.keys(data),
     });
   }
 
@@ -531,6 +545,7 @@ export async function fetchSearchResults(
     num_hits: data.num_hits,
     top_level_ids_seen_so_far: Array.from(seenIds), // Return updated tracking set
     next_page_offset: data.next_page_offset,
+    top_level_uuids: data.top_level_uuids, // Include top_level_uuids from API response
   } as SearchResponse;
 }
 

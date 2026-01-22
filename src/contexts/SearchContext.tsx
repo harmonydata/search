@@ -21,6 +21,7 @@ export interface SearchSettings {
   maxDistanceMode: "max_distance" | "min_score" | "both"; // How to send maxDistance to API
   directMatchWeight: number;
   paginationStrategy: "filter" | "offset"; // Pagination strategy: filter (top_level_ids_seen) or offset-based
+  trustEstimate: boolean; // Trust estimate mode: use top_level_uuids and batch lookup
   selectedCategory: string | null;
   resourceType: string | null;
   similarUid: string | null;
@@ -56,6 +57,7 @@ const defaultSearchSettings: SearchSettings = {
   maxDistanceMode: "max_distance", // Default to max_distance
   directMatchWeight: 0.5,
   paginationStrategy: "offset", // Default to offset strategy
+  trustEstimate: false, // Default to false
   selectedCategory: null,
   resourceType: null,
   similarUid: null,
@@ -176,6 +178,9 @@ function searchSettingsToUrl(
   if (settings.paginationStrategy !== "offset") {
     params.set("pagination_strategy", settings.paginationStrategy);
   }
+  if (settings.trustEstimate) {
+    params.set("trust_estimate", "true");
+  }
   if (settings.selectedCategory) {
     params.set("category", settings.selectedCategory);
   }
@@ -204,6 +209,7 @@ function urlToSearchSettings(
   const maxDistanceMode = searchParams.get("max_distance_mode");
   const directMatchWeight = searchParams.get("direct_match_weight");
   const paginationStrategy = searchParams.get("pagination_strategy");
+  const trustEstimate = searchParams.get("trust_estimate");
   const category = searchParams.get("category");
 
   const urlFilters: Record<string, string[]> = {};
@@ -229,6 +235,7 @@ function urlToSearchSettings(
     "max_distance_mode",
     "direct_match_weight",
     "pagination_strategy",
+    "trust_estimate",
     "category",
   ]);
 
@@ -264,6 +271,7 @@ function urlToSearchSettings(
     paginationStrategy: (paginationStrategy === "filter" || paginationStrategy === "offset")
       ? paginationStrategy
       : "offset",
+    trustEstimate: trustEstimate === "true",
     resourceType: resourceType || null,
     similarUid: like || null,
   };
@@ -357,6 +365,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     searchSettings.maxDistanceMode,
     searchSettings.directMatchWeight,
     searchSettings.paginationStrategy,
+    searchSettings.trustEstimate,
     searchSettings.selectedCategory,
     searchSettings.resourceType,
     searchSettings.similarUid,
@@ -387,6 +396,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       urlSettings.maxDistanceMode !== searchSettings.maxDistanceMode ||
       urlSettings.directMatchWeight !== searchSettings.directMatchWeight ||
       urlSettings.paginationStrategy !== searchSettings.paginationStrategy ||
+      urlSettings.trustEstimate !== searchSettings.trustEstimate ||
       urlSettings.selectedCategory !== searchSettings.selectedCategory ||
       urlSettings.resourceType !== searchSettings.resourceType ||
       urlSettings.similarUid !== searchSettings.similarUid;
@@ -451,15 +461,16 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
           savedSearch.hybridWeight ?? defaultSearchSettings.hybridWeight,
         maxDistance:
           savedSearch.maxDistance ?? defaultSearchSettings.maxDistance,
-        maxDistanceMode:
-          savedSearch.maxDistanceMode ?? defaultSearchSettings.maxDistanceMode,
-        directMatchWeight:
-          savedSearch.directMatchWeight ??
+      maxDistanceMode:
+        savedSearch.maxDistanceMode ?? defaultSearchSettings.maxDistanceMode,
+      directMatchWeight:
+        savedSearch.directMatchWeight ??
           defaultSearchSettings.directMatchWeight,
-        paginationStrategy:
-          savedSearch.paginationStrategy ?? defaultSearchSettings.paginationStrategy,
-        selectedCategory:
-          savedSearch.selectedCategory ??
+      paginationStrategy:
+        savedSearch.paginationStrategy ?? defaultSearchSettings.paginationStrategy,
+      trustEstimate: defaultSearchSettings.trustEstimate,
+      selectedCategory:
+        savedSearch.selectedCategory ??
           defaultSearchSettings.selectedCategory,
       });
     },

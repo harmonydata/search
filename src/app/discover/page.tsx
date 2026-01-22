@@ -37,6 +37,7 @@ import {
   fetchSearchResults,
   fetchAggregateFilters,
   fetchResultByUuid,
+  fetchResultsByUuids,
   SearchResponse,
   SearchResult,
   AggregateFilter,
@@ -100,6 +101,12 @@ function DiscoverPageContent() {
   // Track consecutive empty calls - need 3 consecutive empty calls to stop
   const [consecutiveEmptyCalls, setConsecutiveEmptyCalls] = useState(0);
 
+  // State for trust estimate mode
+  const [estimateUuids, setEstimateUuids] = useState<string[]>([]);
+  const [currentBatchIndex, setCurrentBatchIndex] = useState(0);
+  const estimateUuidsRef = useRef<string[]>([]);
+  const currentBatchIndexRef = useRef(0);
+
   const [savingSearch, setSavingSearch] = useState(false);
   const [saveSearchSuccess, setSaveSearchSuccess] = useState(false);
 
@@ -148,6 +155,7 @@ function DiscoverPageContent() {
   const maxDistanceModeRef = useRef(searchSettings.maxDistanceMode);
   const directMatchWeightRef = useRef(searchSettings.directMatchWeight);
   const paginationStrategyRef = useRef(searchSettings.paginationStrategy);
+  const trustEstimateRef = useRef(searchSettings.trustEstimate);
   const topLevelIdsSeenRef = useRef(topLevelIdsSeen);
   const isResettingPageRef = useRef(false);
 
@@ -403,7 +411,8 @@ function DiscoverPageContent() {
       searchSettings.maxDistance !== maxDistanceRef.current ||
       searchSettings.maxDistanceMode !== maxDistanceModeRef.current ||
       searchSettings.directMatchWeight !== directMatchWeightRef.current ||
-      searchSettings.paginationStrategy !== paginationStrategyRef.current;
+      searchSettings.paginationStrategy !== paginationStrategyRef.current ||
+      searchSettings.trustEstimate !== trustEstimateRef.current;
 
     // If we're in similar studies mode, use the original description as the query
     const queryToUse = searchSettings.similarUid
@@ -434,6 +443,11 @@ function DiscoverPageContent() {
       currentTopLevelIdsRef.current = [];
       setNextPageOffset(undefined);
       currentNextPageOffsetRef.current = undefined;
+      // Reset trust estimate state
+      setEstimateUuids([]);
+      estimateUuidsRef.current = [];
+      setCurrentBatchIndex(0);
+      currentBatchIndexRef.current = 0;
 
       // Reset to page 1 if not already there
       if (currentPage !== 1) {
@@ -457,6 +471,7 @@ function DiscoverPageContent() {
         useSearch2Ref.current = searchSettings.useSearch2;
         hybridWeightRef.current = searchSettings.hybridWeight;
         maxDistanceRef.current = searchSettings.maxDistance;
+        trustEstimateRef.current = searchSettings.trustEstimate;
         maxDistanceModeRef.current = searchSettings.maxDistanceMode;
         directMatchWeightRef.current = searchSettings.directMatchWeight;
         paginationStrategyRef.current = searchSettings.paginationStrategy;
@@ -571,6 +586,13 @@ function DiscoverPageContent() {
       setHasMoreResults(true);
       setLoadingMore(false);
       setConsecutiveEmptyCalls(0); // Reset consecutive empty calls counter
+      // Reset trust estimate state for new searches
+      if (!searchSettings.trustEstimate) {
+        setEstimateUuids([]);
+        estimateUuidsRef.current = [];
+        setCurrentBatchIndex(0);
+        currentBatchIndexRef.current = 0;
+      }
     }
 
     try {
@@ -677,6 +699,7 @@ function DiscoverPageContent() {
         numHits: res.num_hits,
         resultCount: res.results?.length || 0,
         apiTime: `${apiDuration}ms`,
+        topLevelUuids: res.top_level_uuids?.length || 0,
         // Use specific result properties that won't be too verbose
         results: res.results?.map((r) => ({
           id: r.extra_data?.uuid,
@@ -688,7 +711,117 @@ function DiscoverPageContent() {
       });
       console.groupEnd();
 
-      // Handle results for infinite scroll
+      // Handle trust estimate mode
+      console.log("Trust Estimate check:", {
+        trustEstimate: searchSettings.trustEstimate,
+        hasTopLevelUuids: !!res.top_level_uuids,
+        topLevelUuidsCount: res.top_level_uuids?.length || 0,
+        pageToUse,
+      });
+
+      if (searchSettings.trustEstimate) {
+        // On first page, get and store the estimate UUIDs
+        if (pageToUse === 1) {
+          if (res.top_level_uuids && res.top_level_uuids.length > 0) {
+            console.log("Trust Estimate: Received top_level_uuids:", {
+              count: res.top_level_uuids.length,
+              sample: res.top_level_uuids.slice(0, 5),
+            });
+            setEstimateUuids(res.top_level_uuids);
+            estimateUuidsRef.current = res.top_level_uuids;
+            setCurrentBatchIndex(0);
+            currentBatchIndexRef.current = 0;
+          } else {
+            console.warn("Trust Estimate: No top_level_uuids in response, falling back to normal results");
+            // Fall back to normal results if no UUIDs - continue to normal flow below
+          }
+        }
+
+        // Only proceed with batch lookup if we have UUIDs stored
+        if (estimateUuidsRef.current.length > 0) {
+          // Batch lookup UUIDs (10 at a time)
+          const batchSize = 10;
+          const currentBatch = currentBatchIndexRef.current;
+          const startIndex = currentBatch * batchSize;
+          const endIndex = startIndex + batchSize;
+          const uuidsToLookup = estimateUuidsRef.current.slice(startIndex, endIndex);
+
+          if (uuidsToLookup.length > 0) {
+          console.log(`Trust Estimate: Looking up batch ${currentBatch + 1} (UUIDs ${startIndex}-${endIndex - 1})`);
+          const lookupResults = await fetchResultsByUuids(uuidsToLookup);
+          console.log(`Trust Estimate: Retrieved ${lookupResults.length} results from batch lookup`);
+
+          // Handle results for infinite scroll
+          let newResults = lookupResults;
+
+          // For page 1, replace all results; for subsequent pages, append
+          if (pageToUse === 1) {
+            setResults(newResults);
+            setTotalHits(estimateUuidsRef.current.length);
+            setIsResultCountLowerBound(false);
+          } else {
+            setResults((prev) => {
+              const updated = [...prev, ...newResults];
+              return updated;
+            });
+          }
+
+          // Update batch index for next load
+          const nextBatchIndex = currentBatch + 1;
+          setCurrentBatchIndex(nextBatchIndex);
+          currentBatchIndexRef.current = nextBatchIndex;
+
+          // Check if there are more batches to load
+          const hasMore = endIndex < estimateUuidsRef.current.length;
+          setHasMoreResults(hasMore);
+
+          // Set loading states
+          if (pageToUse === 1) {
+            setLoading(false);
+          } else {
+            setLoadingMore(false);
+          }
+
+          const searchEndTime = Date.now();
+          const totalDuration = searchEndTime - searchStartTime;
+          setLastSearchTime(totalDuration);
+
+          // Get current results count for logging
+          const currentResultsCount = pageToUse === 1 
+            ? newResults.length 
+            : (() => {
+                // For subsequent pages, we need to check state
+                // Since setState is async, we'll calculate what it will be
+                return results.length + newResults.length;
+              })();
+
+          console.log("Trust Estimate: Batch lookup complete", {
+            batch: currentBatch + 1,
+            resultsInBatch: newResults.length,
+            totalResults: currentResultsCount,
+            hasMore,
+          });
+
+            return; // Exit early, we've handled the results
+          } else {
+            // No more UUIDs to lookup
+            console.log("Trust Estimate: No more UUIDs to lookup");
+            setHasMoreResults(false);
+            if (pageToUse === 1) {
+              setLoading(false);
+              setResults([]);
+            } else {
+              setLoadingMore(false);
+            }
+            return;
+          }
+        } else {
+          // No UUIDs stored yet or failed to get them - fall through to normal mode
+          console.log("Trust Estimate: No UUIDs available, using normal results");
+        }
+      }
+
+      // Handle results for infinite scroll (normal mode)
       let newResults = res.results || [];
 
       // For offset strategy, filter out duplicates client-side

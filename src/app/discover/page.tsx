@@ -211,6 +211,9 @@ function DiscoverPageContent() {
 
   // Fetch initial aggregations for filters - this should only happen once
   useEffect(() => {
+    // Only run on client side
+    if (typeof window === "undefined") return;
+
     async function fetchInitialAggregations() {
       try {
         console.log("Fetching initial aggregations...");
@@ -225,6 +228,7 @@ function DiscoverPageContent() {
         let rawAggregations: Record<string, any>;
         try {
           // Fetch raw aggregations data directly (needed for processAggregations)
+          const API_BASE = "https://harmonydataweaviate.azureedge.net";
           const response = await Promise.race([
             fetch(`${API_BASE}/discover/aggregate`, { method: "GET" }),
             timeoutPromise,

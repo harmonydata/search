@@ -642,6 +642,31 @@ function DiscoverPageContent() {
   ) {
     const pageToUse = forcePage !== undefined ? forcePage : currentPage;
 
+    // Check if query is empty and there are no filters - clear results and return early
+    const hasQuery = query && query.trim().length > 0;
+    const hasFilters = searchSettings.selectedFilters && Object.keys(searchSettings.selectedFilters).length > 0;
+    const hasResourceType = !!resourceType;
+    const hasSimilarUid = !!searchSettings.similarUid;
+    
+    // Only clear results if there's no query, no filters, no resource type, and no similar UID
+    if (!hasQuery && !hasFilters && !hasResourceType && !hasSimilarUid) {
+      console.log("🔍 Empty query and no filters - clearing results");
+      setResults([]);
+      setTotalHits(0);
+      setHasMoreResults(false);
+      setLoading(false);
+      setLoadingMore(false);
+      setTopLevelIdsSeen([]);
+      currentTopLevelIdsRef.current = [];
+      setNextPageOffset(undefined);
+      currentNextPageOffsetRef.current = undefined;
+      setEstimateUuids([]);
+      estimateUuidsRef.current = [];
+      setCurrentBatchIndex(0);
+      currentBatchIndexRef.current = 0;
+      return;
+    }
+
     // Set appropriate loading state
     if (pageToUse === 1) {
       console.log("⏳ performSearch: Setting loading to true (page 1)");

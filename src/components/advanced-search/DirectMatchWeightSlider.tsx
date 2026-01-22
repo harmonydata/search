@@ -31,6 +31,9 @@ export default function DirectMatchWeightSlider() {
     searchSettings.directMatchWeight
   );
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // Disable in trust estimate mode (has no effect)
+  const isDisabled = searchSettings.paginationStrategy === "trust_estimate";
 
   // Sync local value when context value changes externally
   useEffect(() => {
@@ -66,7 +69,7 @@ export default function DirectMatchWeightSlider() {
   const apiValue = transformToApiValue(localValue);
 
   return (
-    <Box sx={{ mb: 2 }}>
+    <Box sx={{ mb: 2, opacity: isDisabled ? 0.5 : 1 }}>
       <Typography variant="body2" fontWeight={500} gutterBottom>
         Direct Match Weight: {localValue.toFixed(2)} (API: {apiValue.toFixed(1)}
         )
@@ -77,12 +80,15 @@ export default function DirectMatchWeightSlider() {
         gutterBottom
         display="block"
       >
-        Controls preference between direct match and variable match results
+        {isDisabled 
+          ? "Not available in Trust Estimate mode"
+          : "Controls preference between direct match and variable match results"}
       </Typography>
       <Box sx={{ px: 2, mt: 2 }}>
         <Slider
           value={localValue}
           onChange={handleChange}
+          disabled={isDisabled}
           min={0}
           max={1}
           step={0.01}

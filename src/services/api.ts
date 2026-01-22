@@ -171,8 +171,16 @@ export async function fetchAggregateFilters(): Promise<AggregateFilter[]> {
 
   // data should have an 'aggregations' property
   const aggregations = data.aggregations || {};
-  const filters: AggregateFilter[] = Object.keys(aggregations).map((key) => {
-    const aggregationData = aggregations[key];
+  // Filter out top_level_ancestor - it shouldn't be shown as a filter
+  const filteredAggregations = Object.keys(aggregations)
+    .filter((key) => key !== "top_level_ancestor")
+    .reduce((acc, key) => {
+      acc[key] = aggregations[key];
+      return acc;
+    }, {} as Record<string, any>);
+  
+  const filters: AggregateFilter[] = Object.keys(filteredAggregations).map((key) => {
+    const aggregationData = filteredAggregations[key];
 
     // For numeric fields, extract the actual numeric values from the aggregation object
     const numericFields = [
@@ -1243,8 +1251,9 @@ export async function fetchVariables(options: {
   }
 
   // Add search config parameters
-  // Always send alpha=0 for get_variables (ignores the alpha option)
-  params.set("alpha", "0");
+  // Use alpha from options if provided, otherwise default to 0.5 (matching default hybrid weight)
+  const alphaValue = options.alpha !== undefined ? options.alpha : 0.5;
+  params.set("alpha", alphaValue.toString());
   // Add max_vector_distance and/or min_original_vector_score based on mode
   // Always send these parameters (use default 0.4 if not provided)
   const mode = options.max_distance_mode || "min_score";

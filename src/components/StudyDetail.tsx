@@ -68,6 +68,15 @@ const StudyDetailComponent = ({
   // Ref for scroll container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Ref to track last fetched UUID and params to prevent duplicate lookups
+  const lastFetchedRef = useRef<{
+    uuid: string;
+    query: string;
+    hybridWeight: number;
+    maxDistance: number;
+    maxDistanceMode: string;
+  } | null>(null);
+
   const { currentUser } = useAuth();
   const { checkIfResourceSaved, saveResource, unsaveResource } = useFirebase();
   const { searchSettings, updateSearchSettings } = useSearch();
@@ -110,6 +119,7 @@ const StudyDetailComponent = ({
   useEffect(() => {
     setEnhancedStudy(null);
     setApiVariableCount(null); // Reset variable count when study changes
+    lastFetchedRef.current = null; // Reset fetch tracking when study changes
   }, [study.extra_data?.uuid]);
 
   // Helper function to add filter values additively
@@ -326,8 +336,7 @@ const StudyDetailComponent = ({
 
   useEffect(() => {
     let cancelled = false;
-    setEnhancedStudy(null);
-
+    
     if (studyDataComplete) {
       return;
     }
@@ -335,12 +344,42 @@ const StudyDetailComponent = ({
       return;
     }
 
+    const currentUuid = displayStudy.extra_data.uuid;
+    const currentParams = {
+      uuid: currentUuid,
+      query: debouncedQuery,
+      hybridWeight: debouncedHybridWeight,
+      maxDistance: debouncedMaxDistance,
+      maxDistanceMode: debouncedMaxDistanceMode,
+    };
+
+    // Check if we already fetched this exact UUID with the same parameters
+    const lastFetched = lastFetchedRef.current;
+    if (
+      lastFetched &&
+      lastFetched.uuid === currentUuid &&
+      lastFetched.query === currentParams.query &&
+      lastFetched.hybridWeight === currentParams.hybridWeight &&
+      lastFetched.maxDistance === currentParams.maxDistance &&
+      lastFetched.maxDistanceMode === currentParams.maxDistanceMode &&
+      enhancedStudy?.extra_data?.uuid === currentUuid
+    ) {
+      // Already fetched with same params, skip
+      console.log("StudyDetail: Skipping duplicate lookup for same UUID and params");
+      return;
+    }
+
+    // Reset enhanced study only if UUID changed
+    if (!lastFetched || lastFetched.uuid !== currentUuid) {
+      setEnhancedStudy(null);
+    }
+
     setIsLoadingEnhancedData(true);
 
     const fetchData = async () => {
       try {
         const enhancedData = await fetchResultByUuid(
-          displayStudy.extra_data.uuid!,
+          currentUuid,
           debouncedQuery,
           debouncedHybridWeight,
           debouncedMaxDistance,
@@ -350,6 +389,8 @@ const StudyDetailComponent = ({
         if (!cancelled) {
           setEnhancedStudy(enhancedData);
           setIsLoadingEnhancedData(false);
+          // Update ref to track what we fetched
+          lastFetchedRef.current = currentParams;
         }
       } catch (error) {
         console.error("Failed to load enhanced study data:", error);
@@ -371,6 +412,7 @@ const StudyDetailComponent = ({
     debouncedHybridWeight,
     debouncedMaxDistance,
     debouncedMaxDistanceMode,
+    enhancedStudy?.extra_data?.uuid, // Include to check if we already have data
   ]);
 
   useEffect(() => {

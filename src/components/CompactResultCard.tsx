@@ -84,8 +84,14 @@ export default function CompactResultCard({
       !keyword.startsWith("<")
   );
 
-  // Get the variables count from dataset_schema - use either number_of_variables prop or length of variableMeasured array
+  // Get the variables count from multiple possible sources:
+  // 1. extra_data.num_variables (from lookup API in trust estimate mode)
+  // 2. extra_data.number_of_variables
+  // 3. dataset_schema.number_of_variables
+  // 4. dataset_schema.variableMeasured array length
   const variablesCount =
+    result.extra_data?.num_variables ||
+    result.extra_data?.number_of_variables ||
     result.dataset_schema?.number_of_variables ||
     result.dataset_schema?.variableMeasured?.length ||
     0;

@@ -9,7 +9,6 @@ import HybridWeightSlider from "./advanced-search/HybridWeightSlider";
 import MaxDistanceSlider from "./advanced-search/MaxDistanceSlider";
 import DirectMatchWeightSlider from "./advanced-search/DirectMatchWeightSlider";
 import PaginationStrategyToggle from "./advanced-search/PaginationStrategyToggle";
-import TrustEstimateToggle from "./advanced-search/TrustEstimateToggle";
 
 export default function AdvancedSearchDropdown() {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -65,6 +64,11 @@ export default function AdvancedSearchDropdown() {
         sx={{
           mt: 1,
         }}
+        PaperProps={{
+          sx: {
+            maxWidth: { xs: "100%", sm: 400 },
+          },
+        }}
       >
         <Box sx={{ p: 3, minWidth: 280 }}>
           <Typography variant="h6" gutterBottom>
@@ -77,7 +81,6 @@ export default function AdvancedSearchDropdown() {
           <MaxDistanceSlider />
           <PaginationStrategyToggle />
           <DirectMatchWeightSlider />
-          <TrustEstimateToggle />
 
           {/* Information */}
           <Box sx={{ mt: 3, p: 2, bgcolor: "grey.50", borderRadius: 1 }}>

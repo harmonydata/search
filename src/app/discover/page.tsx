@@ -155,7 +155,6 @@ function DiscoverPageContent() {
   const maxDistanceModeRef = useRef(searchSettings.maxDistanceMode);
   const directMatchWeightRef = useRef(searchSettings.directMatchWeight);
   const paginationStrategyRef = useRef(searchSettings.paginationStrategy);
-  const trustEstimateRef = useRef(searchSettings.trustEstimate);
   const topLevelIdsSeenRef = useRef(topLevelIdsSeen);
   const isResettingPageRef = useRef(false);
 
@@ -223,13 +222,45 @@ function DiscoverPageContent() {
           setTimeout(() => reject(new Error("API request timed out")), 60000); // 60 seconds timeout
         });
 
-        // Race the actual API call against the timeout
-        const aggregateData = await Promise.race([
-          fetchAggregateFilters(),
-          timeoutPromise,
-        ]);
+        let rawAggregations: Record<string, any>;
+        try {
+          // Fetch raw aggregations data directly (needed for processAggregations)
+          const response = await Promise.race([
+            fetch(`${API_BASE}/discover/aggregate`, { method: "GET" }),
+            timeoutPromise,
+          ]);
+          if (!response.ok) {
+            throw new Error("Failed to fetch aggregate data");
+          }
+          const data = await response.json();
+          rawAggregations = data.aggregations || data;
+        } catch (error) {
+          // If API call fails or times out, fall back to default aggregations
+          console.warn("Aggregate API call failed or timed out, falling back to default aggregations:", error);
+          try {
+            const defaultResponse = await fetch("/default_aggregations.json");
+            if (!defaultResponse.ok) {
+              throw new Error("Failed to load default aggregations");
+            }
+            const defaultData = await defaultResponse.json();
+            // Default JSON has aggregations directly, not nested under "aggregations"
+            rawAggregations = defaultData;
+            console.log("Using default aggregations from JSON file");
+          } catch (fallbackError) {
+            console.error("Failed to load default aggregations:", fallbackError);
+            throw error; // Re-throw original error if fallback also fails
+          }
+        }
 
-        const processedFilters = processAggregations(aggregateData);
+        // Filter out top_level_ancestor from raw aggregations
+        const filteredAggregations = Object.keys(rawAggregations)
+          .filter((key) => key !== "top_level_ancestor")
+          .reduce((acc, key) => {
+            acc[key] = rawAggregations[key];
+            return acc;
+          }, {} as Record<string, any>);
+
+        const processedFilters = processAggregations(filteredAggregations);
         setFilters(processedFilters);
         console.log(
           "Initial aggregations set:",
@@ -411,8 +442,7 @@ function DiscoverPageContent() {
       searchSettings.maxDistance !== maxDistanceRef.current ||
       searchSettings.maxDistanceMode !== maxDistanceModeRef.current ||
       searchSettings.directMatchWeight !== directMatchWeightRef.current ||
-      searchSettings.paginationStrategy !== paginationStrategyRef.current ||
-      searchSettings.trustEstimate !== trustEstimateRef.current;
+      searchSettings.paginationStrategy !== paginationStrategyRef.current;
 
     // If we're in similar studies mode, use the original description as the query
     const queryToUse = searchSettings.similarUid
@@ -443,11 +473,13 @@ function DiscoverPageContent() {
       currentTopLevelIdsRef.current = [];
       setNextPageOffset(undefined);
       currentNextPageOffsetRef.current = undefined;
-      // Reset trust estimate state
-      setEstimateUuids([]);
-      estimateUuidsRef.current = [];
-      setCurrentBatchIndex(0);
-      currentBatchIndexRef.current = 0;
+      // Reset trust estimate state if switching away from trust_estimate
+      if (searchSettings.paginationStrategy !== "trust_estimate") {
+        setEstimateUuids([]);
+        estimateUuidsRef.current = [];
+        setCurrentBatchIndex(0);
+        currentBatchIndexRef.current = 0;
+      }
 
       // Reset to page 1 if not already there
       if (currentPage !== 1) {
@@ -471,7 +503,6 @@ function DiscoverPageContent() {
         useSearch2Ref.current = searchSettings.useSearch2;
         hybridWeightRef.current = searchSettings.hybridWeight;
         maxDistanceRef.current = searchSettings.maxDistance;
-        trustEstimateRef.current = searchSettings.trustEstimate;
         maxDistanceModeRef.current = searchSettings.maxDistanceMode;
         directMatchWeightRef.current = searchSettings.directMatchWeight;
         paginationStrategyRef.current = searchSettings.paginationStrategy;
@@ -498,6 +529,44 @@ function DiscoverPageContent() {
     if (currentPage > 1) {
       console.log("📄 Page changed to:", currentPage, "- loading more results");
 
+      // In trust estimate mode, skip the search API and just do batch lookup
+      if (searchSettings.paginationStrategy === "trust_estimate" && estimateUuidsRef.current.length > 0) {
+        console.log("Trust Estimate: Page change detected, doing batch lookup only");
+        const batchSize = 10;
+        const currentBatch = currentBatchIndexRef.current;
+        const startIndex = currentBatch * batchSize;
+        const endIndex = startIndex + batchSize;
+        const uuidsToLookup = estimateUuidsRef.current.slice(startIndex, endIndex);
+
+        if (uuidsToLookup.length > 0) {
+          setLoadingMore(true);
+          fetchResultsByUuids(uuidsToLookup)
+            .then((lookupResults) => {
+              console.log(`Trust Estimate: Retrieved ${lookupResults.length} results from batch lookup`);
+              setResults((prev) => [...prev, ...lookupResults]);
+              
+              // Update batch index for next load
+              const nextBatchIndex = currentBatch + 1;
+              setCurrentBatchIndex(nextBatchIndex);
+              currentBatchIndexRef.current = nextBatchIndex;
+
+              // Check if there are more batches to load
+              const hasMore = endIndex < estimateUuidsRef.current.length;
+              setHasMoreResults(hasMore);
+              setLoadingMore(false);
+            })
+            .catch((error) => {
+              console.error("Trust Estimate: Batch lookup failed:", error);
+              setLoadingMore(false);
+              setHasMoreResults(false);
+            });
+        } else {
+          setHasMoreResults(false);
+          setLoadingMore(false);
+        }
+        return; // Skip the normal search
+      }
+
       const queryToUse = searchSettings.similarUid
         ? similarStudy?.dataset_schema?.description ||
           similarStudy?.extra_data?.description ||
@@ -507,7 +576,7 @@ function DiscoverPageContent() {
       // For page changes, don't clear results, just append
       performSearch(queryToUse, currentPage);
     }
-  }, [currentPage]); // Only depend on currentPage
+  }, [currentPage, searchSettings.paginationStrategy]); // Include paginationStrategy in deps
 
   // Function to load more results for infinite scroll
   const loadMore = useCallback(async () => {
@@ -587,7 +656,7 @@ function DiscoverPageContent() {
       setLoadingMore(false);
       setConsecutiveEmptyCalls(0); // Reset consecutive empty calls counter
       // Reset trust estimate state for new searches
-      if (!searchSettings.trustEstimate) {
+      if (searchSettings.paginationStrategy !== "trust_estimate") {
         setEstimateUuids([]);
         estimateUuidsRef.current = [];
         setCurrentBatchIndex(0);
@@ -669,13 +738,18 @@ function DiscoverPageContent() {
         ? (pageToUse - 1) * resultsPerPage
         : 0;
       
+      // In trust estimate mode, use smaller num_results for initial search (only need UUIDs)
+      const searchNumResults = searchSettings.paginationStrategy === "trust_estimate" && pageToUse === 1 
+        ? 10 
+        : resultsPerPage;
+
       // Race the actual API call against the timeout
       const res: SearchResponse = await Promise.race([
         fetchSearchResults(
           query,
           combinedFilters,
           pageToUse, // Use pageToUse instead of currentPage
-          resultsPerPage,
+          searchNumResults, // Use 10 in trust estimate mode for page 1, otherwise resultsPerPage
           searchSettings.useSearch2,
           searchSettings.hybridWeight,
           idsToExclude, // Only used for filter strategy
@@ -713,13 +787,13 @@ function DiscoverPageContent() {
 
       // Handle trust estimate mode
       console.log("Trust Estimate check:", {
-        trustEstimate: searchSettings.trustEstimate,
+        paginationStrategy: searchSettings.paginationStrategy,
         hasTopLevelUuids: !!res.top_level_uuids,
         topLevelUuidsCount: res.top_level_uuids?.length || 0,
         pageToUse,
       });
 
-      if (searchSettings.trustEstimate) {
+      if (searchSettings.paginationStrategy === "trust_estimate") {
         // On first page, get and store the estimate UUIDs
         if (pageToUse === 1) {
           if (res.top_level_uuids && res.top_level_uuids.length > 0) {
@@ -1714,8 +1788,18 @@ function DiscoverPageContent() {
         {/* Filter Panel with initial filters - now uses SearchContext directly */}
         <FilterPanel filtersData={filters} />
 
-        {/* Search Results Summary - Always rendered to prevent layout shift */}
-        {!apiOffline && (
+        {/* Search Results Summary - Hide when showing HeroBanner (no search, no filters, no results) */}
+        {!apiOffline && !(
+          !results.length &&
+          !loading &&
+          searchSettings.query.trim() === "" &&
+          Object.keys(searchSettings.selectedFilters).length === 0 &&
+          resourceTypeFilter.length === 0 &&
+          !initialQuery &&
+          initialTopics.length === 0 &&
+          initialInstruments.length === 0 &&
+          initialStudyDesign.length === 0
+        ) && (
           <Box
             sx={{
               mb: 2,

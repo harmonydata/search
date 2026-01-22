@@ -8,7 +8,7 @@ export default function PaginationStrategyToggle() {
 
   const handleChange = (
     event: React.MouseEvent<HTMLElement>,
-    newStrategy: "filter" | "offset" | null
+    newStrategy: "filter" | "offset" | "trust_estimate" | null
   ) => {
     if (newStrategy !== null) {
       updateSearchSettings({ paginationStrategy: newStrategy });
@@ -33,6 +33,9 @@ export default function PaginationStrategyToggle() {
         </ToggleButton>
         <ToggleButton value="offset" aria-label="offset">
           Offset
+        </ToggleButton>
+        <ToggleButton value="trust_estimate" aria-label="trust estimate">
+          Trust Estimate
         </ToggleButton>
       </ToggleButtonGroup>
     </Box>

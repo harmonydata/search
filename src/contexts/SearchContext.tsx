@@ -20,8 +20,7 @@ export interface SearchSettings {
   maxDistance: number;
   maxDistanceMode: "max_distance" | "min_score" | "both"; // How to send maxDistance to API
   directMatchWeight: number;
-  paginationStrategy: "filter" | "offset"; // Pagination strategy: filter (top_level_ids_seen) or offset-based
-  trustEstimate: boolean; // Trust estimate mode: use top_level_uuids and batch lookup
+  paginationStrategy: "filter" | "offset" | "trust_estimate"; // Pagination strategy: filter (top_level_ids_seen), offset-based, or trust_estimate (use top_level_uuids and batch lookup)
   selectedCategory: string | null;
   resourceType: string | null;
   similarUid: string | null;
@@ -53,11 +52,10 @@ const defaultSearchSettings: SearchSettings = {
   selectedFilters: {},
   useSearch2: false,
   hybridWeight: 0.5,
-  maxDistance: 0.4,
-  maxDistanceMode: "max_distance", // Default to max_distance
+  maxDistance: 0.5,
+  maxDistanceMode: "both", // Default to both
   directMatchWeight: 0.5,
-  paginationStrategy: "offset", // Default to offset strategy
-  trustEstimate: false, // Default to false
+  paginationStrategy: "trust_estimate", // Default to trust estimate strategy
   selectedCategory: null,
   resourceType: null,
   similarUid: null,
@@ -160,10 +158,10 @@ function searchSettingsToUrl(
   if (settings.hybridWeight !== 0.5) {
     params.set("hybrid_weight", settings.hybridWeight.toString());
   }
-  if (settings.maxDistance !== 0.4) {
+  if (settings.maxDistance !== 0.5) {
     params.set("max_distance", settings.maxDistance.toString());
   }
-  if (settings.maxDistanceMode !== "max_distance") {
+  if (settings.maxDistanceMode !== "both") {
     params.set("max_distance_mode", settings.maxDistanceMode);
   }
   if (settings.directMatchWeight !== 0.5) {
@@ -175,11 +173,8 @@ function searchSettingsToUrl(
         : 16 * settings.directMatchWeight - 6;
     params.set("direct_match_weight", apiValue.toString());
   }
-  if (settings.paginationStrategy !== "offset") {
+  if (settings.paginationStrategy !== "trust_estimate") {
     params.set("pagination_strategy", settings.paginationStrategy);
-  }
-  if (settings.trustEstimate) {
-    params.set("trust_estimate", "true");
   }
   if (settings.selectedCategory) {
     params.set("category", settings.selectedCategory);
@@ -209,7 +204,6 @@ function urlToSearchSettings(
   const maxDistanceMode = searchParams.get("max_distance_mode");
   const directMatchWeight = searchParams.get("direct_match_weight");
   const paginationStrategy = searchParams.get("pagination_strategy");
-  const trustEstimate = searchParams.get("trust_estimate");
   const category = searchParams.get("category");
 
   const urlFilters: Record<string, string[]> = {};
@@ -235,7 +229,6 @@ function urlToSearchSettings(
     "max_distance_mode",
     "direct_match_weight",
     "pagination_strategy",
-    "trust_estimate",
     "category",
   ]);
 
@@ -256,10 +249,10 @@ function urlToSearchSettings(
     selectedCategory: category || null,
     useSearch2: useSearch2 === "true",
     hybridWeight: hybridWeight ? parseFloat(hybridWeight) : 0.5,
-    maxDistance: maxDistance ? parseFloat(maxDistance) : 0.4,
-    maxDistanceMode: (maxDistanceMode === "min_score" || maxDistanceMode === "both") 
+    maxDistance: maxDistance ? parseFloat(maxDistance) : 0.5,
+    maxDistanceMode: (maxDistanceMode === "max_distance" || maxDistanceMode === "min_score" || maxDistanceMode === "both") 
       ? maxDistanceMode 
-      : "max_distance",
+      : "both",
     directMatchWeight: directMatchWeight
       ? (() => {
           // Transform API value (0-10) back to slider value (0-1)
@@ -268,10 +261,9 @@ function urlToSearchSettings(
           return apiVal <= 2 ? apiVal / 4 : (apiVal + 6) / 16;
         })()
       : 0.5,
-    paginationStrategy: (paginationStrategy === "filter" || paginationStrategy === "offset")
+    paginationStrategy: (paginationStrategy === "filter" || paginationStrategy === "offset" || paginationStrategy === "trust_estimate")
       ? paginationStrategy
-      : "offset",
-    trustEstimate: trustEstimate === "true",
+      : "trust_estimate",
     resourceType: resourceType || null,
     similarUid: like || null,
   };
@@ -301,8 +293,8 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
         Object.keys(urlSettings.selectedFilters).length > 0) ||
       urlSettings.useSearch2 ||
       urlSettings.hybridWeight !== 0.5 ||
-      urlSettings.maxDistance !== 0.4 ||
-      urlSettings.maxDistanceMode !== "max_distance" ||
+      urlSettings.maxDistance !== 0.5 ||
+      urlSettings.maxDistanceMode !== "both" ||
       urlSettings.directMatchWeight !== 0.5 ||
       urlSettings.paginationStrategy !== "offset" ||
       urlSettings.selectedCategory
@@ -365,7 +357,6 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     searchSettings.maxDistanceMode,
     searchSettings.directMatchWeight,
     searchSettings.paginationStrategy,
-    searchSettings.trustEstimate,
     searchSettings.selectedCategory,
     searchSettings.resourceType,
     searchSettings.similarUid,
@@ -396,7 +387,6 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       urlSettings.maxDistanceMode !== searchSettings.maxDistanceMode ||
       urlSettings.directMatchWeight !== searchSettings.directMatchWeight ||
       urlSettings.paginationStrategy !== searchSettings.paginationStrategy ||
-      urlSettings.trustEstimate !== searchSettings.trustEstimate ||
       urlSettings.selectedCategory !== searchSettings.selectedCategory ||
       urlSettings.resourceType !== searchSettings.resourceType ||
       urlSettings.similarUid !== searchSettings.similarUid;
@@ -468,7 +458,6 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
           defaultSearchSettings.directMatchWeight,
       paginationStrategy:
         savedSearch.paginationStrategy ?? defaultSearchSettings.paginationStrategy,
-      trustEstimate: defaultSearchSettings.trustEstimate,
       selectedCategory:
         savedSearch.selectedCategory ??
           defaultSearchSettings.selectedCategory,

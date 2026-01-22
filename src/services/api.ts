@@ -228,7 +228,7 @@ export async function fetchSearchResults(
   query: string,
   filters?: Record<string, string[]>,
   page: number = 1,
-  resultsPerPage: number = 100,
+  resultsPerPage: number = 500,
   useSearch2: boolean = true,
   hybridWeight?: number,
   topLevelIdsSeen?: string[],

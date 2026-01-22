@@ -64,6 +64,8 @@ const StudyDetailComponent = ({
   
   // Store total variable count from API (when using server-side fetching)
   const [apiVariableCount, setApiVariableCount] = useState<number | null>(null);
+  // Track whether variables table should be hidden
+  const [shouldHideVariablesTable, setShouldHideVariablesTable] = useState(false);
 
   // Ref for scroll container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -119,6 +121,7 @@ const StudyDetailComponent = ({
   useEffect(() => {
     setEnhancedStudy(null);
     setApiVariableCount(null); // Reset variable count when study changes
+    setShouldHideVariablesTable(false); // Reset hide table state when study changes
     lastFetchedRef.current = null; // Reset fetch tracking when study changes
   }, [study.extra_data?.uuid]);
 
@@ -193,11 +196,13 @@ const StudyDetailComponent = ({
   const hasInstruments =
     (displayStudy.extra_data?.instruments || []).length > 0;
   // Check if we have variables - either from API (study UUID) or from static data
+  // But hide if the table component indicates it should be hidden
   const hasVariables =
-    !!displayStudy.extra_data?.uuid || // If we have UUID, API will fetch variables
+    !shouldHideVariablesTable &&
+    (!!displayStudy.extra_data?.uuid || // If we have UUID, API will fetch variables
     (displayStudy.variables_which_matched || []).length > 0 ||
     (displayStudy.dataset_schema?.variableMeasured || []).length > 0 ||
-    (displayStudy.dataset_schema?.number_of_variables || 0) > 0;
+    (displayStudy.dataset_schema?.number_of_variables || 0) > 0);
 
   // Extract additional links from identifiers and url fields
   const additionalLinks: string[] = [];
@@ -758,6 +763,7 @@ const StudyDetailComponent = ({
                 maxDistanceMode={searchSettings.maxDistanceMode}
                 directMatchWeight={searchSettings.directMatchWeight}
                 onTotalCountChange={setApiVariableCount}
+                onShouldHideTable={setShouldHideVariablesTable}
               />
             </Box>
           </Collapse>

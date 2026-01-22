@@ -112,6 +112,8 @@ interface MatchedVariablesDataGridProps {
   directMatchWeight?: number;
   // Callback to notify parent of total variable count
   onTotalCountChange?: (count: number | null) => void;
+  // Callback to notify parent if table should be hidden
+  onShouldHideTable?: (shouldHide: boolean) => void;
   // Download state props only
   downloadAnchorEl?: HTMLElement | null;
   onDownloadClick?: (event: React.MouseEvent<HTMLElement>) => void;
@@ -132,6 +134,7 @@ interface MatchedVariablesWrapperProps {
   directMatchWeight?: number;
   // Callback to notify parent of total variable count
   onTotalCountChange?: (count: number | null) => void;
+  onShouldHideTable?: (shouldHide: boolean) => void;
 }
 
 function MatchedVariablesDataGrid({
@@ -146,6 +149,7 @@ function MatchedVariablesDataGrid({
   maxDistanceMode,
   directMatchWeight,
   onTotalCountChange,
+  onShouldHideTable,
   downloadAnchorEl,
   onDownloadClick,
   onDownloadClose,
@@ -155,6 +159,7 @@ function MatchedVariablesDataGrid({
 
   const [isApiReady, setIsApiReady] = useState(false);
   const [totalVariableCount, setTotalVariableCount] = useState<number | null>(null);
+  const [shouldHideTable, setShouldHideTable] = useState(false);
   
   // Debouncing for search queries
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -251,8 +256,37 @@ function MatchedVariablesDataGrid({
         };
         
         try {
-          const response = await fetchVariables(fetchOptions);
-          const results = response.results || [];
+          let response = await fetchVariables(fetchOptions);
+          let results = response.results || [];
+          
+          // If no results and we have a search query, try again without the query
+          // Only do this on the first page (offset 0) to avoid retrying on every page
+          if (results.length === 0 && 
+              searchQuery && 
+              searchQuery.trim() && 
+              paginationModel.page === 0 && 
+              paginationModel.pageSize > 0) {
+            const retryOptions: Parameters<typeof fetchVariables>[0] = {
+              ...fetchOptions,
+              query: undefined, // Remove query for retry
+            };
+            
+            response = await fetchVariables(retryOptions);
+            results = response.results || [];
+            
+            // If still no results, hide the table
+            if (results.length === 0 && (response.num_hits === 0 || response.num_hits === undefined)) {
+              setShouldHideTable(true);
+              onShouldHideTable?.(true);
+            } else {
+              setShouldHideTable(false);
+              onShouldHideTable?.(false);
+            }
+          } else {
+            // If we have results or no search query, show the table
+            setShouldHideTable(false);
+            onShouldHideTable?.(false);
+          }
           
           // Create a Set of matched variable names for quick lookup
           const matchedVariableNames = new Set<string>();
@@ -838,8 +872,9 @@ export default function MatchedVariablesWrapper({
   alpha,
   maxVectorDistance,
   maxDistanceMode,
-  directMatchWeight,
-  onTotalCountChange,
+      directMatchWeight,
+      onTotalCountChange,
+      onShouldHideTable,
 }: MatchedVariablesWrapperProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const dataGridRef = useRef<HTMLDivElement>(null);
@@ -885,6 +920,7 @@ export default function MatchedVariablesWrapper({
       maxDistanceMode={maxDistanceMode}
       directMatchWeight={directMatchWeight}
       onTotalCountChange={onTotalCountChange}
+      onShouldHideTable={onShouldHideTable}
       downloadAnchorEl={downloadAnchorEl}
       onDownloadClick={handleDownloadClick}
       onDownloadClose={handleDownloadClose}

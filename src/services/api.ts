@@ -246,7 +246,7 @@ export async function fetchSearchResults(
   maxVectorDistance?: number,
   directMatchWeight?: number,
   maxDistanceMode: "max_distance" | "min_score" | "both" = "min_score",
-  paginationStrategy: "filter" | "offset" = "filter"
+  paginationStrategy: "filter" | "offset" | "trust_estimate" = "filter"
 ): Promise<SearchResponse> {
   // Check if we have any filters
   const hasFilters = filters && Object.keys(filters).length > 0;
@@ -271,8 +271,9 @@ export async function fetchSearchResults(
     : 0;
 
   // Use POST if offset > 0, or for filter strategy when we have top_level_ids_seen_so_far to exclude
+  // Trust estimate strategy: treat like filter strategy
   const needsPost = offset > 0 || (
-    paginationStrategy === "filter" &&
+    (paginationStrategy === "filter" || paginationStrategy === "trust_estimate") &&
     topLevelIdsSeen && 
     topLevelIdsSeen.length > 0 && 
     !useSearch2
@@ -301,7 +302,8 @@ export async function fetchSearchResults(
     }
 
     // Add top_level_ids_seen_so_far array for exclusion filtering (only for filter strategy)
-    if (paginationStrategy === "filter" && topLevelIdsSeen && topLevelIdsSeen.length > 0) {
+    // Trust estimate strategy: treat like filter strategy
+    if ((paginationStrategy === "filter" || paginationStrategy === "trust_estimate") && topLevelIdsSeen && topLevelIdsSeen.length > 0) {
       requestBody.top_level_ids_seen_so_far = topLevelIdsSeen;
     }
 

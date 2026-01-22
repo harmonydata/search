@@ -41,7 +41,7 @@ interface SearchContextType {
     maxDistance?: number;
     maxDistanceMode?: "max_distance" | "min_score" | "both";
     directMatchWeight?: number;
-    paginationStrategy?: "filter" | "offset";
+    paginationStrategy?: "filter" | "offset" | "trust_estimate";
     selectedCategory?: string | null;
   }) => void;
 }
@@ -438,7 +438,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       maxDistance?: number;
       maxDistanceMode?: "max_distance" | "min_score" | "both";
       directMatchWeight?: number;
-      paginationStrategy?: "filter" | "offset";
+      paginationStrategy?: "filter" | "offset" | "trust_estimate";
       selectedCategory?: string | null;
     }) => {
       setSearchSettings({

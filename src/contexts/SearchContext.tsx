@@ -80,6 +80,55 @@ const defaultSearchContext: SearchContextType = {
 
 const SearchContext = createContext<SearchContextType>(defaultSearchContext);
 
+// LocalStorage key for advanced search settings
+const ADVANCED_SETTINGS_STORAGE_KEY = "discovery_advanced_search_settings";
+
+// Helper functions for localStorage persistence
+function loadAdvancedSettingsFromStorage(): Partial<SearchSettings> | null {
+  if (typeof window === "undefined") return null;
+  
+  try {
+    const stored = localStorage.getItem(ADVANCED_SETTINGS_STORAGE_KEY);
+    if (!stored) return null;
+    
+    const parsed = JSON.parse(stored);
+    // Validate and return only advanced settings
+    return {
+      useSearch2: typeof parsed.useSearch2 === "boolean" ? parsed.useSearch2 : undefined,
+      hybridWeight: typeof parsed.hybridWeight === "number" ? parsed.hybridWeight : undefined,
+      maxDistance: typeof parsed.maxDistance === "number" ? parsed.maxDistance : undefined,
+      maxDistanceMode: (parsed.maxDistanceMode === "max_distance" || parsed.maxDistanceMode === "min_score" || parsed.maxDistanceMode === "both")
+        ? parsed.maxDistanceMode
+        : undefined,
+      directMatchWeight: typeof parsed.directMatchWeight === "number" ? parsed.directMatchWeight : undefined,
+      paginationStrategy: (parsed.paginationStrategy === "filter" || parsed.paginationStrategy === "offset" || parsed.paginationStrategy === "trust_estimate")
+        ? parsed.paginationStrategy
+        : undefined,
+    };
+  } catch (error) {
+    console.error("Failed to load advanced settings from localStorage:", error);
+    return null;
+  }
+}
+
+function saveAdvancedSettingsToStorage(settings: SearchSettings): void {
+  if (typeof window === "undefined") return;
+  
+  try {
+    const advancedSettings = {
+      useSearch2: settings.useSearch2,
+      hybridWeight: settings.hybridWeight,
+      maxDistance: settings.maxDistance,
+      maxDistanceMode: settings.maxDistanceMode,
+      directMatchWeight: settings.directMatchWeight,
+      paginationStrategy: settings.paginationStrategy,
+    };
+    localStorage.setItem(ADVANCED_SETTINGS_STORAGE_KEY, JSON.stringify(advancedSettings));
+  } catch (error) {
+    console.error("Failed to save advanced settings to localStorage:", error);
+  }
+}
+
 // Helper functions for URL serialization
 function searchSettingsToUrl(
   settings: SearchSettings,
@@ -273,9 +322,20 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [searchSettings, setSearchSettings] = useState<SearchSettings>(
-    defaultSearchSettings
-  );
+  // Initialize with defaults, but will be overridden by localStorage or URL params
+  const [searchSettings, setSearchSettings] = useState<SearchSettings>(() => {
+    // On client-side, try to load from localStorage first
+    if (typeof window !== "undefined") {
+      const storedAdvanced = loadAdvancedSettingsFromStorage();
+      if (storedAdvanced) {
+        return {
+          ...defaultSearchSettings,
+          ...storedAdvanced,
+        };
+      }
+    }
+    return defaultSearchSettings;
+  });
   const [isRestoringFromNavigation, setIsRestoringFromNavigation] =
     useState(false);
   const isInitialMount = useRef(true);
@@ -287,26 +347,66 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     if (typeof window === "undefined") return;
 
     const urlSettings = urlToSearchSettings(searchParams);
-    const hasUrlParams = !!(
-      urlSettings.query ||
-      (urlSettings.selectedFilters &&
-        Object.keys(urlSettings.selectedFilters).length > 0) ||
-      urlSettings.useSearch2 ||
-      urlSettings.hybridWeight !== 0.5 ||
-      urlSettings.maxDistance !== 0.5 ||
-      urlSettings.maxDistanceMode !== "both" ||
-      urlSettings.directMatchWeight !== 0.5 ||
-      urlSettings.paginationStrategy !== "offset" ||
-      urlSettings.selectedCategory
-    );
+    
+    // Check which URL params are actually present (not just defaults)
+    const hasQuery = searchParams.get("query");
+    const hasFilters = searchParams.get("topics") || searchParams.get("instruments") || 
+                       searchParams.get("study_design") || searchParams.get("resource_type") ||
+                       Array.from(searchParams.keys()).some(key => 
+                         !["query", "topics", "instruments", "study_design", "resource_type", 
+                           "like", "use_search2", "hybrid_weight", "max_distance", 
+                           "max_distance_mode", "direct_match_weight", "pagination_strategy", "category"].includes(key)
+                       );
+    const hasAdvancedInUrl = searchParams.get("use_search2") || 
+                             searchParams.get("hybrid_weight") || 
+                             searchParams.get("max_distance") || 
+                             searchParams.get("max_distance_mode") || 
+                             searchParams.get("direct_match_weight") || 
+                             searchParams.get("pagination_strategy");
+    const hasCategory = searchParams.get("category");
+    
+    const hasUrlParams = !!(hasQuery || hasFilters || hasAdvancedInUrl || hasCategory);
 
     if (hasUrlParams) {
+      // URL params take precedence - merge with localStorage for advanced settings not in URL
+      const storedAdvanced = loadAdvancedSettingsFromStorage();
+      const mergedSettings: Partial<SearchSettings> = {
+        ...urlSettings,
+        // Only use stored advanced settings if they're not in URL
+        useSearch2: hasAdvancedInUrl && searchParams.get("use_search2") 
+          ? urlSettings.useSearch2 
+          : (storedAdvanced?.useSearch2 ?? urlSettings.useSearch2 ?? defaultSearchSettings.useSearch2),
+        hybridWeight: hasAdvancedInUrl && searchParams.get("hybrid_weight")
+          ? urlSettings.hybridWeight
+          : (storedAdvanced?.hybridWeight ?? urlSettings.hybridWeight ?? defaultSearchSettings.hybridWeight),
+        maxDistance: hasAdvancedInUrl && searchParams.get("max_distance")
+          ? urlSettings.maxDistance
+          : (storedAdvanced?.maxDistance ?? urlSettings.maxDistance ?? defaultSearchSettings.maxDistance),
+        maxDistanceMode: hasAdvancedInUrl && searchParams.get("max_distance_mode")
+          ? urlSettings.maxDistanceMode
+          : (storedAdvanced?.maxDistanceMode ?? urlSettings.maxDistanceMode ?? defaultSearchSettings.maxDistanceMode),
+        directMatchWeight: hasAdvancedInUrl && searchParams.get("direct_match_weight")
+          ? urlSettings.directMatchWeight
+          : (storedAdvanced?.directMatchWeight ?? urlSettings.directMatchWeight ?? defaultSearchSettings.directMatchWeight),
+        paginationStrategy: hasAdvancedInUrl && searchParams.get("pagination_strategy")
+          ? urlSettings.paginationStrategy
+          : (storedAdvanced?.paginationStrategy ?? urlSettings.paginationStrategy ?? defaultSearchSettings.paginationStrategy),
+      };
+      
       setSearchSettings((prev) => {
-        const newSettings = { ...prev, ...urlSettings };
+        const newSettings = { ...prev, ...mergedSettings } as SearchSettings;
         lastUrlRef.current = searchSettingsToUrl(newSettings, pathname);
         return newSettings;
       });
     } else {
+      // No URL params - use localStorage for advanced settings if available
+      const storedAdvanced = loadAdvancedSettingsFromStorage();
+      if (storedAdvanced) {
+        setSearchSettings((prev) => ({
+          ...prev,
+          ...storedAdvanced,
+        }));
+      }
       lastUrlRef.current = pathname;
     }
     isInitialMount.current = false;
@@ -417,10 +517,15 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     (
       newSettings: Partial<Omit<SearchSettings, "query" | "debouncedQuery">>
     ) => {
-      setSearchSettings((prev) => ({
-        ...prev,
-        ...newSettings,
-      }));
+      setSearchSettings((prev) => {
+        const updated = {
+          ...prev,
+          ...newSettings,
+        };
+        // Save advanced settings to localStorage whenever they change
+        saveAdvancedSettingsToStorage(updated);
+        return updated;
+      });
     },
     []
   );

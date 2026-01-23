@@ -57,3 +57,8 @@
 - Added three-way toggle to Max Distance slider to switch between sending max_distance, min_score, or both parameters to API calls (search, lookup, get_variables)- Changed default resultsPerPage from 100 to 500 to work better with Weaviate fusion
 - Only update totalHits (num_results) from the first page call (page 1, no offset, no exclusions) to keep reliable estimate
 - Added retry logic to get_variables: if no results with search term, retry without search term; hide variables table if still no results
+- Fixed issue where results list was not cleared when search field is deleted and there are no filters
+- Added localStorage persistence for advanced search settings (useSearch2, hybridWeight, maxDistance, maxDistanceMode, directMatchWeight, paginationStrategy) - settings are saved when changed and restored on page load if not in URL params
+- Updated variable count logic to prioritize num_descendant_variables from lookup object as primary source in CompactResultCard and StudyDetail components
+- Fixed issue where results list was not cleared when search field is deleted and there are no filters
+- Added localStorage persistence for advanced search settings (useSearch2, hybridWeight, maxDistance, maxDistanceMode, directMatchWeight, paginationStrategy) - settings are saved when changed and restored on page load if not in URL params

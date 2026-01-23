@@ -197,12 +197,17 @@ const StudyDetailComponent = ({
     (displayStudy.extra_data?.instruments || []).length > 0;
   // Check if we have variables - either from API (study UUID) or from static data
   // But hide if the table component indicates it should be hidden
+  // Prioritize num_descendant_variables from lookup object
+  const numDescendantVariables = (displayStudy as any).num_descendant_variables;
   const hasVariables =
     !shouldHideVariablesTable &&
     (!!displayStudy.extra_data?.uuid || // If we have UUID, API will fetch variables
+    (numDescendantVariables !== undefined && numDescendantVariables > 0) ||
     (displayStudy.variables_which_matched || []).length > 0 ||
     (displayStudy.dataset_schema?.variableMeasured || []).length > 0 ||
-    (displayStudy.dataset_schema?.number_of_variables || 0) > 0);
+    (displayStudy.dataset_schema?.number_of_variables || 0) > 0 ||
+    (displayStudy.extra_data?.num_variables || 0) > 0 ||
+    (displayStudy.extra_data?.number_of_variables || 0) > 0);
 
   // Extract additional links from identifiers and url fields
   const additionalLinks: string[] = [];
@@ -305,8 +310,9 @@ const StudyDetailComponent = ({
           resourceType: displayStudy.extra_data.resource_type || null,
           keywords: displayStudy.dataset_schema?.keywords || [],
           variablesCount:
-            displayStudy.dataset_schema?.variableMeasured?.length ||
-            displayStudy.dataset_schema?.number_of_variables ||
+            (displayStudy as any).num_descendant_variables ??
+            displayStudy.dataset_schema?.variableMeasured?.length ??
+            displayStudy.dataset_schema?.number_of_variables ??
             0,
           datasetsCount: displayStudy.child_datasets?.length || 0,
           hasDataAvailable:
@@ -442,6 +448,8 @@ const StudyDetailComponent = ({
 
   // Prepare deduped list of all variables for the DataGrid with repeat counts
   const { allStudyVariables, matchedCount, totalCount } = useMemo(() => {
+    // Get num_descendant_variables from lookup object (primary source)
+    const numDescendantVariables = (displayStudy as any).num_descendant_variables;
     const matched = displayStudy.variables_which_matched || [];
     const allVars = displayStudy.dataset_schema?.variableMeasured || [];
 
@@ -502,12 +510,16 @@ const StudyDetailComponent = ({
     );
 
     const matchedCount = dedupedVariables.filter((v) => v.matched).length;
-    const totalCount = dedupedVariables.length;
+    // Prioritize num_descendant_variables from lookup object, fall back to dedupedVariables length
+    const totalCount = numDescendantVariables !== undefined 
+      ? numDescendantVariables 
+      : dedupedVariables.length;
 
     return { allStudyVariables: dedupedVariables, matchedCount, totalCount };
   }, [
     displayStudy.variables_which_matched,
     displayStudy.dataset_schema?.variableMeasured,
+    (displayStudy as any).num_descendant_variables,
   ]);
 
   return (

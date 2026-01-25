@@ -163,7 +163,6 @@ function MatchedVariablesDataGrid({
   const [shouldHideTable, setShouldHideTable] = useState(false);
   const [allVariables, setAllVariables] = useState<VariableSchema[]>([]);
   const [loadingAllVariables, setLoadingAllVariables] = useState(false);
-  const [currentFilterQuery, setCurrentFilterQuery] = useState<string>("");
   
   // Debouncing for search queries
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -441,90 +440,65 @@ function MatchedVariablesDataGrid({
     onTotalCountChange?.(null);
   }, [studyUuid, mainSearchQuery, onTotalCountChange]);
 
-  // Function to fetch all variables with a given query
-  const fetchAllVariables = useCallback(async (query: string = "") => {
+  // Fetch all variables when studyUuid changes (no query - fetch everything)
+  useEffect(() => {
     if (!studyUuid) {
       setAllVariables([]);
       return;
     }
 
-    setLoadingAllVariables(true);
-    try {
-      // Use the provided query, or fall back to mainSearchQuery, or empty
-      const searchQuery = query.trim() || (mainSearchQuery && mainSearchQuery.trim() ? mainSearchQuery.trim() : undefined);
-      
-      // First, fetch page 1 to get the total count
-      const firstPageResponse = await fetchVariables({
-        ancestor_uuid: studyUuid,
-        query: searchQuery,
-        num_results: 50, // Just to get num_hits
-        offset: 0,
-        alpha: alpha,
-        max_vector_distance: maxVectorDistance,
-        max_distance_mode: maxDistanceMode,
-        direct_match_weight: directMatchWeight,
-      });
+    const fetchAllVariables = async () => {
+      setLoadingAllVariables(true);
+      try {
+        // First, fetch page 1 to get the total count (no query)
+        const firstPageResponse = await fetchVariables({
+          ancestor_uuid: studyUuid,
+          query: undefined, // No query - get all variables
+          num_results: 50, // Just to get num_hits
+          offset: 0,
+          alpha: alpha,
+          max_vector_distance: maxVectorDistance,
+          max_distance_mode: maxDistanceMode,
+          direct_match_weight: directMatchWeight,
+        });
 
-      const totalCount = firstPageResponse.num_hits;
-      if (totalCount === undefined || totalCount === null) {
-        console.warn("Could not get total variable count, cannot fetch all variables");
+        const totalCount = firstPageResponse.num_hits;
+        if (totalCount === undefined || totalCount === null) {
+          console.warn("Could not get total variable count, cannot fetch all variables");
+          setLoadingAllVariables(false);
+          return;
+        }
+
+        setTotalVariableCount(totalCount);
+        onTotalCountChange?.(totalCount);
+
+        // Now fetch all variables in one call (no query)
+        const allVariablesResponse = await fetchVariables({
+          ancestor_uuid: studyUuid,
+          query: undefined, // No query - get all variables
+          num_results: totalCount, // Fetch all variables
+          offset: 0,
+          alpha: alpha,
+          max_vector_distance: maxVectorDistance,
+          max_distance_mode: maxDistanceMode,
+          direct_match_weight: directMatchWeight,
+        });
+
+        setAllVariables(allVariablesResponse.results || []);
+        setShouldHideTable(false);
+        onShouldHideTable?.(false);
+      } catch (error) {
+        console.error("Failed to fetch all variables:", error);
+        setAllVariables([]);
+        setShouldHideTable(true);
+        onShouldHideTable?.(true);
+      } finally {
         setLoadingAllVariables(false);
-        return;
       }
+    };
 
-      setTotalVariableCount(totalCount);
-      onTotalCountChange?.(totalCount);
-
-      // Now fetch all variables in one call
-      const allVariablesResponse = await fetchVariables({
-        ancestor_uuid: studyUuid,
-        query: searchQuery,
-        num_results: totalCount, // Fetch all variables
-        offset: 0,
-        alpha: alpha,
-        max_vector_distance: maxVectorDistance,
-        max_distance_mode: maxDistanceMode,
-        direct_match_weight: directMatchWeight,
-      });
-
-      setAllVariables(allVariablesResponse.results || []);
-      setShouldHideTable(false);
-      onShouldHideTable?.(false);
-    } catch (error) {
-      console.error("Failed to fetch all variables:", error);
-      setAllVariables([]);
-      setShouldHideTable(true);
-      onShouldHideTable?.(true);
-    } finally {
-      setLoadingAllVariables(false);
-    }
-  }, [studyUuid, mainSearchQuery, alpha, maxVectorDistance, maxDistanceMode, directMatchWeight, onTotalCountChange, onShouldHideTable]);
-
-  // Fetch all variables when studyUuid changes or initial load
-  useEffect(() => {
-    if (!studyUuid) {
-      setAllVariables([]);
-      setCurrentFilterQuery("");
-      return;
-    }
-
-    // Initial load - use mainSearchQuery if available, otherwise empty
-    const initialQuery = mainSearchQuery && mainSearchQuery.trim() ? mainSearchQuery.trim() : "";
-    setCurrentFilterQuery(initialQuery);
-    fetchAllVariables(initialQuery);
-  }, [studyUuid, mainSearchQuery, fetchAllVariables]);
-
-  // Refetch all variables when QuickFilter changes (debounced)
-  useEffect(() => {
-    if (!studyUuid) return;
-
-    // Debounce the refetch
-    const timeoutId = setTimeout(() => {
-      fetchAllVariables(currentFilterQuery);
-    }, 500); // 500ms debounce
-
-    return () => clearTimeout(timeoutId);
-  }, [currentFilterQuery, studyUuid, fetchAllVariables]);
+    fetchAllVariables();
+  }, [studyUuid, alpha, maxVectorDistance, maxDistanceMode, directMatchWeight, onTotalCountChange, onShouldHideTable]);
   
   // Use allVariables if we have them (server-side with full fetch), otherwise use props variables (client-side)
   const variables = studyUuid && allVariables.length > 0 ? allVariables : (propsVariables || []);
@@ -932,12 +906,6 @@ function MatchedVariablesDataGrid({
             columns={columns}
             checkboxSelection
             sortModel={[]}
-            onFilterModelChange={(newFilterModel) => {
-              // Extract QuickFilter value
-              const quickFilterValue = newFilterModel.quickFilterValues?.[0] || "";
-              // Update current filter query to trigger refetch
-              setCurrentFilterQuery(quickFilterValue);
-            }}
             getRowClassName={(params) =>
               params.row.matched ? "matched-row" : ""
             }

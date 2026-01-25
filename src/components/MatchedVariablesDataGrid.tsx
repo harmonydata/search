@@ -351,37 +351,42 @@ function MatchedVariablesDataGrid({
             };
           });
           
-          // Determine the actual row count
-          // When using QuickFilter (searchQuery), use num_hits from filtered response
-          // Otherwise, use the total count
+          // Determine the actual row count based on results length
+          // If num_hits is provided and we're on the first page with no filter, use it for total
+          // Otherwise, calculate based on results length
           const currentOffset = paginationModel.page * paginationModel.pageSize;
           const hasFilter = searchQuery && searchQuery.trim().length > 0;
           
           let actualRowCount: number;
-          if (response.num_hits !== undefined && response.num_hits !== null) {
-            // API provided the count - use it directly
-            // If we have a filter, this is the filtered count; otherwise it's the total count
-            actualRowCount = response.num_hits;
-            
-            // Store the total count (unfiltered) if this is the first page (offset 0) and no filter
-            if (currentOffset === 0 && !hasFilter && totalVariableCount !== response.num_hits) {
+          
+          // Store total count (unfiltered) if we have it on first page with no filter
+          if (response.num_hits !== undefined && response.num_hits !== null && currentOffset === 0 && !hasFilter) {
+            if (totalVariableCount !== response.num_hits) {
               setTotalVariableCount(response.num_hits);
               onTotalCountChange?.(response.num_hits);
             }
-            // If we have a filter, update the count to reflect filtered results
-            // The DataGrid will show "X rows filtered from Y" automatically in client mode
-          } else if (rowsWithIds.length < paginationModel.pageSize) {
+          }
+          
+          // Calculate row count based on results length
+          if (rowsWithIds.length < paginationModel.pageSize) {
             // Got fewer results than requested - we've reached the end
-            // Total is current offset + number of results
+            // Exact count = (page * pageSize) + number of results
             actualRowCount = currentOffset + rowsWithIds.length;
           } else {
-            // Got a full page, but don't know total
-            // If we have a filter, we can't use the stored total - use -1 to indicate unknown
-            // Otherwise use stored count if available
-            if (hasFilter) {
-              actualRowCount = -1; // Unknown filtered count
+            // Got a full page - we don't know if there are more
+            // Minimum count = (page + 1) * pageSize (the number of the final item on this page)
+            // Use -1 to indicate "at least this many" or use the minimum as a conservative estimate
+            // DataGrid will show this as "at least X" or we can use the minimum count
+            const minimumCount = (paginationModel.page + 1) * paginationModel.pageSize;
+            
+            // If we have a stored total and no filter, use that
+            // Otherwise, use minimum count (which represents "at least this many")
+            if (!hasFilter && totalVariableCount !== null) {
+              actualRowCount = totalVariableCount;
             } else {
-              actualRowCount = totalVariableCount !== null ? totalVariableCount : -1;
+              // For filtered results or when we don't know total, use minimum
+              // This represents "at least X items" where X is the final item number on this page
+              actualRowCount = minimumCount;
             }
           }
           

@@ -441,65 +441,90 @@ function MatchedVariablesDataGrid({
     onTotalCountChange?.(null);
   }, [studyUuid, mainSearchQuery, onTotalCountChange]);
 
-  // Fetch all variables when studyUuid changes
-  useEffect(() => {
+  // Function to fetch all variables with a given query
+  const fetchAllVariables = useCallback(async (query: string = "") => {
     if (!studyUuid) {
       setAllVariables([]);
       return;
     }
 
-    const fetchAllVariables = async () => {
-      setLoadingAllVariables(true);
-      try {
-        // First, fetch page 1 to get the total count
-        const firstPageResponse = await fetchVariables({
-          ancestor_uuid: studyUuid,
-          query: mainSearchQuery && mainSearchQuery.trim() ? mainSearchQuery.trim() : undefined,
-          num_results: 50, // Just to get num_hits
-          offset: 0,
-          alpha: alpha,
-          max_vector_distance: maxVectorDistance,
-          max_distance_mode: maxDistanceMode,
-          direct_match_weight: directMatchWeight,
-        });
+    setLoadingAllVariables(true);
+    try {
+      // Use the provided query, or fall back to mainSearchQuery, or empty
+      const searchQuery = query.trim() || (mainSearchQuery && mainSearchQuery.trim() ? mainSearchQuery.trim() : undefined);
+      
+      // First, fetch page 1 to get the total count
+      const firstPageResponse = await fetchVariables({
+        ancestor_uuid: studyUuid,
+        query: searchQuery,
+        num_results: 50, // Just to get num_hits
+        offset: 0,
+        alpha: alpha,
+        max_vector_distance: maxVectorDistance,
+        max_distance_mode: maxDistanceMode,
+        direct_match_weight: directMatchWeight,
+      });
 
-        const totalCount = firstPageResponse.num_hits;
-        if (totalCount === undefined || totalCount === null) {
-          console.warn("Could not get total variable count, cannot fetch all variables");
-          setLoadingAllVariables(false);
-          return;
-        }
-
-        setTotalVariableCount(totalCount);
-        onTotalCountChange?.(totalCount);
-
-        // Now fetch all variables in one call
-        const allVariablesResponse = await fetchVariables({
-          ancestor_uuid: studyUuid,
-          query: mainSearchQuery && mainSearchQuery.trim() ? mainSearchQuery.trim() : undefined,
-          num_results: totalCount, // Fetch all variables
-          offset: 0,
-          alpha: alpha,
-          max_vector_distance: maxVectorDistance,
-          max_distance_mode: maxDistanceMode,
-          direct_match_weight: directMatchWeight,
-        });
-
-        setAllVariables(allVariablesResponse.results || []);
-        setShouldHideTable(false);
-        onShouldHideTable?.(false);
-      } catch (error) {
-        console.error("Failed to fetch all variables:", error);
-        setAllVariables([]);
-        setShouldHideTable(true);
-        onShouldHideTable?.(true);
-      } finally {
+      const totalCount = firstPageResponse.num_hits;
+      if (totalCount === undefined || totalCount === null) {
+        console.warn("Could not get total variable count, cannot fetch all variables");
         setLoadingAllVariables(false);
+        return;
       }
-    };
 
-    fetchAllVariables();
+      setTotalVariableCount(totalCount);
+      onTotalCountChange?.(totalCount);
+
+      // Now fetch all variables in one call
+      const allVariablesResponse = await fetchVariables({
+        ancestor_uuid: studyUuid,
+        query: searchQuery,
+        num_results: totalCount, // Fetch all variables
+        offset: 0,
+        alpha: alpha,
+        max_vector_distance: maxVectorDistance,
+        max_distance_mode: maxDistanceMode,
+        direct_match_weight: directMatchWeight,
+      });
+
+      setAllVariables(allVariablesResponse.results || []);
+      setShouldHideTable(false);
+      onShouldHideTable?.(false);
+    } catch (error) {
+      console.error("Failed to fetch all variables:", error);
+      setAllVariables([]);
+      setShouldHideTable(true);
+      onShouldHideTable?.(true);
+    } finally {
+      setLoadingAllVariables(false);
+    }
   }, [studyUuid, mainSearchQuery, alpha, maxVectorDistance, maxDistanceMode, directMatchWeight, onTotalCountChange, onShouldHideTable]);
+
+  // Fetch all variables when studyUuid changes or initial load
+  useEffect(() => {
+    if (!studyUuid) {
+      setAllVariables([]);
+      setCurrentFilterQuery("");
+      return;
+    }
+
+    // Initial load - use mainSearchQuery if available, otherwise empty
+    const initialQuery = mainSearchQuery && mainSearchQuery.trim() ? mainSearchQuery.trim() : "";
+    setCurrentFilterQuery(initialQuery);
+    fetchAllVariables(initialQuery);
+  }, [studyUuid, mainSearchQuery, fetchAllVariables]);
+
+  // Refetch all variables when QuickFilter changes (debounced)
+  useEffect(() => {
+    if (!studyUuid) return;
+
+    // Debounce the refetch
+    const timeoutId = setTimeout(() => {
+      fetchAllVariables(currentFilterQuery);
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [currentFilterQuery, studyUuid, fetchAllVariables]);
   
   // Use allVariables if we have them (server-side with full fetch), otherwise use props variables (client-side)
   const variables = studyUuid && allVariables.length > 0 ? allVariables : (propsVariables || []);

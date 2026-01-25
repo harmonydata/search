@@ -418,6 +418,7 @@ function MatchedVariablesDataGrid({
     maxDistanceMode,
     directMatchWeight,
     variablesWhichMatched, // Include variablesWhichMatched so dataSource updates when it changes
+    allVariables.length, // Include allVariables.length so dataSource becomes undefined when allVariables are loaded
   ]);
   
   // Cleanup debounce timeout on unmount

@@ -825,8 +825,8 @@ function MatchedVariablesDataGrid({
             getRowClassName={(params) =>
               params.row.matched ? "matched-row" : ""
             }
-            filterMode={studyUuid ? "server" : "client"}
-            sortingMode={studyUuid ? "server" : "client"}
+            filterMode="client"
+            sortingMode="client"
             paginationMode={studyUuid ? "server" : "client"}
             sx={{
               background: "white",

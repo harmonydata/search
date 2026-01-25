@@ -34,6 +34,7 @@ import {
   Maximize2,
   X,
   Search,
+  ExternalLink,
 } from "lucide-react";
 import { VariableSchema, fetchVariables, SearchResult } from "@/services/api";
 // XLSX will be loaded dynamically when needed to reduce bundle size
@@ -466,6 +467,13 @@ function MatchedVariablesDataGrid({
     });
   }, [variables]);
 
+  // Check if any variables have URLs
+  const hasUrls = useMemo(() => {
+    return variables.some((v) => {
+      return v.urls && Array.isArray(v.urls) && v.urls.length > 0;
+    });
+  }, [variables]);
+
   const columns: GridColDef[] = useMemo(() => {
     const baseColumns: GridColDef[] = [
       {
@@ -511,8 +519,42 @@ function MatchedVariablesDataGrid({
       });
     }
 
+    // Only include URL column if any variables have URLs
+    if (hasUrls) {
+      baseColumns.push({
+        field: "url",
+        headerName: "",
+        width: 60,
+        sortable: false,
+        renderCell: (params: any) => {
+          const variable = variables[params.row.originalIndex ?? 0];
+          const firstUrl = variable?.urls && Array.isArray(variable.urls) && variable.urls.length > 0
+            ? variable.urls[0]
+            : null;
+          
+          if (firstUrl) {
+            return (
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(firstUrl, "_blank", "noopener,noreferrer");
+                }}
+                sx={{ p: 0.5 }}
+              >
+                <ExternalLink size={16} />
+              </IconButton>
+            );
+          }
+          return null;
+        },
+        headerAlign: "center",
+        align: "center",
+      });
+    }
+
     return baseColumns;
-  }, [hasResponseOptions, processVariableData]);
+  }, [hasResponseOptions, hasUrls, processVariableData, variables]);
 
   // Only include variables with a name or description
   const rows = variables

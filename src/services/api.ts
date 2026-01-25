@@ -13,6 +13,7 @@ export interface VariableSchema {
   question?: string;
   options?: string[];
   response_options?: string[];
+  urls?: string[];
   cosine_similarity?: number;
   source?: string[];
   keywords?: string[];

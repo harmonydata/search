@@ -352,27 +352,37 @@ function MatchedVariablesDataGrid({
           });
           
           // Determine the actual row count
-          // If we got fewer results than requested, we've reached the end
-          // Calculate total as: current offset + number of results returned
+          // When using QuickFilter (searchQuery), use num_hits from filtered response
+          // Otherwise, use the total count
           const currentOffset = paginationModel.page * paginationModel.pageSize;
+          const hasFilter = searchQuery && searchQuery.trim().length > 0;
           
           let actualRowCount: number;
           if (response.num_hits !== undefined && response.num_hits !== null) {
-            // API provided the count (only on first call with offset 0)
+            // API provided the count - use it directly
+            // If we have a filter, this is the filtered count; otherwise it's the total count
             actualRowCount = response.num_hits;
             
-            // Store the total count if this is the first page (offset 0)
-            if (currentOffset === 0 && totalVariableCount !== response.num_hits) {
+            // Store the total count (unfiltered) if this is the first page (offset 0) and no filter
+            if (currentOffset === 0 && !hasFilter && totalVariableCount !== response.num_hits) {
               setTotalVariableCount(response.num_hits);
               onTotalCountChange?.(response.num_hits);
             }
+            // If we have a filter, update the count to reflect filtered results
+            // The DataGrid will show "X rows filtered from Y" automatically in client mode
           } else if (rowsWithIds.length < paginationModel.pageSize) {
             // Got fewer results than requested - we've reached the end
             // Total is current offset + number of results
             actualRowCount = currentOffset + rowsWithIds.length;
           } else {
-            // Got a full page, but don't know total - use stored count if available, otherwise -1
-            actualRowCount = totalVariableCount !== null ? totalVariableCount : -1;
+            // Got a full page, but don't know total
+            // If we have a filter, we can't use the stored total - use -1 to indicate unknown
+            // Otherwise use stored count if available
+            if (hasFilter) {
+              actualRowCount = -1; // Unknown filtered count
+            } else {
+              actualRowCount = totalVariableCount !== null ? totalVariableCount : -1;
+            }
           }
           
           return {

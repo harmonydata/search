@@ -68,3 +68,4 @@
 - Connected MUI DataGrid sorting to API sort_order parameter - when user clicks column header to sort, sortModel is extracted from params and converted to "field:asc/desc" format for API call
 - Changed filterMode and sortingMode to "client" (pagination remains "server") - filtering and sorting now happen client-side on fetched data, rowCount from API response (num_hits) is passed to DataGrid for proper pagination display
 - Updated rowCount logic to prioritize num_hits from API response when available (works on all pages), falling back to calculated values based on results length only when num_hits is not provided
+- Refactored to fetch all variables once on load when studyUuid is provided: first fetches page 1 to get total count, then fetches all variables in single call, stores in allVariables state, and uses client-side filtering/pagination on the full list

@@ -161,6 +161,8 @@ function MatchedVariablesDataGrid({
   const [isApiReady, setIsApiReady] = useState(false);
   const [totalVariableCount, setTotalVariableCount] = useState<number | null>(null);
   const [shouldHideTable, setShouldHideTable] = useState(false);
+  const [allVariables, setAllVariables] = useState<VariableSchema[]>([]);
+  const [loadingAllVariables, setLoadingAllVariables] = useState(false);
   
   // Debouncing for search queries
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -433,8 +435,8 @@ function MatchedVariablesDataGrid({
     onTotalCountChange?.(null);
   }, [studyUuid, mainSearchQuery, onTotalCountChange]);
   
-  // Use props variables for client-side mode
-  const variables = studyUuid ? [] : (propsVariables || []);
+  // Use allVariables if we have them (server-side with full fetch), otherwise use props variables (client-side)
+  const variables = studyUuid && allVariables.length > 0 ? allVariables : (propsVariables || []);
 
   useEffect(() => {
     // Load the Harmony Export web component using centralized loader
@@ -842,9 +844,9 @@ function MatchedVariablesDataGrid({
             getRowClassName={(params) =>
               params.row.matched ? "matched-row" : ""
             }
-            filterMode="client"
-            sortingMode="client"
-            paginationMode={studyUuid ? "server" : "client"}
+            filterMode={studyUuid && allVariables.length > 0 ? "client" : (studyUuid ? "server" : "client")}
+            sortingMode={studyUuid && allVariables.length > 0 ? "client" : (studyUuid ? "server" : "client")}
+            paginationMode={studyUuid && allVariables.length > 0 ? "client" : (studyUuid ? "server" : "client")}
             sx={{
               background: "white",
               borderRadius: 2,

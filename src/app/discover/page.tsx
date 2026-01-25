@@ -485,6 +485,8 @@ function DiscoverPageContent() {
         estimateUuidsRef.current = [];
         setCurrentBatchIndex(0);
         currentBatchIndexRef.current = 0;
+        setFailedUuids([]);
+        failedUuidsRef.current = [];
       }
 
       // Reset to page 1 if not already there
@@ -871,6 +873,8 @@ function DiscoverPageContent() {
             estimateUuidsRef.current = res.top_level_uuids;
             setCurrentBatchIndex(0);
             currentBatchIndexRef.current = 0;
+            setFailedUuids([]);
+            failedUuidsRef.current = [];
           } else {
             console.warn("Trust Estimate: No top_level_uuids in response, falling back to normal results");
             // Fall back to normal results if no UUIDs - continue to normal flow below

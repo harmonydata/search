@@ -458,45 +458,61 @@ function MatchedVariablesDataGrid({
     };
   }, []);
 
-  const columns: GridColDef[] = [
-    {
-      field: "question_no",
-      headerName: "Code",
-      width: 120,
-      valueGetter: (value: any, row: any) => {
-        const processed = processVariableData(row, row.originalIndex ?? 0);
-        return processed.question_no;
-      },
-      sortable: true,
-    },
-    {
-      field: "description",
-      headerName: "Question / Variable name",
-      flex: 2,
-      valueGetter: (value: any, row: any) => {
-        // Use displayName if available (for server-side with deduplication), otherwise process normally
-        if (row.displayName && row.repeatCount > 1) {
-          // For duplicates, show the display name with counter, but still process the question text
+  // Check if any variables have response options data
+  const hasResponseOptions = useMemo(() => {
+    return variables.some((v) => {
+      const responseOptions = v.response_options || v.options;
+      return responseOptions && Array.isArray(responseOptions) && responseOptions.length > 0;
+    });
+  }, [variables]);
+
+  const columns: GridColDef[] = useMemo(() => {
+    const baseColumns: GridColDef[] = [
+      {
+        field: "question_no",
+        headerName: "Code",
+        width: 120,
+        valueGetter: (value: any, row: any) => {
           const processed = processVariableData(row, row.originalIndex ?? 0);
-          // If we have a display name with counter, prepend it to the question text
-          return processed.question_text || row.displayName;
-        }
-        const processed = processVariableData(row, row.originalIndex ?? 0);
-        return processed.question_text;
+          return processed.question_no;
+        },
+        sortable: true,
       },
-      sortable: true,
-    },
-    {
-      field: "options",
-      headerName: "Response Options",
-      flex: 1,
-      valueGetter: (value: any, row: any) => {
-        const processed = processVariableData(row, row.originalIndex ?? 0);
-        return processed.response_options;
+      {
+        field: "description",
+        headerName: "Question / Variable name",
+        flex: 2,
+        valueGetter: (value: any, row: any) => {
+          // Use displayName if available (for server-side with deduplication), otherwise process normally
+          if (row.displayName && row.repeatCount > 1) {
+            // For duplicates, show the display name with counter, but still process the question text
+            const processed = processVariableData(row, row.originalIndex ?? 0);
+            // If we have a display name with counter, prepend it to the question text
+            return processed.question_text || row.displayName;
+          }
+          const processed = processVariableData(row, row.originalIndex ?? 0);
+          return processed.question_text;
+        },
+        sortable: true,
       },
-      sortable: true,
-    },
-  ];
+    ];
+
+    // Only include Response Options column if any variables have response options data
+    if (hasResponseOptions) {
+      baseColumns.push({
+        field: "options",
+        headerName: "Response Options",
+        flex: 1,
+        valueGetter: (value: any, row: any) => {
+          const processed = processVariableData(row, row.originalIndex ?? 0);
+          return processed.response_options;
+        },
+        sortable: true,
+      });
+    }
+
+    return baseColumns;
+  }, [hasResponseOptions, processVariableData]);
 
   // Only include variables with a name or description
   const rows = variables
@@ -640,11 +656,15 @@ function MatchedVariablesDataGrid({
 
     return rows.map((row) => {
       const processed = processVariableData(row, row.originalIndex ?? 0);
-      return {
+      const result: any = {
         question_no: processed.question_no,
         question_text: processed.question_text,
-        response_options: processed.response_options,
       };
+      // Only include response_options if any variables have them
+      if (hasResponseOptions) {
+        result.response_options = processed.response_options;
+      }
+      return result;
     });
   };
 
@@ -666,9 +686,16 @@ function MatchedVariablesDataGrid({
 
   const downloadAsCsv = () => {
     const data = getQuestionsData();
+    const headers = hasResponseOptions
+      ? ["Question Number", "Question Text", "Response Options"]
+      : ["Question Number", "Question Text"];
     const csv = [
-      ["Question Number", "Question Text", "Response Options"],
-      ...data.map((q) => [q.question_no, q.question_text, q.response_options]),
+      headers,
+      ...data.map((q) =>
+        hasResponseOptions
+          ? [q.question_no, q.question_text, q.response_options]
+          : [q.question_no, q.question_text]
+      ),
     ]
       .map((row) => row.map((cell) => `"${cell}"`).join(","))
       .join("\n");

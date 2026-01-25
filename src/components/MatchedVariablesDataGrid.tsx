@@ -924,7 +924,7 @@ function MatchedVariablesDataGrid({
               },
             }}
             hideFooter={!studyUuid || (studyUuid && allVariables.length === 0 && !loadingAllVariables)}
-            loading={loadingAllVariables}
+            loading={loadingAllVariables || false}
             pageSizeOptions={[20, 50, 100]}
             pagination
             showToolbar

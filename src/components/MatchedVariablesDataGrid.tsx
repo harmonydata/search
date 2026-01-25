@@ -186,9 +186,12 @@ function MatchedVariablesDataGrid({
     return undefined;
   }, [mainSearchQuery]);
   
-  // Create dataSource for server-side fetching - DataGrid will call this automatically
+  // Create dataSource for server-side fetching - but we'll use client-side filtering on allVariables
+  // Set to undefined if we have allVariables loaded (will use rows instead)
   const dataSource = useMemo(() => {
     if (!studyUuid) return undefined;
+    // If we have allVariables loaded, don't use dataSource - use client-side mode
+    if (allVariables.length > 0) return undefined;
     
     return {
       getRows: async (params: any) => {
@@ -432,8 +435,69 @@ function MatchedVariablesDataGrid({
   // Reset total count when study UUID or query changes
   useEffect(() => {
     setTotalVariableCount(null);
+    setAllVariables([]);
     onTotalCountChange?.(null);
   }, [studyUuid, mainSearchQuery, onTotalCountChange]);
+
+  // Fetch all variables when studyUuid changes
+  useEffect(() => {
+    if (!studyUuid) {
+      setAllVariables([]);
+      return;
+    }
+
+    const fetchAllVariables = async () => {
+      setLoadingAllVariables(true);
+      try {
+        // First, fetch page 1 to get the total count
+        const firstPageResponse = await fetchVariables({
+          ancestor_uuid: studyUuid,
+          query: mainSearchQuery && mainSearchQuery.trim() ? mainSearchQuery.trim() : undefined,
+          num_results: 50, // Just to get num_hits
+          offset: 0,
+          alpha: alpha,
+          max_vector_distance: maxVectorDistance,
+          max_distance_mode: maxDistanceMode,
+          direct_match_weight: directMatchWeight,
+        });
+
+        const totalCount = firstPageResponse.num_hits;
+        if (totalCount === undefined || totalCount === null) {
+          console.warn("Could not get total variable count, cannot fetch all variables");
+          setLoadingAllVariables(false);
+          return;
+        }
+
+        setTotalVariableCount(totalCount);
+        onTotalCountChange?.(totalCount);
+
+        // Now fetch all variables in one call
+        const allVariablesResponse = await fetchVariables({
+          ancestor_uuid: studyUuid,
+          query: mainSearchQuery && mainSearchQuery.trim() ? mainSearchQuery.trim() : undefined,
+          num_results: totalCount, // Fetch all variables
+          offset: 0,
+          alpha: alpha,
+          max_vector_distance: maxVectorDistance,
+          max_distance_mode: maxDistanceMode,
+          direct_match_weight: directMatchWeight,
+        });
+
+        setAllVariables(allVariablesResponse.results || []);
+        setShouldHideTable(false);
+        onShouldHideTable?.(false);
+      } catch (error) {
+        console.error("Failed to fetch all variables:", error);
+        setAllVariables([]);
+        setShouldHideTable(true);
+        onShouldHideTable?.(true);
+      } finally {
+        setLoadingAllVariables(false);
+      }
+    };
+
+    fetchAllVariables();
+  }, [studyUuid, mainSearchQuery, alpha, maxVectorDistance, maxDistanceMode, directMatchWeight, onTotalCountChange, onShouldHideTable]);
   
   // Use allVariables if we have them (server-side with full fetch), otherwise use props variables (client-side)
   const variables = studyUuid && allVariables.length > 0 ? allVariables : (propsVariables || []);
@@ -859,7 +923,8 @@ function MatchedVariablesDataGrid({
                 },
               },
             }}
-            hideFooter={!studyUuid}
+            hideFooter={!studyUuid || (studyUuid && allVariables.length === 0 && !loadingAllVariables)}
+            loading={loadingAllVariables}
             pageSizeOptions={[20, 50, 100]}
             pagination
             showToolbar

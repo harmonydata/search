@@ -368,10 +368,12 @@ function MatchedVariablesDataGrid({
           }
           
           // Calculate row count based on results length
-          if (rowsWithIds.length < paginationModel.pageSize) {
+          // Use results.length (not rowsWithIds.length) as rowsWithIds is just a transformation
+          const resultsLength = results.length;
+          if (resultsLength < paginationModel.pageSize) {
             // Got fewer results than requested - we've reached the end
             // Exact count = (page * pageSize) + number of results
-            actualRowCount = currentOffset + rowsWithIds.length;
+            actualRowCount = currentOffset + resultsLength;
           } else {
             // Got a full page - we don't know if there are more
             // Minimum count = (page + 1) * pageSize (the number of the final item on this page)

@@ -163,6 +163,7 @@ function MatchedVariablesDataGrid({
   const [shouldHideTable, setShouldHideTable] = useState(false);
   const [allVariables, setAllVariables] = useState<VariableSchema[]>([]);
   const [loadingAllVariables, setLoadingAllVariables] = useState(false);
+  const [currentFilterQuery, setCurrentFilterQuery] = useState<string>("");
   
   // Debouncing for search queries
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -906,6 +907,12 @@ function MatchedVariablesDataGrid({
             columns={columns}
             checkboxSelection
             sortModel={[]}
+            onFilterModelChange={(newFilterModel) => {
+              // Extract QuickFilter value
+              const quickFilterValue = newFilterModel.quickFilterValues?.[0] || "";
+              // Update current filter query to trigger refetch
+              setCurrentFilterQuery(quickFilterValue);
+            }}
             getRowClassName={(params) =>
               params.row.matched ? "matched-row" : ""
             }

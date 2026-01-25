@@ -351,44 +351,44 @@ function MatchedVariablesDataGrid({
             };
           });
           
-          // Determine the actual row count based on results length
-          // If num_hits is provided and we're on the first page with no filter, use it for total
+          // Determine the actual row count
+          // If num_hits is provided from API, use it (it's the accurate count)
           // Otherwise, calculate based on results length
           const currentOffset = paginationModel.page * paginationModel.pageSize;
           const hasFilter = searchQuery && searchQuery.trim().length > 0;
           
           let actualRowCount: number;
           
-          // Store total count (unfiltered) if we have it on first page with no filter
-          if (response.num_hits !== undefined && response.num_hits !== null && currentOffset === 0 && !hasFilter) {
-            if (totalVariableCount !== response.num_hits) {
+          // If API provided num_hits, use it directly (most accurate)
+          if (response.num_hits !== undefined && response.num_hits !== null) {
+            actualRowCount = response.num_hits;
+            
+            // Store total count (unfiltered) if we're on first page with no filter
+            if (currentOffset === 0 && !hasFilter && totalVariableCount !== response.num_hits) {
               setTotalVariableCount(response.num_hits);
               onTotalCountChange?.(response.num_hits);
             }
-          }
-          
-          // Calculate row count based on results length
-          // Use results.length (not rowsWithIds.length) as rowsWithIds is just a transformation
-          const resultsLength = results.length;
-          if (resultsLength < paginationModel.pageSize) {
-            // Got fewer results than requested - we've reached the end
-            // Exact count = (page * pageSize) + number of results
-            actualRowCount = currentOffset + resultsLength;
           } else {
-            // Got a full page - we don't know if there are more
-            // Minimum count = (page + 1) * pageSize (the number of the final item on this page)
-            // Use -1 to indicate "at least this many" or use the minimum as a conservative estimate
-            // DataGrid will show this as "at least X" or we can use the minimum count
-            const minimumCount = (paginationModel.page + 1) * paginationModel.pageSize;
-            
-            // If we have a stored total and no filter, use that
-            // Otherwise, use minimum count (which represents "at least this many")
-            if (!hasFilter && totalVariableCount !== null) {
-              actualRowCount = totalVariableCount;
+            // API didn't provide num_hits, calculate based on results length
+            const resultsLength = results.length;
+            if (resultsLength < paginationModel.pageSize) {
+              // Got fewer results than requested - we've reached the end
+              // Exact count = (page * pageSize) + number of results
+              actualRowCount = currentOffset + resultsLength;
             } else {
-              // For filtered results or when we don't know total, use minimum
-              // This represents "at least X items" where X is the final item number on this page
-              actualRowCount = minimumCount;
+              // Got a full page - we don't know if there are more
+              // Minimum count = (page + 1) * pageSize (the number of the final item on this page)
+              const minimumCount = (paginationModel.page + 1) * paginationModel.pageSize;
+              
+              // If we have a stored total and no filter, use that
+              // Otherwise, use minimum count (which represents "at least this many")
+              if (!hasFilter && totalVariableCount !== null) {
+                actualRowCount = totalVariableCount;
+              } else {
+                // For filtered results or when we don't know total, use minimum
+                // This represents "at least X items" where X is the final item number on this page
+                actualRowCount = minimumCount;
+              }
             }
           }
           

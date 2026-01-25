@@ -1256,6 +1256,7 @@ export async function fetchVariables(options: {
   max_vector_distance?: number;
   direct_match_weight?: number;
   max_distance_mode?: "max_distance" | "min_score" | "both";
+  sort_order?: string;
 }): Promise<VariablesResponse> {
   const params = new URLSearchParams();
 
@@ -1302,6 +1303,11 @@ export async function fetchVariables(options: {
         ? 4 * options.direct_match_weight
         : 16 * options.direct_match_weight - 6;
     params.set("direct_match_weight", apiValue.toString());
+  }
+
+  // Add sort_order parameter if provided
+  if (options.sort_order) {
+    params.set("sort_order", options.sort_order);
   }
 
   const url = `${API_BASE}/discover/get-variables?${params.toString()}`;

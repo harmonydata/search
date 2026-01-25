@@ -167,6 +167,7 @@ function MatchedVariablesDataGrid({
   const pendingRequestRef = useRef<{ resolve: (value: any) => void; reject: (error: any) => void } | null>(null);
   const lastFilterQueryRef = useRef<string>("");
   const lastPaginationRef = useRef<{ page: number; pageSize: number } | null>(null);
+  const lastSortModelRef = useRef<any[]>([]);
   
   // Initialize filter model with mainSearchQuery if available
   const initialState = useMemo(() => {
@@ -197,20 +198,25 @@ function MatchedVariablesDataGrid({
         // Handle paginationModel (can be undefined in some cases)
         const paginationModel = params.paginationModel || { page: 0, pageSize: 50 };
         
-        // Check if this is a filter change (query changed) or pagination change
+        // Extract sortModel from params
+        const sortModel = params.sortModel || [];
+        
+        // Check if this is a filter change (query changed), pagination change, or sort change
         const isFilterChange = searchQuery !== lastFilterQueryRef.current;
         const isPaginationChange = 
           !lastPaginationRef.current ||
           paginationModel.page !== lastPaginationRef.current.page ||
           paginationModel.pageSize !== lastPaginationRef.current.pageSize;
+        const isSortChange = JSON.stringify(sortModel) !== JSON.stringify(lastSortModelRef.current);
         
         // Update refs
         lastFilterQueryRef.current = searchQuery;
         lastPaginationRef.current = paginationModel;
+        lastSortModelRef.current = sortModel;
         
         // For filter changes, debounce the request
-        // For pagination changes, execute immediately
-        if (isFilterChange && !isPaginationChange) {
+        // For pagination or sort changes, execute immediately
+        if (isFilterChange && !isPaginationChange && !isSortChange) {
           // Cancel previous debounce timeout
           if (debounceTimeoutRef.current) {
             clearTimeout(debounceTimeoutRef.current);
@@ -243,6 +249,17 @@ function MatchedVariablesDataGrid({
         
         // Helper function to execute the actual fetch
         async function executeFetch() {
+          // Convert sortModel to API sort_order format
+          // Format: "field_name:asc" or "field_name:desc"
+          // If multiple sorts, use the first one (API likely supports single sort)
+          let sortOrder: string | undefined = undefined;
+          if (sortModel && sortModel.length > 0) {
+            const firstSort = sortModel[0];
+            const field = firstSort.field;
+            const direction = firstSort.sort || "asc";
+            sortOrder = `${field}:${direction}`;
+          }
+          
           const fetchOptions: Parameters<typeof fetchVariables>[0] = {
             // Use ancestor_uuid for all cases (works for both top-level studies and child datasets)
             ancestor_uuid: studyUuid,
@@ -250,11 +267,12 @@ function MatchedVariablesDataGrid({
             query: searchQuery && searchQuery.trim() ? searchQuery.trim() : undefined,
             num_results: paginationModel.pageSize,
             offset: paginationModel.page * paginationModel.pageSize,
-          alpha: alpha,
-          max_vector_distance: maxVectorDistance,
-          max_distance_mode: maxDistanceMode,
-          direct_match_weight: directMatchWeight,
-        };
+            alpha: alpha,
+            max_vector_distance: maxVectorDistance,
+            max_distance_mode: maxDistanceMode,
+            direct_match_weight: directMatchWeight,
+            sort_order: sortOrder,
+          };
         
         try {
           let response = await fetchVariables(fetchOptions);
@@ -803,7 +821,7 @@ function MatchedVariablesDataGrid({
             {...(dataSource ? { dataSource } : { rows })}
             columns={columns}
             checkboxSelection
-            sortModel={[{ field: "score", sort: "desc" }]}
+            sortModel={[]}
             getRowClassName={(params) =>
               params.row.matched ? "matched-row" : ""
             }

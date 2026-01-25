@@ -65,3 +65,4 @@
 - Enhanced trust estimate mode to handle JSON parse errors gracefully: if batch lookup fails, tries individual UUID lookups, continues processing all batches, logs unparseable UUIDs to console, and displays failed count in results summary
 - Made Response Options column in variables table dynamically hidden when API response contains no response options data - column only appears if at least one variable has response_options or options data
 - Added narrow URL column to variables table with external link icon - column only appears if variables have URLs array, displays clickable icon linking to first URL in array
+- Connected MUI DataGrid sorting to API sort_order parameter - when user clicks column header to sort, sortModel is extracted from params and converted to "field:asc/desc" format for API call

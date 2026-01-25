@@ -62,3 +62,4 @@
 - Updated variable count logic to prioritize num_descendant_variables from lookup object as primary source in CompactResultCard and StudyDetail components
 - Fixed issue where results list was not cleared when search field is deleted and there are no filters
 - Added localStorage persistence for advanced search settings (useSearch2, hybridWeight, maxDistance, maxDistanceMode, directMatchWeight, paginationStrategy) - settings are saved when changed and restored on page load if not in URL params
+- Enhanced trust estimate mode to handle JSON parse errors gracefully: if batch lookup fails, tries individual UUID lookups, continues processing all batches, logs unparseable UUIDs to console, and displays failed count in results summary

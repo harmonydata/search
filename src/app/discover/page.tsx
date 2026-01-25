@@ -104,8 +104,10 @@ function DiscoverPageContent() {
   // State for trust estimate mode
   const [estimateUuids, setEstimateUuids] = useState<string[]>([]);
   const [currentBatchIndex, setCurrentBatchIndex] = useState(0);
+  const [failedUuids, setFailedUuids] = useState<string[]>([]); // Track UUIDs that failed to parse
   const estimateUuidsRef = useRef<string[]>([]);
   const currentBatchIndexRef = useRef(0);
+  const failedUuidsRef = useRef<string[]>([]);
 
   const [savingSearch, setSavingSearch] = useState(false);
   const [saveSearchSuccess, setSaveSearchSuccess] = useState(false);
@@ -544,10 +546,42 @@ function DiscoverPageContent() {
 
         if (uuidsToLookup.length > 0) {
           setLoadingMore(true);
+          
+          // Try batch lookup, but if it fails with JSON parse error, try individual lookups
+          let lookupResults: SearchResult[] = [];
+          let batchFailedUuids: string[] = [];
+          
           fetchResultsByUuids(uuidsToLookup)
-            .then((lookupResults) => {
+            .then((results) => {
+              lookupResults = results;
               console.log(`Trust Estimate: Retrieved ${lookupResults.length} results from batch lookup`);
-              setResults((prev) => [...prev, ...lookupResults]);
+            })
+            .catch(async (error: any) => {
+              // If batch fails (likely JSON parse error), try each UUID individually
+              console.warn(`Trust Estimate: Batch lookup failed, trying individual UUIDs:`, error.message);
+              
+              for (const uuid of uuidsToLookup) {
+                try {
+                  const singleResult = await fetchResultsByUuids([uuid]);
+                  lookupResults.push(...singleResult);
+                } catch (singleError: any) {
+                  // Individual UUID also failed - track it
+                  console.error(`Trust Estimate: Failed to parse UUID ${uuid}:`, singleError.message);
+                  batchFailedUuids.push(uuid);
+                  failedUuidsRef.current.push(uuid);
+                }
+              }
+              
+              if (batchFailedUuids.length > 0) {
+                console.error(`Trust Estimate: Unparseable UUIDs in this batch:`, batchFailedUuids);
+                setFailedUuids((prev) => [...prev, ...batchFailedUuids]);
+              }
+            })
+            .finally(() => {
+              // Always update results and continue, even if some UUIDs failed
+              if (lookupResults.length > 0) {
+                setResults((prev) => [...prev, ...lookupResults]);
+              }
               
               // Update batch index for next load
               const nextBatchIndex = currentBatch + 1;
@@ -558,11 +592,6 @@ function DiscoverPageContent() {
               const hasMore = endIndex < estimateUuidsRef.current.length;
               setHasMoreResults(hasMore);
               setLoadingMore(false);
-            })
-            .catch((error) => {
-              console.error("Trust Estimate: Batch lookup failed:", error);
-              setLoadingMore(false);
-              setHasMoreResults(false);
             });
         } else {
           setHasMoreResults(false);
@@ -664,6 +693,8 @@ function DiscoverPageContent() {
       estimateUuidsRef.current = [];
       setCurrentBatchIndex(0);
       currentBatchIndexRef.current = 0;
+      setFailedUuids([]);
+      failedUuidsRef.current = [];
       return;
     }
 
@@ -690,6 +721,12 @@ function DiscoverPageContent() {
         estimateUuidsRef.current = [];
         setCurrentBatchIndex(0);
         currentBatchIndexRef.current = 0;
+        setFailedUuids([]);
+        failedUuidsRef.current = [];
+      } else {
+        // Reset failed UUIDs for new searches in trust estimate mode
+        setFailedUuids([]);
+        failedUuidsRef.current = [];
       }
     }
 
@@ -851,8 +888,45 @@ function DiscoverPageContent() {
 
           if (uuidsToLookup.length > 0) {
           console.log(`Trust Estimate: Looking up batch ${currentBatch + 1} (UUIDs ${startIndex}-${endIndex - 1})`);
-          const lookupResults = await fetchResultsByUuids(uuidsToLookup);
-          console.log(`Trust Estimate: Retrieved ${lookupResults.length} results from batch lookup`);
+          
+          // Try batch lookup, but if it fails with JSON parse error, try individual lookups
+          let lookupResults: SearchResult[] = [];
+          let batchFailedUuids: string[] = [];
+          
+          try {
+            lookupResults = await fetchResultsByUuids(uuidsToLookup);
+            console.log(`Trust Estimate: Retrieved ${lookupResults.length} results from batch lookup`);
+          } catch (error: any) {
+            // If batch fails (likely JSON parse error), try each UUID individually
+            console.warn(`Trust Estimate: Batch lookup failed, trying individual UUIDs:`, error.message);
+            
+            for (const uuid of uuidsToLookup) {
+              try {
+                const singleResult = await fetchResultsByUuids([uuid]);
+                lookupResults.push(...singleResult);
+              } catch (singleError: any) {
+                // Individual UUID also failed - track it
+                console.error(`Trust Estimate: Failed to parse UUID ${uuid}:`, singleError.message);
+                batchFailedUuids.push(uuid);
+                if (!failedUuidsRef.current.includes(uuid)) {
+                  failedUuidsRef.current.push(uuid);
+                }
+              }
+            }
+            
+            if (batchFailedUuids.length > 0) {
+              console.error(`Trust Estimate: Unparseable UUIDs in this batch:`, batchFailedUuids);
+              setFailedUuids((prev) => {
+                const newFailed = [...prev];
+                batchFailedUuids.forEach(uuid => {
+                  if (!newFailed.includes(uuid)) {
+                    newFailed.push(uuid);
+                  }
+                });
+                return newFailed;
+              });
+            }
+          }
 
           // Handle results for infinite scroll
           let newResults = lookupResults;
@@ -903,6 +977,8 @@ function DiscoverPageContent() {
             resultsInBatch: newResults.length,
             totalResults: currentResultsCount,
             hasMore,
+            failedInBatch: batchFailedUuids.length,
+            totalFailed: failedUuidsRef.current.length,
           });
 
             return; // Exit early, we've handled the results
@@ -1841,25 +1917,29 @@ function DiscoverPageContent() {
               {loading
                 ? "Searching..."
                 : (() => {
+                    // Show failed UUIDs count if any
+                    const failedCount = failedUuids.length;
+                    const failedText = failedCount > 0 ? ` (${failedCount} unparseable)` : "";
+                    
                     // Smart display logic for results count
                     if (!hasMoreResults) {
                       // We've reached the end - show total found
-                      return `${results.length} results found`;
+                      return `${results.length} results found${failedText}`;
                     } else if (results.length > totalHits) {
                       // We have more results than original estimate - show estimate was low
                       const countDisplay = isResultCountLowerBound 
                         ? `more than ${totalHits}` 
                         : `${totalHits}+`;
-                      return `${results.length} results loaded (${countDisplay} estimated)`;
+                      return `${results.length} results loaded (${countDisplay} estimated)${failedText}`;
                     } else if (totalHits > 0) {
                       // Normal case - show loaded vs estimated
                       const countDisplay = isResultCountLowerBound 
                         ? `more than ${totalHits}` 
                         : `~${totalHits}`;
-                      return `${results.length} of ${countDisplay} results loaded`;
+                      return `${results.length} of ${countDisplay} results loaded${failedText}`;
                     } else {
                       // Fallback - just show loaded count
-                      return `${results.length} results loaded`;
+                      return `${results.length} results loaded${failedText}`;
                     }
                   })()}
               {!loading && lastApiTime && ` (API: ${lastApiTime}ms`}

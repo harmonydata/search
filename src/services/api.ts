@@ -602,8 +602,32 @@ export async function fetchResultsByUuids(
     throw new Error(`Failed to fetch results by UUIDs: ${response.statusText}`);
   }
 
-  const data = await response.json();
-  return data.results || [];
+  try {
+    const data = await response.json();
+    return data.results || [];
+  } catch (jsonError: any) {
+    // If JSON parsing fails, try to get the text to see what went wrong
+    console.error("Failed to parse JSON response from fetchResultsByUuids:", jsonError);
+    try {
+      const text = await response.clone().text();
+      const textLength = text.length;
+      const errorPosition = jsonError.message?.match(/position (\d+)/)?.[1];
+      if (errorPosition) {
+        const pos = parseInt(errorPosition);
+        const start = Math.max(0, pos - 100);
+        const end = Math.min(textLength, pos + 100);
+        const snippet = text.substring(start, end);
+        console.error(`JSON parse error at position ${pos}:`, {
+          snippet,
+          textLength,
+          responseSize: response.headers.get("content-length"),
+        });
+      }
+    } catch (textError) {
+      console.error("Could not read response text:", textError);
+    }
+    throw new Error(`Failed to parse JSON response: ${jsonError.message}`);
+  }
 }
 
 export async function fetchResultByUuid(

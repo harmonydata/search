@@ -165,7 +165,6 @@ function MatchedVariablesDataGrid({
   // Debouncing for search queries
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pendingRequestRef = useRef<{ resolve: (value: any) => void; reject: (error: any) => void } | null>(null);
-  const lastRequestKeyRef = useRef<string>(""); // Track last request to prevent duplicates
   
   // Initialize filter model with mainSearchQuery ONLY if variablesWhichMatched exists and has items
   const initialState = useMemo(() => {
@@ -247,20 +246,6 @@ function MatchedVariablesDataGrid({
         
         // Helper function to execute the actual fetch
         async function executeFetch() {
-          // Create a unique key for this request to prevent duplicates
-          const requestKey = `${studyUuid}-${searchQuery}-${paginationModel.page}-${paginationModel.pageSize}-${JSON.stringify(sortModel)}`;
-          
-          // If this is the same request as the last one, skip it
-          if (requestKey === lastRequestKeyRef.current) {
-            // Return empty to avoid duplicate API call
-            return {
-              rows: [],
-              rowCount: 0,
-            };
-          }
-          
-          lastRequestKeyRef.current = requestKey;
-          
           // Convert sortModel to API sort_order format
           // Format: "field_name:asc" or "field_name:desc"
           // If multiple sorts, use the first one (API likely supports single sort)

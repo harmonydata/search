@@ -14,10 +14,6 @@ import {
 } from "@/services/cachedData";
 import { Metadata } from "next";
 
-// Allow dynamic params for routes not pre-generated at build time
-// This enables client-side rendering for /items/* routes that weren't in generateStaticParams
-export const dynamicParams = true;
-
 // This runs at build time for static export
 export async function generateStaticParams() {
   try {

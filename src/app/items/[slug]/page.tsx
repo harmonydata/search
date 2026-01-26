@@ -14,6 +14,10 @@ import {
 } from "@/services/cachedData";
 import { Metadata } from "next";
 
+// Allow dynamic params for routes not pre-generated at build time
+// This enables client-side rendering for /items/* routes that weren't in generateStaticParams
+export const dynamicParams = true;
+
 // This runs at build time for static export
 export async function generateStaticParams() {
   try {
@@ -190,10 +194,19 @@ export async function generateStaticParams() {
       }
     }
 
+    // Always return at least one param to ensure a fallback HTML file is generated
+    // This allows client-side routing to work for routes not pre-generated
+    if (params.length === 0) {
+      // Return a placeholder param to ensure at least one HTML file is generated
+      // The client component will handle fetching the actual data
+      params.push({ slug: "__fallback__" });
+    }
+    
     return params;
   } catch (error) {
     console.error("Failed to generate static params:", error);
-    return [];
+    // Return a fallback param even on error to ensure HTML file is generated
+    return [{ slug: "__fallback__" }];
   }
 }
 
@@ -288,6 +301,15 @@ export default async function DatasetPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+
+  // Skip build-time fetching for fallback slug - client will handle routing
+  if (slug === "__fallback__") {
+    return (
+      <Suspense fallback={<div>Loading...</div>}>
+        <DatasetPageClient slug={slug} initialData={null} />
+      </Suspense>
+    );
+  }
 
   // Try to find the dataset in cache at build time
   // If not found, pass null and let the client component fetch it at runtime

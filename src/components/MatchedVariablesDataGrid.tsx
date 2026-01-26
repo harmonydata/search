@@ -307,9 +307,19 @@ function MatchedVariablesDataGrid({
               onShouldHideTable?.(false);
             }
           } else {
-            // If we have results or no search query, show the table
-            setShouldHideTable(false);
-            onShouldHideTable?.(false);
+            // Check if we should hide the table on first page with no results
+            // This applies whether or not there's a search query
+            if (paginationModel.page === 0 && 
+                results.length === 0 && 
+                (response.num_hits === 0 || response.num_hits === undefined)) {
+              // No results on first page - hide the table
+              setShouldHideTable(true);
+              onShouldHideTable?.(true);
+            } else {
+              // We have results or there are more results available - show the table
+              setShouldHideTable(false);
+              onShouldHideTable?.(false);
+            }
           }
           
           // Create a Set of matched variable names for quick lookup

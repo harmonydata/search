@@ -71,4 +71,4 @@
 - Removed duplicate request prevention that was blocking legitimate DataGrid requests
 - Fixed 'No results' message flashing during search - now only shows after search actually completes (loading goes from true to false), preventing false "0 results" display while search is in progress
 - Fixed variables table hiding logic - now correctly hides when get_variables returns no results on first page, regardless of whether there's a search query
-- Enabled dynamicParams for /items/[slug] route to support client-side rendering on GitHub Pages - added fallback param to ensure at least one HTML file is generated for client-side routing
+- Removed dynamicParams from /items/[slug] route (incompatible with static export) - all routes must be pre-generated at build time via generateStaticParams, which now generates 10,973+ item routes

@@ -71,4 +71,4 @@
 - Removed duplicate request prevention that was blocking legitimate DataGrid requests
 - Fixed 'No results' message flashing during search - now only shows after search actually completes (loading goes from true to false), preventing false "0 results" display while search is in progress
 - Fixed variables table hiding logic - now correctly hides when get_variables returns no results on first page, regardless of whether there's a search query
-- Replaced /items/[slug] with single catch-all route /items/[[...slug]] that reads slug or UUID from URL client-side - no more pre-generating 10k+ routes, single HTML file handles all /items/* paths, fetchResultByUuid handles both slugs and UUIDs
+- Replaced /items/[slug] with catch-all route /items/[[...slug]] that pre-generates all item routes (by slug and UUID, 21k+ routes) for static export to avoid 404s on GitHub Pages - client still fetches real data via initialData={null}, fetchResultByUuid handles both slugs and UUIDs

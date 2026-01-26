@@ -369,11 +369,12 @@ function MatchedVariablesDataGrid({
           
           let actualRowCount: number;
           
-          // On first page (offset 0) - always capture num_hits for the green bar count
-          if (currentOffset === 0) {
-            // Always capture and report num_hits from first call (unfiltered total) for the green bar
-            if (response.num_hits !== undefined && response.num_hits !== null && !hasFilter) {
-              if (totalVariableCount !== response.num_hits) {
+          // On first page (offset 0) - capture num_hits for the green bar count
+          // Only capture if we don't already have a total count (first unfiltered request)
+          if (currentOffset === 0 && !hasFilter) {
+            // Capture num_hits from first unfiltered call for the green bar
+            if (response.num_hits !== undefined && response.num_hits !== null) {
+              if (totalVariableCount === null || totalVariableCount !== response.num_hits) {
                 setTotalVariableCount(response.num_hits);
                 onTotalCountChange?.(response.num_hits);
               }
@@ -447,14 +448,7 @@ function MatchedVariablesDataGrid({
   }, []);
   
   // Reset total count and request key when study UUID changes
-  // Also fetch unfiltered count for green bar display
   useEffect(() => {
-    if (!studyUuid) {
-      setTotalVariableCount(null);
-      onTotalCountChange?.(null);
-      return;
-    }
-    
     // Reset request key when study changes to allow new requests
     lastRequestKeyRef.current = "";
     
@@ -470,28 +464,6 @@ function MatchedVariablesDataGrid({
     
     setTotalVariableCount(null);
     onTotalCountChange?.(null);
-    
-    // Make an explicit call to get the unfiltered count for the green bar
-    // This is separate from the DataGrid's calls and ensures we always get the total
-    const fetchUnfilteredCount = async () => {
-      try {
-        const response = await fetchVariables({
-          ancestor_uuid: studyUuid,
-          // No query - get unfiltered total
-          num_results: 1, // Just need num_hits, not the data
-          offset: 0,
-        });
-        
-        if (response.num_hits !== undefined && response.num_hits !== null) {
-          setTotalVariableCount(response.num_hits);
-          onTotalCountChange?.(response.num_hits);
-        }
-      } catch (error) {
-        console.error("Failed to fetch unfiltered variable count:", error);
-      }
-    };
-    
-    fetchUnfilteredCount();
   }, [studyUuid, onTotalCountChange]);
   
   // Use props variables for client-side mode

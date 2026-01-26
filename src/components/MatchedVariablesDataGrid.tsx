@@ -366,16 +366,21 @@ function MatchedVariablesDataGrid({
           
           let actualRowCount: number;
           
-          // On first page (offset 0)
+          // On first page (offset 0) - always capture num_hits for the green bar count
           if (currentOffset === 0) {
+            // Always capture and report num_hits from first call (unfiltered total) for the green bar
+            if (response.num_hits !== undefined && response.num_hits !== null && !hasFilter) {
+              if (totalVariableCount !== response.num_hits) {
+                setTotalVariableCount(response.num_hits);
+                onTotalCountChange?.(response.num_hits);
+              }
+            }
+            
+            // Now determine rowCount for pagination display
             if (!hasFilter) {
               // No query - use num_hits if available (unfiltered total)
               if (response.num_hits !== undefined && response.num_hits !== null) {
                 actualRowCount = response.num_hits;
-                if (totalVariableCount !== response.num_hits) {
-                  setTotalVariableCount(response.num_hits);
-                  onTotalCountChange?.(response.num_hits);
-                }
               } else {
                 // Fallback if no num_hits
                 actualRowCount = resultsLength < paginationModel.pageSize ? resultsLength : -1;

@@ -439,11 +439,8 @@ function MatchedVariablesDataGrid({
     };
   }, []);
   
-  // Reset total count and request key when study UUID changes
+  // Reset total count when study UUID changes
   useEffect(() => {
-    // Reset request key when study changes to allow new requests
-    lastRequestKeyRef.current = "";
-    
     // Cancel any pending requests
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);

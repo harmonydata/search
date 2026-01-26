@@ -85,35 +85,40 @@ export default function SearchResults({
   // Once loading is false, we know the search has completed, so we should show results (or no results)
   const isTransitionalState =
     hasActiveSearch && !hasEverHadResults.current && loading;
-  const shouldShowNoResults =
-    !filteredResults.length && !loading && hasActiveSearch;
-
-  // Add a small delay for transitional states to allow loading to be set
-  // But if loading is false, show immediately (search has completed)
-  const [showNoResults, setShowNoResults] = useState(false);
-  const [previousLoading, setPreviousLoading] = useState(loading);
-
-  useEffect(() => {
-    // Track loading state changes
-    setPreviousLoading(loading);
-  }, [loading]);
+  
+  // Only show "No results" if:
+  // 1. We have no filtered results
+  // 2. We're NOT loading (search has completed)
+  // 3. We have an active search
+  // 4. We've actually completed a search (loading was true and is now false)
+  const [hasCompletedSearch, setHasCompletedSearch] = useState(false);
+  const previousLoadingRef = useRef(loading);
+  const previousResultsLengthRef = useRef(results.length);
 
   useEffect(() => {
-    if (shouldShowNoResults) {
-      // If loading just changed from true to false, show immediately (search completed)
-      // Otherwise, add a small delay for transitional states
-      const justFinishedLoading = previousLoading && !loading;
-      const delay = justFinishedLoading ? 0 : isTransitionalState ? 100 : 0;
-      const timer = setTimeout(() => {
-        setShowNoResults(true);
-      }, delay);
-      return () => clearTimeout(timer);
-    } else {
-      setShowNoResults(false);
+    // Track when a search completes (loading goes from true to false)
+    if (previousLoadingRef.current && !loading && hasActiveSearch) {
+      setHasCompletedSearch(true);
     }
-  }, [shouldShowNoResults, isTransitionalState, loading, previousLoading]);
+    // Reset when a new search starts (loading goes from false to true)
+    if (!previousLoadingRef.current && loading && hasActiveSearch) {
+      setHasCompletedSearch(false);
+    }
+    // Also reset if results were cleared while we have an active search (new search starting)
+    if (previousResultsLengthRef.current > 0 && results.length === 0 && hasActiveSearch && !loading) {
+      setHasCompletedSearch(false);
+    }
+    previousLoadingRef.current = loading;
+    previousResultsLengthRef.current = results.length;
+  }, [loading, hasActiveSearch, results.length]);
 
-  if (!filteredResults.length && !loading && showNoResults) {
+  const shouldShowNoResults =
+    !filteredResults.length && 
+    !loading && 
+    hasActiveSearch && 
+    hasCompletedSearch; // Only show if we've actually completed a search
+
+  if (!filteredResults.length && !loading && shouldShowNoResults) {
     console.log("🚫 Showing 'No results' message - conditions:", {
       filteredResultsLength: filteredResults.length,
       loading,

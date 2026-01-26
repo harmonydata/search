@@ -165,10 +165,6 @@ function MatchedVariablesDataGrid({
   // Debouncing for search queries
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pendingRequestRef = useRef<{ resolve: (value: any) => void; reject: (error: any) => void } | null>(null);
-  const lastFilterQueryRef = useRef<string>("");
-  const lastPaginationRef = useRef<{ page: number; pageSize: number } | null>(null);
-  const lastSortModelRef = useRef<any[]>([]);
-  const lastStudyUuidRef = useRef<string | undefined>(undefined);
   const lastRequestKeyRef = useRef<string>(""); // Track last request to prevent duplicates
   
   // Initialize filter model with mainSearchQuery if available
@@ -203,22 +199,12 @@ function MatchedVariablesDataGrid({
         // Extract sortModel from params
         const sortModel = params.sortModel || [];
         
-        // Check if this is a filter change (query changed), pagination change, or sort change
-        const isFilterChange = searchQuery !== lastFilterQueryRef.current;
-        const isPaginationChange = 
-          !lastPaginationRef.current ||
-          paginationModel.page !== lastPaginationRef.current.page ||
-          paginationModel.pageSize !== lastPaginationRef.current.pageSize;
-        const isSortChange = JSON.stringify(sortModel) !== JSON.stringify(lastSortModelRef.current);
-        
-        // Update refs
-        lastFilterQueryRef.current = searchQuery;
-        lastPaginationRef.current = paginationModel;
-        lastSortModelRef.current = sortModel;
-        
-        // For filter changes, debounce the request
+        // For filter changes (query changed), debounce the request
         // For pagination or sort changes, execute immediately
-        if (isFilterChange && !isPaginationChange && !isSortChange) {
+        const hasQuery = searchQuery && searchQuery.trim().length > 0;
+        const isFilterChange = hasQuery; // If there's a query, it's a filter change
+        
+        if (isFilterChange) {
           // Cancel previous debounce timeout
           if (debounceTimeoutRef.current) {
             clearTimeout(debounceTimeoutRef.current);
@@ -246,7 +232,7 @@ function MatchedVariablesDataGrid({
           });
         }
         
-        // For pagination changes or initial load, execute immediately
+        // For pagination changes, sort changes, or initial load (no query), execute immediately
         return executeFetch();
         
         // Helper function to execute the actual fetch
@@ -460,30 +446,24 @@ function MatchedVariablesDataGrid({
     };
   }, []);
   
-  // Reset total count and refs when study UUID or query changes
+  // Reset total count and request key when study UUID changes
   useEffect(() => {
-    // If study changed, reset all refs to prevent false change detection
-    if (lastStudyUuidRef.current !== studyUuid) {
-      lastFilterQueryRef.current = "";
-      lastPaginationRef.current = null;
-      lastSortModelRef.current = [];
-      lastRequestKeyRef.current = "";
-      lastStudyUuidRef.current = studyUuid;
-      
-      // Cancel any pending requests
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-        debounceTimeoutRef.current = null;
-      }
-      if (pendingRequestRef.current) {
-        pendingRequestRef.current.reject(new Error("Study changed"));
-        pendingRequestRef.current = null;
-      }
+    // Reset request key when study changes to allow new requests
+    lastRequestKeyRef.current = "";
+    
+    // Cancel any pending requests
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
+    }
+    if (pendingRequestRef.current) {
+      pendingRequestRef.current.reject(new Error("Study changed"));
+      pendingRequestRef.current = null;
     }
     
     setTotalVariableCount(null);
     onTotalCountChange?.(null);
-  }, [studyUuid, mainSearchQuery, onTotalCountChange]);
+  }, [studyUuid, onTotalCountChange]);
   
   // Use props variables for client-side mode
   const variables = studyUuid ? [] : (propsVariables || []);

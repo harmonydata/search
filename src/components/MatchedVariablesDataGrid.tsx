@@ -260,19 +260,27 @@ function MatchedVariablesDataGrid({
             sortOrder = `${field}:${direction}`;
           }
           
+          // Build fetch options - only include query/search params if we have a query
           const fetchOptions: Parameters<typeof fetchVariables>[0] = {
             // Use ancestor_uuid for all cases (works for both top-level studies and child datasets)
             ancestor_uuid: studyUuid,
-            // Only include query if we have one
-            query: searchQuery && searchQuery.trim() ? searchQuery.trim() : undefined,
             num_results: paginationModel.pageSize,
             offset: paginationModel.page * paginationModel.pageSize,
-            alpha: alpha,
-            max_vector_distance: maxVectorDistance,
-            max_distance_mode: maxDistanceMode,
-            direct_match_weight: directMatchWeight,
-            sort_order: sortOrder,
           };
+          
+          // Only include query and search parameters if we have a query
+          if (searchQuery && searchQuery.trim()) {
+            fetchOptions.query = searchQuery.trim();
+            fetchOptions.alpha = alpha;
+            fetchOptions.max_vector_distance = maxVectorDistance;
+            fetchOptions.max_distance_mode = maxDistanceMode;
+            fetchOptions.direct_match_weight = directMatchWeight;
+          }
+          
+          // Sort order applies regardless of query
+          if (sortOrder) {
+            fetchOptions.sort_order = sortOrder;
+          }
         
         try {
           let response = await fetchVariables(fetchOptions);

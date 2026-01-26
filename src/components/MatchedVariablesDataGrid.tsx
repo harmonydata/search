@@ -371,13 +371,13 @@ function MatchedVariablesDataGrid({
           
           // On first page (offset 0) - capture num_hits for the green bar count
           // Only capture if we don't already have a total count (first unfiltered request)
-          if (currentOffset === 0 && !hasFilter) {
+          // ALWAYS capture num_hits from first page - it's always the unfiltered total
+          if (currentOffset === 0) {
             // Capture num_hits from first unfiltered call for the green bar
             if (response.num_hits !== undefined && response.num_hits !== null) {
-              if (totalVariableCount === null || totalVariableCount !== response.num_hits) {
-                setTotalVariableCount(response.num_hits);
-                onTotalCountChange?.(response.num_hits);
-              }
+              // Always update - num_hits is always the unfiltered total regardless of filter
+              setTotalVariableCount(response.num_hits);
+              onTotalCountChange?.(response.num_hits);
             }
             
             // Now determine rowCount for pagination display

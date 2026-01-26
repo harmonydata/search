@@ -161,8 +161,6 @@ function MatchedVariablesDataGrid({
   const [isApiReady, setIsApiReady] = useState(false);
   const [totalVariableCount, setTotalVariableCount] = useState<number | null>(null);
   const [shouldHideTable, setShouldHideTable] = useState(false);
-  const [allVariables, setAllVariables] = useState<VariableSchema[]>([]);
-  const [loadingAllVariables, setLoadingAllVariables] = useState(false);
   
   // Debouncing for search queries
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -186,12 +184,9 @@ function MatchedVariablesDataGrid({
     return undefined;
   }, [mainSearchQuery]);
   
-  // Create dataSource for server-side fetching - but we'll use client-side filtering on allVariables
-  // Set to undefined if we have allVariables loaded (will use rows instead)
+  // Create dataSource for server-side fetching - DataGrid will call this automatically
   const dataSource = useMemo(() => {
     if (!studyUuid) return undefined;
-    // If we have allVariables loaded, don't use dataSource - use client-side mode
-    if (allVariables.length > 0) return undefined;
     
     return {
       getRows: async (params: any) => {
@@ -357,43 +352,46 @@ function MatchedVariablesDataGrid({
           });
           
           // Determine the actual row count
-          // If num_hits is provided from API, use it (it's the accurate count)
-          // Otherwise, calculate based on results length
           const currentOffset = paginationModel.page * paginationModel.pageSize;
           const hasFilter = searchQuery && searchQuery.trim().length > 0;
+          const resultsLength = results.length;
           
           let actualRowCount: number;
           
-          // If API provided num_hits, use it directly (most accurate)
-          if (response.num_hits !== undefined && response.num_hits !== null) {
-            actualRowCount = response.num_hits;
-            
-            // Store total count (unfiltered) if we're on first page with no filter
-            if (currentOffset === 0 && !hasFilter && totalVariableCount !== response.num_hits) {
-              setTotalVariableCount(response.num_hits);
-              onTotalCountChange?.(response.num_hits);
+          // On first page (offset 0)
+          if (currentOffset === 0) {
+            if (!hasFilter) {
+              // No query - use num_hits if available (unfiltered total)
+              if (response.num_hits !== undefined && response.num_hits !== null) {
+                actualRowCount = response.num_hits;
+                if (totalVariableCount !== response.num_hits) {
+                  setTotalVariableCount(response.num_hits);
+                  onTotalCountChange?.(response.num_hits);
+                }
+              } else {
+                // Fallback if no num_hits
+                actualRowCount = resultsLength < paginationModel.pageSize ? resultsLength : -1;
+              }
+            } else {
+              // Has filter - calculate based on results length
+              if (resultsLength < paginationModel.pageSize) {
+                // Exact count - we've reached the end
+                actualRowCount = resultsLength;
+              } else {
+                // Full page - at least pageSize results
+                actualRowCount = paginationModel.pageSize; // "more than pageSize" represented as minimum
+              }
             }
           } else {
-            // API didn't provide num_hits, calculate based on results length
-            const resultsLength = results.length;
-            if (resultsLength < paginationModel.pageSize) {
+            // Subsequent pages - use num_hits if available, otherwise calculate
+            if (response.num_hits !== undefined && response.num_hits !== null) {
+              actualRowCount = response.num_hits;
+            } else if (resultsLength < paginationModel.pageSize) {
               // Got fewer results than requested - we've reached the end
-              // Exact count = (page * pageSize) + number of results
               actualRowCount = currentOffset + resultsLength;
             } else {
-              // Got a full page - we don't know if there are more
-              // Minimum count = (page + 1) * pageSize (the number of the final item on this page)
-              const minimumCount = (paginationModel.page + 1) * paginationModel.pageSize;
-              
-              // If we have a stored total and no filter, use that
-              // Otherwise, use minimum count (which represents "at least this many")
-              if (!hasFilter && totalVariableCount !== null) {
-                actualRowCount = totalVariableCount;
-              } else {
-                // For filtered results or when we don't know total, use minimum
-                // This represents "at least X items" where X is the final item number on this page
-                actualRowCount = minimumCount;
-              }
+              // Got a full page, but don't know total - use stored count if available, otherwise -1
+              actualRowCount = totalVariableCount !== null ? totalVariableCount : -1;
             }
           }
           
@@ -418,7 +416,6 @@ function MatchedVariablesDataGrid({
     maxDistanceMode,
     directMatchWeight,
     variablesWhichMatched, // Include variablesWhichMatched so dataSource updates when it changes
-    allVariables.length, // Include allVariables.length so dataSource becomes undefined when allVariables are loaded
   ]);
   
   // Cleanup debounce timeout on unmount
@@ -436,72 +433,11 @@ function MatchedVariablesDataGrid({
   // Reset total count when study UUID or query changes
   useEffect(() => {
     setTotalVariableCount(null);
-    setAllVariables([]);
     onTotalCountChange?.(null);
   }, [studyUuid, mainSearchQuery, onTotalCountChange]);
-
-  // Fetch all variables when studyUuid changes (no query - fetch everything)
-  useEffect(() => {
-    if (!studyUuid) {
-      setAllVariables([]);
-      return;
-    }
-
-    const fetchAllVariables = async () => {
-      setLoadingAllVariables(true);
-      try {
-        // First, fetch page 1 to get the total count (no query)
-        const firstPageResponse = await fetchVariables({
-          ancestor_uuid: studyUuid,
-          query: undefined, // No query - get all variables
-          num_results: 50, // Just to get num_hits
-          offset: 0,
-          alpha: alpha,
-          max_vector_distance: maxVectorDistance,
-          max_distance_mode: maxDistanceMode,
-          direct_match_weight: directMatchWeight,
-        });
-
-        const totalCount = firstPageResponse.num_hits;
-        if (totalCount === undefined || totalCount === null) {
-          console.warn("Could not get total variable count, cannot fetch all variables");
-          setLoadingAllVariables(false);
-          return;
-        }
-
-        setTotalVariableCount(totalCount);
-        onTotalCountChange?.(totalCount);
-
-        // Now fetch all variables in one call (no query)
-        const allVariablesResponse = await fetchVariables({
-          ancestor_uuid: studyUuid,
-          query: undefined, // No query - get all variables
-          num_results: totalCount, // Fetch all variables
-          offset: 0,
-          alpha: alpha,
-          max_vector_distance: maxVectorDistance,
-          max_distance_mode: maxDistanceMode,
-          direct_match_weight: directMatchWeight,
-        });
-
-        setAllVariables(allVariablesResponse.results || []);
-        setShouldHideTable(false);
-        onShouldHideTable?.(false);
-      } catch (error) {
-        console.error("Failed to fetch all variables:", error);
-        setAllVariables([]);
-        setShouldHideTable(true);
-        onShouldHideTable?.(true);
-      } finally {
-        setLoadingAllVariables(false);
-      }
-    };
-
-    fetchAllVariables();
-  }, [studyUuid, alpha, maxVectorDistance, maxDistanceMode, directMatchWeight, onTotalCountChange, onShouldHideTable]);
   
-  // Use allVariables if we have them (server-side with full fetch), otherwise use props variables (client-side)
-  const variables = studyUuid && allVariables.length > 0 ? allVariables : (propsVariables || []);
+  // Use props variables for client-side mode
+  const variables = studyUuid ? [] : (propsVariables || []);
 
   useEffect(() => {
     // Load the Harmony Export web component using centralized loader
@@ -909,9 +845,9 @@ function MatchedVariablesDataGrid({
             getRowClassName={(params) =>
               params.row.matched ? "matched-row" : ""
             }
-            filterMode={studyUuid && allVariables.length > 0 ? "client" : (studyUuid ? "server" : "client")}
-            sortingMode={studyUuid && allVariables.length > 0 ? "client" : (studyUuid ? "server" : "client")}
-            paginationMode={studyUuid && allVariables.length > 0 ? "client" : (studyUuid ? "server" : "client")}
+            filterMode="client"
+            sortingMode="client"
+            paginationMode={studyUuid ? "server" : "client"}
             sx={{
               background: "white",
               borderRadius: 2,
@@ -924,8 +860,7 @@ function MatchedVariablesDataGrid({
                 },
               },
             }}
-            hideFooter={!studyUuid ? true : (studyUuid && allVariables.length === 0 && !loadingAllVariables ? true : false)}
-            loading={loadingAllVariables}
+            hideFooter={!studyUuid}
             pageSizeOptions={[20, 50, 100]}
             pagination
             showToolbar

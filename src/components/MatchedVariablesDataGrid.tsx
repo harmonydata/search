@@ -252,8 +252,7 @@ function MatchedVariablesDataGrid({
           
           // If this is the same request as the last one, skip it
           if (requestKey === lastRequestKeyRef.current) {
-            console.log("Skipping duplicate request:", requestKey);
-            // Return cached result or empty
+            // Return empty to avoid duplicate API call
             return {
               rows: [],
               rowCount: 0,

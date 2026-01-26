@@ -167,9 +167,11 @@ function MatchedVariablesDataGrid({
   const pendingRequestRef = useRef<{ resolve: (value: any) => void; reject: (error: any) => void } | null>(null);
   const lastRequestKeyRef = useRef<string>(""); // Track last request to prevent duplicates
   
-  // Initialize filter model with mainSearchQuery if available
+  // Initialize filter model with mainSearchQuery ONLY if variablesWhichMatched exists and has items
   const initialState = useMemo(() => {
-    if (mainSearchQuery && mainSearchQuery.trim().length > 0) {
+    // Only set QuickFilter if we have variablesWhichMatched (indicates this is a matched search)
+    const hasMatchedVariables = variablesWhichMatched && variablesWhichMatched.length > 0;
+    if (hasMatchedVariables && mainSearchQuery && mainSearchQuery.trim().length > 0) {
       return {
         filter: {
           filterModel: {
@@ -179,8 +181,16 @@ function MatchedVariablesDataGrid({
         },
       };
     }
-    return undefined;
-  }, [mainSearchQuery]);
+    // If no matched variables, set QuickFilter to empty
+    return {
+      filter: {
+        filterModel: {
+          items: [],
+          quickFilterValues: [],
+        },
+      },
+    };
+  }, [mainSearchQuery, variablesWhichMatched]);
   
   // Create dataSource for server-side fetching - DataGrid will call this automatically
   const dataSource = useMemo(() => {

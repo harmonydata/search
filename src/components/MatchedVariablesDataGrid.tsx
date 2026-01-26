@@ -460,8 +460,27 @@ function MatchedVariablesDataGrid({
     };
   }, []);
   
-  // Reset total count when study UUID or query changes
+  // Reset total count and refs when study UUID or query changes
   useEffect(() => {
+    // If study changed, reset all refs to prevent false change detection
+    if (lastStudyUuidRef.current !== studyUuid) {
+      lastFilterQueryRef.current = "";
+      lastPaginationRef.current = null;
+      lastSortModelRef.current = [];
+      lastRequestKeyRef.current = "";
+      lastStudyUuidRef.current = studyUuid;
+      
+      // Cancel any pending requests
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+        debounceTimeoutRef.current = null;
+      }
+      if (pendingRequestRef.current) {
+        pendingRequestRef.current.reject(new Error("Study changed"));
+        pendingRequestRef.current = null;
+      }
+    }
+    
     setTotalVariableCount(null);
     onTotalCountChange?.(null);
   }, [studyUuid, mainSearchQuery, onTotalCountChange]);

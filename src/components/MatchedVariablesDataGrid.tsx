@@ -168,6 +168,8 @@ function MatchedVariablesDataGrid({
   const lastFilterQueryRef = useRef<string>("");
   const lastPaginationRef = useRef<{ page: number; pageSize: number } | null>(null);
   const lastSortModelRef = useRef<any[]>([]);
+  const lastStudyUuidRef = useRef<string | undefined>(undefined);
+  const lastRequestKeyRef = useRef<string>(""); // Track last request to prevent duplicates
   
   // Initialize filter model with mainSearchQuery if available
   const initialState = useMemo(() => {
@@ -249,6 +251,21 @@ function MatchedVariablesDataGrid({
         
         // Helper function to execute the actual fetch
         async function executeFetch() {
+          // Create a unique key for this request to prevent duplicates
+          const requestKey = `${studyUuid}-${searchQuery}-${paginationModel.page}-${paginationModel.pageSize}-${JSON.stringify(sortModel)}`;
+          
+          // If this is the same request as the last one, skip it
+          if (requestKey === lastRequestKeyRef.current) {
+            console.log("Skipping duplicate request:", requestKey);
+            // Return cached result or empty
+            return {
+              rows: [],
+              rowCount: 0,
+            };
+          }
+          
+          lastRequestKeyRef.current = requestKey;
+          
           // Convert sortModel to API sort_order format
           // Format: "field_name:asc" or "field_name:desc"
           // If multiple sorts, use the first one (API likely supports single sort)

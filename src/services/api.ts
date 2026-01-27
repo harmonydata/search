@@ -561,38 +561,14 @@ export async function fetchSearchResults(
 }
 
 export async function fetchResultsByUuids(
-  uuids: string[],
-  query?: string,
-  alpha?: number,
-  maxVectorDistance?: number,
-  maxDistanceMode: "max_distance" | "min_score" | "both" = "min_score"
+  uuids: string[]
 ): Promise<SearchResult[]> {
   console.log(`🔗 API CALL: fetchResultsByUuids(${uuids.length} UUIDs)`);
   const params = new URLSearchParams();
 
-  // Append all UUIDs
+  // Append all UUIDs - only pass UUIDs, no other parameters
   for (const uuid of uuids) {
     params.append("uuid", uuid);
-  }
-
-  // Append query parameter if provided
-  if (query && query.trim()) {
-    params.set("query", query.trim());
-  }
-
-  // Append alpha parameter if provided
-  if (alpha !== undefined) {
-    params.set("alpha", alpha.toString());
-  }
-
-  // Add max_vector_distance and/or min_original_vector_score based on mode
-  // Always send these parameters (use default 0.4 if not provided)
-  const distanceValue = maxVectorDistance !== undefined ? maxVectorDistance : 0.4;
-  if (maxDistanceMode === "max_distance" || maxDistanceMode === "both") {
-    params.set("max_vector_distance", distanceValue.toString());
-  }
-  if (maxDistanceMode === "min_score" || maxDistanceMode === "both") {
-    params.set("min_original_vector_score", (1 - distanceValue).toString());
   }
 
   const url = `${API_BASE}/discover/lookup?${params.toString()}`;

@@ -72,4 +72,4 @@
 - Fixed 'No results' message flashing during search - now only shows after search actually completes (loading goes from true to false), preventing false "0 results" display while search is in progress
 - Fixed variables table hiding logic - now correctly hides when get_variables returns no results on first page, regardless of whether there's a search query
 - Replaced /items/[slug] with catch-all route /items/[[...slug]] that pre-generates and pre-renders all item routes (by slug and UUID, 21k+ routes) with data at build time, just like studies pages - fetches from cache/API during build and passes to component, fetchResultByUuid handles both slugs and UUIDs
-- Removed all optional parameters (query, alpha, maxVectorDistance, maxDistanceMode) from fetchResultByUuid lookup endpoint - now only passes uuid or slug to improve API performance
+- Removed all optional parameters (query, alpha, maxVectorDistance, maxDistanceMode) from fetchResultByUuid and fetchResultsByUuids lookup endpoints - now only passes uuid or slug to improve API performance, batch lookup still supported

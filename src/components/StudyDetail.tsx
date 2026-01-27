@@ -389,13 +389,7 @@ const StudyDetailComponent = ({
 
     const fetchData = async () => {
       try {
-        const enhancedData = await fetchResultByUuid(
-          currentUuid,
-          debouncedQuery,
-          debouncedHybridWeight,
-          debouncedMaxDistance,
-          debouncedMaxDistanceMode
-        );
+        const enhancedData = await fetchResultByUuid(currentUuid);
 
         if (!cancelled) {
           setEnhancedStudy(enhancedData);

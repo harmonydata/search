@@ -375,11 +375,7 @@ function DiscoverPageContent() {
       try {
         setLoading(true);
         const studyResult = await fetchResultByUuid(
-          searchSettings.similarUid,
-          undefined,
-          undefined,
-          searchSettings.maxDistance,
-          searchSettings.maxDistanceMode
+          searchSettings.similarUid
         );
         setSimilarStudy(studyResult);
 

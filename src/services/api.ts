@@ -632,11 +632,7 @@ export async function fetchResultsByUuids(
 }
 
 export async function fetchResultByUuid(
-  identifier: string,
-  query?: string,
-  alpha?: number,
-  maxVectorDistance?: number,
-  maxDistanceMode: "max_distance" | "min_score" | "both" = "min_score"
+  identifier: string
 ): Promise<SearchResult> {
   console.log(`🔗 API CALL: fetchResultByUuid(${identifier})`);
   const params = new URLSearchParams();
@@ -653,26 +649,7 @@ export async function fetchResultByUuid(
     params.set("slug", identifier);
   }
 
-  // Append query parameter if provided
-  if (query && query.trim()) {
-    params.set("query", query.trim());
-  }
-
-  // Append alpha parameter if provided
-  if (alpha !== undefined) {
-    params.set("alpha", alpha.toString());
-  }
-
-  // Add max_vector_distance and/or min_original_vector_score based on mode
-  // Always send these parameters (use default 0.4 if not provided)
-  const distanceValue = maxVectorDistance !== undefined ? maxVectorDistance : 0.4;
-  if (maxDistanceMode === "max_distance" || maxDistanceMode === "both") {
-    params.set("max_vector_distance", distanceValue.toString());
-  }
-  if (maxDistanceMode === "min_score" || maxDistanceMode === "both") {
-    params.set("min_original_vector_score", (1 - distanceValue).toString());
-  }
-
+  // Only pass uuid or slug - no other parameters
   const url = `${API_BASE}/discover/lookup?${params.toString()}`;
   const response = await fetch(url);
 
@@ -683,29 +660,7 @@ export async function fetchResultByUuid(
     const slugParams = new URLSearchParams();
     slugParams.set("slug", identifier);
 
-    // Append query parameter if provided
-    if (query && query.trim()) {
-      slugParams.set("query", query.trim());
-    }
-
-    // Append alpha parameter if provided
-    if (alpha !== undefined) {
-      slugParams.set("alpha", alpha.toString());
-    }
-
-    // Add max_vector_distance and/or min_original_vector_score based on mode
-    // Always send these parameters (use default 0.4 if not provided)
-    const distanceValue = maxVectorDistance !== undefined ? maxVectorDistance : 0.4;
-    if (maxDistanceMode === "max_distance" || maxDistanceMode === "both") {
-      slugParams.set("max_vector_distance", distanceValue.toString());
-    }
-    if (maxDistanceMode === "min_score" || maxDistanceMode === "both") {
-      slugParams.set(
-        "min_original_vector_score",
-        (1 - distanceValue).toString()
-      );
-    }
-
+    // Only pass slug - no other parameters
     const slugUrl = `${API_BASE}/discover/lookup?${slugParams.toString()}`;
     const slugResponse = await fetch(slugUrl);
 

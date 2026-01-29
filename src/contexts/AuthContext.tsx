@@ -47,6 +47,7 @@ const loadFirebaseModules = async () => {
 
 interface AuthContextType {
   currentUser: any | null;
+  isAdmin: boolean;
   login: (email: string, password: string) => Promise<any>;
   signup: (email: string, password: string) => Promise<any>;
   logout: () => Promise<void>;
@@ -60,6 +61,7 @@ interface AuthContextType {
 // Default context value for SSR - no-op functions that don't throw errors
 const defaultAuthContext: AuthContextType = {
   currentUser: null,
+  isAdmin: false,
   login: async () => {
     console.warn("Auth not available on server");
     return null;
@@ -98,6 +100,7 @@ export function useAuth() {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [firebaseReady, setFirebaseReady] = useState(false);
 
@@ -123,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setFirebaseReady(true);
 
-        const unsubscribe = onAuthStateChanged(auth, (user: any) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user: any) => {
           console.log("🔄 Auth state changed:", {
             hasUser: !!user,
             uid: user?.uid,
@@ -131,6 +134,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
 
           setCurrentUser(user);
+
+          // Check admin status when user changes
+          if (user?.uid) {
+            console.log("🔐 AuthContext: User logged in, checking admin status for UID:", user.uid);
+            try {
+              const { isAdmin: checkAdmin } = await import("@/lib/admin");
+              console.log("🔐 AuthContext: Admin check function loaded, calling...");
+              const adminStatus = await checkAdmin(user.uid);
+              console.log("🔐 AuthContext: Admin check completed, result:", adminStatus);
+              setIsAdmin(adminStatus);
+            } catch (error) {
+              console.error("🔐 AuthContext: Failed to check admin status:", error);
+              setIsAdmin(false);
+            }
+          } else {
+            console.log("🔐 AuthContext: No user, setting isAdmin to false");
+            setIsAdmin(false);
+          }
+
           setLoading(false);
         });
 
@@ -226,6 +248,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value: AuthContextType = {
     currentUser,
+    isAdmin,
     ...authFunctions,
     loading,
   };

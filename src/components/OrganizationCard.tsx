@@ -21,7 +21,7 @@ export default function OrganizationCard({ name, url, logo, inactive, compact }:
   
   // Use effect to find the appropriate logo when the component mounts
   useEffect(() => {
-    console.log(`Resolving logo for organization: "${name}"`);
+   // console.log(`Resolving logo for organization: "${name}"`);
     try {
       const logoPath = findOrganizationLogo(name, logo);
       console.log(`Resolved logo for organization "${name}":`, logoPath);

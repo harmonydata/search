@@ -19,7 +19,7 @@ export default function DataCatalogCard({ name, url, logo }: DataCatalogCardProp
   
   // Use effect to find the appropriate logo when the component mounts
   useEffect(() => {
-    console.log(`Resolving logo for data catalog: "${name}"`);
+   // console.log(`Resolving logo for data catalog: "${name}"`);
     try {
       const logoPath = findOrganizationLogo(name, logo);
       console.log(`Resolved logo for data catalog "${name}":`, logoPath);

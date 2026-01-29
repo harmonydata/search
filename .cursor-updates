@@ -73,3 +73,5 @@
 - Fixed variables table hiding logic - now correctly hides when get_variables returns no results on first page, regardless of whether there's a search query
 - Replaced /items/[slug] with catch-all route /items/[[...slug]] that pre-generates and pre-renders all item routes (by slug and UUID, 21k+ routes) with data at build time, just like studies pages - fetches from cache/API during build and passes to component, fetchResultByUuid handles both slugs and UUIDs
 - Removed all optional parameters (query, alpha, maxVectorDistance, maxDistanceMode) from fetchResultByUuid and fetchResultsByUuids lookup endpoints - now only passes uuid or slug to improve API performance, batch lookup still supported
+- Added Google Analytics 4 with anonymized IP tracking (no cookie consent required) - configured with anonymize_ip, allow_google_signals: false, and allow_ad_personalization_signals: false for GDPR compliance
+- Added Hotjar tracking gated behind harmonyCookieConsent cookie (shared with harmonydata.github.io) - created HotjarTracker client component that checks for consent cookie and polls for changes to enable cross-site consent sharing

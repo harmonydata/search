@@ -11,12 +11,13 @@ import {
 } from "@mui/material";
 import Link from "next/link";
 import Image from "next/image";
-import { LayoutGrid } from "lucide-react";
+import { LayoutGrid, Settings } from "lucide-react";
 import { getAssetPrefix } from "@/lib/utils/shared";
 import { usePathname } from "next/navigation";
 import AccountAvatar from "./AccountAvatar";
 import { getCurrentDomain, getReactAppPath } from "@/lib/utils/urlHelpers";
 import ComingSoonDialog from "./ComingSoonDialog";
+import { useAuth } from "@/contexts/AuthContext";
 
 const baseNavigationItems = [
   {
@@ -53,13 +54,14 @@ const baseNavigationItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { isAdmin } = useAuth();
   const [navigationItems, setNavigationItems] = useState(baseNavigationItems);
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
   const [comingSoonFeature, setComingSoonFeature] = useState<string>("");
 
   const handleNavigationClick = (
     e: React.MouseEvent,
-    item: (typeof baseNavigationItems)[0]
+    item: (typeof baseNavigationItems)[0] | { text: string; href: string }
   ) => {
     // For Browse, Explore, Compare, and Saves, show coming soon dialog
     if (["Browse", "Explore", "Compare", "Saves"].includes(item.text)) {
@@ -67,19 +69,35 @@ export default function Sidebar() {
       setComingSoonFeature(item.text);
       setComingSoonOpen(true);
     }
-    // Search and Harmonise should work normally
+    // Search, Harmonise, and Admin should work normally
   };
 
-  // Generate harmonise link on client side only
+  // Generate harmonise link and admin link on client side only
   useEffect(() => {
+    const items = [...baseNavigationItems];
+    
+    // Add Harmonise link
     const harmoniseItem = {
       text: "Harmonise",
       icon: getAssetPrefix() + "icons/harmonise.svg",
       activeIcon: getAssetPrefix() + "icons/harmonise-active.svg",
       href: `${getCurrentDomain()}${getReactAppPath()}`,
     };
-    setNavigationItems([...baseNavigationItems, harmoniseItem]);
-  }, []);
+    items.push(harmoniseItem);
+
+    // Add Admin link if user is admin
+    if (isAdmin) {
+      const adminItem = {
+        text: "Admin",
+        icon: "", // Will use Settings icon from lucide-react
+        activeIcon: "",
+        href: "/admin",
+      };
+      items.push(adminItem);
+    }
+
+    setNavigationItems(items);
+  }, [isAdmin]);
 
   // Use CSS media queries for responsive behavior instead of client-side logic
   return (
@@ -117,7 +135,7 @@ export default function Sidebar() {
             alignItems: "center",
           }}
         >
-          <Link href="/">
+          <a href="https://harmonydata.ac.uk">
             <Image
               src={getAssetPrefix() + "harmony.png"}
               alt="Harmony Logo"
@@ -126,7 +144,7 @@ export default function Sidebar() {
               priority
               style={{ objectFit: "contain" }}
             />
-          </Link>
+          </a>
         </Box>
 
         {/* Navigation Items - Hidden on mobile, moved to avatar menu */}
@@ -170,47 +188,60 @@ export default function Sidebar() {
                   },
                 }}
               >
-                <ListItemIcon
-                  sx={{
-                    minWidth: 0,
-                    color: "inherit",
-                    position: "relative",
-                    mb: 0.5,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {item.text === "Browse" ? (
-                    <LayoutGrid
-                      size={16}
-                      color={
-                        !isExternal && pathname === item.href
-                          ? "#2E5FFF"
-                          : "#444653"
-                      }
-                      style={{
-                        position: "relative",
-                        zIndex: 1,
-                      }}
-                    />
-                  ) : (
-                    <Image
-                      src={
-                        !isExternal && pathname === item.href
-                          ? (item.activeIcon as string)
-                          : (item.icon as string)
-                      }
-                      alt={`${item.text} icon`}
-                      width={16}
-                      height={16}
-                      style={{
-                        position: "relative",
-                        zIndex: 1,
-                      }}
-                    />
-                  )}
-                </ListItemIcon>
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 0,
+                      color: "inherit",
+                      position: "relative",
+                      mb: 0.5,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {item.text === "Browse" ? (
+                      <LayoutGrid
+                        size={16}
+                        color={
+                          !isExternal && pathname === item.href
+                            ? "#2E5FFF"
+                            : "#444653"
+                        }
+                        style={{
+                          position: "relative",
+                          zIndex: 1,
+                        }}
+                      />
+                    ) : item.text === "Admin" ? (
+                      <Settings
+                        size={16}
+                        color={
+                          !isExternal && pathname === item.href
+                            ? "#2E5FFF"
+                            : "#444653"
+                        }
+                        style={{
+                          position: "relative",
+                          zIndex: 1,
+                        }}
+                      />
+                    ) : (
+                      <Image
+                        src={
+                          !isExternal && pathname === item.href
+                            ? (item.activeIcon as string)
+                            : (item.icon as string)
+                        }
+                        alt={`${item.text} icon`}
+                        width={16}
+                        height={16}
+                        style={{
+                          position: "relative",
+                          zIndex: 1,
+                        }}
+                      />
+                    )}
+                  </ListItemIcon>
                 <Typography
                   variant="caption"
                   sx={{
@@ -261,7 +292,7 @@ export default function Sidebar() {
       >
         {/* Logo */}
         <Box sx={{ p: 1, pt: 3, display: "flex", justifyContent: "center" }}>
-          <Link href="/">
+          <a href="https://harmonydata.ac.uk">
             <Image
               src={getAssetPrefix() + "harmony.png"}
               alt="Harmony Logo"
@@ -270,7 +301,7 @@ export default function Sidebar() {
               priority
               style={{ objectFit: "contain" }}
             />
-          </Link>
+          </a>
         </Box>
 
         {/* Navigation Items */}
@@ -324,6 +355,19 @@ export default function Sidebar() {
                   >
                     {item.text === "Browse" ? (
                       <LayoutGrid
+                        size={20}
+                        color={
+                          !isExternal && pathname === item.href
+                            ? "#2E5FFF"
+                            : "#444653"
+                        }
+                        style={{
+                          position: "relative",
+                          zIndex: 1,
+                        }}
+                      />
+                    ) : item.text === "Admin" ? (
+                      <Settings
                         size={20}
                         color={
                           !isExternal && pathname === item.href

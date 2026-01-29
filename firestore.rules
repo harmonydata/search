@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is admin
+    // Admin users have a document in 'users' collection with their UID as document ID
+    // and isAdmin: true field
+    function isAdmin() {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+    
+    // Users collection: Only admins can read their own admin status document
+    // Document ID must match the authenticated user's UID
+    match /users/{userId} {
+      allow read: if request.auth != null && 
+                     request.auth.uid == userId &&
+                     isAdmin();
+      // Only admins can write (for creating admin users)
+      allow write: if isAdmin();
+    }
+    
+    // Analytics events: Public can create, admins can read
+    match /analytics_events/{eventId} {
+      allow create: if true; // Anyone can create analytics events
+      allow read: if isAdmin(); // Only admins can read
+      allow update, delete: if isAdmin(); // Only admins can modify
+    }
+    
+    // Ratings/Feedback: Public can create, admins can read
+    match /ratings/{ratingId} {
+      allow create: if true; // Anyone can create feedback/ratings
+      allow read: if isAdmin(); // Only admins can read
+      allow update, delete: if isAdmin(); // Only admins can modify
+    }
+    
+    // Mismatches (Harmony quality feedback): Public can create, admins can read
+    match /mismatches/{mismatchId} {
+      allow create: if true; // Anyone can create mismatch reports
+      allow read: if isAdmin(); // Only admins can read
+      allow update, delete: if isAdmin(); // Only admins can modify
+    }
+    
+    // Other collections (saved_searches, saved_resources, harmonisations, etc.)
+    // These are user-specific, so users can read/write their own data
+    match /saved_searches/{searchId} {
+      allow read, write: if request.auth != null && 
+                            resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && 
+                      request.resource.data.userId == request.auth.uid;
+    }
+    
+    match /saved_resources/{resourceId} {
+      allow read, write: if request.auth != null && 
+                            resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && 
+                      request.resource.data.userId == request.auth.uid;
+    }
+    
+    match /harmonisations/{harmonisationId} {
+      allow read, write: if request.auth != null && 
+                            resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && 
+                      request.resource.data.userId == request.auth.uid;
+    }
+  }
+}

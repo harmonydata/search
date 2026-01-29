@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 // Removed Inter font - using Roboto from MUI theme instead
 import { Box } from "@mui/material";
 import { Suspense } from "react";
+import Script from "next/script";
 import ThemeRegistry from "@/components/ThemeRegistry";
 import { ToastContainer } from "react-toastify";
 import Sidebar from "@/components/Sidebar";
+import HotjarTracker from "@/components/HotjarTracker";
+import GATracker from "@/components/GATracker";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FirebaseProvider } from "@/contexts/FirebaseContext";
 import { SearchProvider } from "@/contexts/SearchContext";
@@ -79,6 +82,24 @@ export default function RootLayout({
           `,
           }}
         />
+        {/* Google Analytics 4 - Starts in anonymized mode, GATracker will upgrade if consent granted */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-S79J6E39ZP"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            // Start with anonymized mode (default) - GATracker will update if consent found
+            gtag('config', 'G-S79J6E39ZP', {
+              anonymize_ip: true,
+              allow_google_signals: false,
+              allow_ad_personalization_signals: false
+            });
+          `}
+        </Script>
       </head>
       <body>
         <ThemeRegistry>
@@ -113,6 +134,8 @@ export default function RootLayout({
             </FirebaseProvider>
           </AuthProvider>
         </ThemeRegistry>
+        <HotjarTracker />
+        <GATracker />
       </body>
     </html>
   );

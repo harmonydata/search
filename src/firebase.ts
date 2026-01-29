@@ -2,7 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore/lite";
 
-const app = initializeApp({
+export const app = initializeApp({
   apiKey: "AIzaSyBQVkRjbTQD6BXCdo2JeiFfwyvGVT7bOXM",
   authDomain: "harmony-6bd51.firebaseapp.com",
   projectId: "harmony-6bd51",

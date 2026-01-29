@@ -45,6 +45,7 @@ import {
 import { submitFeedback } from "@/services/feedback";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSearch } from "@/contexts/SearchContext";
+import { trackSearch } from "@/lib/analytics";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore/lite";
 import { db } from "../../firebase";
 import { Bookmark } from "lucide-react";
@@ -108,6 +109,7 @@ function DiscoverPageContent() {
   const estimateUuidsRef = useRef<string[]>([]);
   const currentBatchIndexRef = useRef(0);
   const failedUuidsRef = useRef<string[]>([]);
+  const lastTrackedSearchRef = useRef<string | null>(null);
 
   const [savingSearch, setSavingSearch] = useState(false);
   const [saveSearchSuccess, setSaveSearchSuccess] = useState(false);
@@ -146,6 +148,21 @@ function DiscoverPageContent() {
   const resourceTypeFilter = useMemo(
     () => (resourceType ? [resourceType] : []),
     [resourceType]
+  );
+
+  // Memoize hasActiveSearch to prevent unnecessary recalculations
+  const hasActiveSearch = useMemo(
+    () =>
+      searchSettings.query.trim() !== "" ||
+      Object.keys(searchSettings.selectedFilters).length > 0 ||
+      resourceTypeFilter.length > 0,
+    [searchSettings.query, searchSettings.selectedFilters, resourceTypeFilter]
+  );
+
+  // Memoize typing indicator to prevent reflows on every keystroke
+  const isTyping = useMemo(
+    () => searchSettings.query !== searchSettings.debouncedQuery,
+    [searchSettings.query, searchSettings.debouncedQuery]
   );
 
   // Refs to track previous query and filters for page reset logic
@@ -936,6 +953,46 @@ function DiscoverPageContent() {
             setResults(newResults);
             setTotalHits(estimateUuidsRef.current.length);
             setIsResultCountLowerBound(false);
+            
+            // Track search analytics for trust estimate mode (first batch only)
+            if (currentBatch === 0) {
+              const searchKey = `${query || ""}_${JSON.stringify(combinedFilters)}_${searchSettings.useSearch2}_${searchSettings.hybridWeight}_${adjustedMaxDistance}_${apiDuration}`;
+              
+              if (lastTrackedSearchRef.current !== searchKey && res.num_hits !== undefined) {
+                lastTrackedSearchRef.current = searchKey;
+                
+                try {
+                  const topResults = newResults.slice(0, 5).map((result) => ({
+                    uuid: result.extra_data?.uuid || "",
+                    title: result.dataset_schema?.name || result.extra_data?.name || "",
+                    resourceType: result.extra_data?.resource_type || result.dataset_schema?.["@type"] || "",
+                  }));
+                  
+                  // Fire and forget - don't await to avoid blocking
+                  trackSearch({
+                    query: query || "",
+                    numResults: res.num_hits || 0,
+                    responseTimeMs: apiDuration,
+                    topResults,
+                    searchOptions: {
+                      useSearch2: searchSettings.useSearch2,
+                      hybridWeight: searchSettings.hybridWeight,
+                      maxDistance: adjustedMaxDistance,
+                      maxDistanceMode: searchSettings.maxDistanceMode,
+                      directMatchWeight: searchSettings.directMatchWeight,
+                      paginationStrategy: searchSettings.paginationStrategy,
+                    },
+                    filters: combinedFilters,
+                    page: pageToUse,
+                    resultsPerPage: searchNumResults,
+                  }).catch((error) => {
+                    console.warn("Failed to track search analytics:", error);
+                  });
+                } catch (error) {
+                  console.warn("Failed to track search analytics:", error);
+                }
+              }
+            }
           } else {
             setResults((prev) => {
               const updated = [...prev, ...newResults];
@@ -1069,6 +1126,55 @@ function DiscoverPageContent() {
         if (isFirstPageCall) {
           setTotalHits(res.num_hits || 0);
           setIsResultCountLowerBound(res.is_result_count_lower_bound || false);
+          
+          // Track search analytics (only for first page, reliable calls, and only once per unique search)
+          // Create a unique key for this search to prevent duplicate tracking
+          // Include timestamp to ensure we track each actual API response
+          const searchKey = `${query || ""}_${JSON.stringify(combinedFilters)}_${searchSettings.useSearch2}_${searchSettings.hybridWeight}_${adjustedMaxDistance}_${apiDuration}`;
+          
+          // Only track if this is a different search than the last one we tracked
+          // This ensures we only track once per actual API response, not on every render
+          if (lastTrackedSearchRef.current !== searchKey && res.num_hits !== undefined) {
+            lastTrackedSearchRef.current = searchKey;
+            
+            console.log("📊 Tracking search analytics - API response received:", {
+              query: query || "",
+              numResults: res.num_hits,
+              responseTime: apiDuration,
+            });
+            
+            try {
+              const topResults = newResults.slice(0, 5).map((result) => ({
+                uuid: result.extra_data?.uuid || "",
+                title: result.dataset_schema?.name || result.extra_data?.name || "",
+                resourceType: result.extra_data?.resource_type || result.dataset_schema?.["@type"] || "",
+              }));
+              
+              // Fire and forget - don't await to avoid blocking
+              trackSearch({
+                query: query || "",
+                numResults: res.num_hits || 0,
+                responseTimeMs: apiDuration,
+                topResults,
+                searchOptions: {
+                  useSearch2: searchSettings.useSearch2,
+                  hybridWeight: searchSettings.hybridWeight,
+                  maxDistance: adjustedMaxDistance,
+                  maxDistanceMode: searchSettings.maxDistanceMode,
+                  directMatchWeight: searchSettings.directMatchWeight,
+                  paginationStrategy: searchSettings.paginationStrategy,
+                },
+                filters: combinedFilters,
+                page: pageToUse,
+                resultsPerPage: searchNumResults,
+              }).catch((error) => {
+                console.warn("Failed to track search analytics:", error);
+              });
+            } catch (error) {
+              console.warn("Failed to track search analytics:", error);
+              // Don't block search if analytics fails
+            }
+          }
         }
         // Otherwise, keep the totalHits from the first reliable call
 
@@ -1831,13 +1937,13 @@ function DiscoverPageContent() {
                         gap: 1,
                       }}
                     >
-                      {searchSettings.query !==
-                        searchSettings.debouncedQuery && (
+                      {isTyping && (
                         <Typography
                           variant="caption"
                           color="text.secondary"
                           sx={{
                             fontSize: { xs: "0.6rem", sm: "0.7rem" },
+                            minWidth: "50px", // Prevent layout shift
                           }}
                         >
                           Typing...
@@ -2108,34 +2214,8 @@ function DiscoverPageContent() {
                         setSelectedResultIndex(index);
                         setSearchFeedbackOpen(true);
                       }}
-                      hasActiveSearch={
-                        searchSettings.query.trim() !== "" ||
-                        Object.keys(searchSettings.selectedFilters).length >
-                          0 ||
-                        resourceTypeFilter.length > 0
-                      }
-                      loading={(() => {
-                        const loadingState = loading || loadingMore;
-                        console.log(
-                          "🔍 DiscoverPage passing to SearchResults:",
-                          {
-                            resultsLength: results.length,
-                            loading,
-                            loadingMore,
-                            loadingState,
-                            hasActiveSearch:
-                              searchSettings.query.trim() !== "" ||
-                              Object.keys(searchSettings.selectedFilters)
-                                .length > 0 ||
-                              resourceTypeFilter.length > 0,
-                            query: searchSettings.query,
-                            filtersCount: Object.keys(
-                              searchSettings.selectedFilters
-                            ).length,
-                          }
-                        );
-                        return loadingState;
-                      })()}
+                      hasActiveSearch={hasActiveSearch}
+                      loading={loading || loadingMore}
                       onClearQuery={() => {
                         updateQuery("");
                       }}

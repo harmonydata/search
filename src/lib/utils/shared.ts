@@ -157,11 +157,11 @@ export function findOrganizationLogo(
 ): string | undefined {
   // If a logo is directly provided, use that
   if (providedLogo && providedLogo.trim().length > 0) {
-    console.log(
-      `Using provided logo for ${
-        organizationName || "Unknown"
-      }: ${providedLogo}`
-    );
+   // console.log(
+   //   `Using provided logo for ${
+   //     organizationName || "Unknown"
+   //   }: ${providedLogo}`
+   // );
     return providedLogo;
   }
 
@@ -204,9 +204,9 @@ export function findOrganizationLogo(
           abbr.toLowerCase() === part.toLowerCase()
         ) {
           const logoPath = `/logos/${abbr}.png`;
-          console.log(
-            `Found partial match for "${part}" with known organization "${knownName}" (${abbr}): ${logoPath}`
-          );
+          // console.log(
+          //   `Found partial match for "${part}" with known organization "${knownName}" (${abbr}): ${logoPath}`
+          // );
           return logoPath;
         }
       }

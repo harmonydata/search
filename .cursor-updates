@@ -75,3 +75,5 @@
 - Removed all optional parameters (query, alpha, maxVectorDistance, maxDistanceMode) from fetchResultByUuid and fetchResultsByUuids lookup endpoints - now only passes uuid or slug to improve API performance, batch lookup still supported
 - Added Google Analytics 4 with anonymized IP tracking (no cookie consent required) - configured with anonymize_ip, allow_google_signals: false, and allow_ad_personalization_signals: false for GDPR compliance
 - Added Hotjar tracking gated behind harmonyCookieConsent cookie (shared with harmonydata.github.io) - created HotjarTracker client component that checks for consent cookie and polls for changes to enable cross-site consent sharing
+- Fixed TypeScript errors in admin page by adding explicit type annotations to valueFormatter functions and using match_reported field instead of non-existent question_index
+- Added parseFilters helper function in admin.ts to handle both old (JSON string) and new (object/map) filter formats for backward compatibility

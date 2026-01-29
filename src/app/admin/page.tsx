@@ -219,7 +219,8 @@ export default function AdminPage() {
       width: 150,
       align: "right",
       headerAlign: "right",
-      valueFormatter: (value) => value?.toLocaleString() || "0",
+      valueFormatter: (value: number | null | undefined) => 
+        value != null ? value.toLocaleString() : "0",
     },
     {
       field: "avgResponseTime",
@@ -227,7 +228,8 @@ export default function AdminPage() {
       width: 180,
       align: "right",
       headerAlign: "right",
-      valueFormatter: (value) => value ? `${value}ms` : "—",
+      valueFormatter: (value: number | null | undefined) => 
+        value != null ? `${value}ms` : "—",
     },
   ];
 
@@ -238,10 +240,14 @@ export default function AdminPage() {
       const q2 = item.q2 || {};
       const modelUsed = item.model_used || {};
       
-      // Calculate rating: find Q2's question_index, lookup in Q1's matches array, scale to percentage
+      // Use match_reported if available, otherwise try to calculate from matches array
       let rating: number | string = "—";
-      if (q2.question_index !== undefined && q1.matches && Array.isArray(q1.matches)) {
-        const q2Index = q2.question_index as number;
+      if (item.match_reported !== undefined) {
+        // Scale from 0-1 to 0-100 percentage
+        rating = Math.round(item.match_reported * 100 * 100) / 100; // Round to 2 decimal places
+      } else if (q2.instrument_index !== undefined && q1.matches && Array.isArray(q1.matches)) {
+        // Fallback: try using instrument_index if available
+        const q2Index = q2.instrument_index as number;
         if (q1.matches[q2Index] !== undefined) {
           const matchValue = q1.matches[q2Index] as number;
           // Scale from 0-1 to 0-100 percentage

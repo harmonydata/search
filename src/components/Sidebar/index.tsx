@@ -57,7 +57,7 @@ export default function Sidebar() {
       >
         {/* Logo */}
         <Box sx={{ display: "flex", alignItems: "center" }}>
-          <a href="https://harmonydata.ac.uk">
+          <a href="https://harmonydata.ac.uk" target="harmonyHome">
             <Box
               component="img"
               src="/harmony.png"
@@ -118,14 +118,14 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <Box sx={{ p: 1, pt: 3, display: "flex", justifyContent: "center" }}>
-        <a href="https://harmonydata.ac.uk">
-          <Box
-            component="img"
-            src="/harmony.png"
-            alt="Harmony Logo"
-            sx={{ width: 48, height: 48, objectFit: "contain" }}
-          />
-        </a>
+          <a href="https://harmonydata.ac.uk" target="harmonyHome">
+            <Box
+              component="img"
+              src="/harmony.png"
+              alt="Harmony Logo"
+              sx={{ width: 48, height: 48, objectFit: "contain" }}
+            />
+          </a>
       </Box>
 
       {/* Navigation Items */}

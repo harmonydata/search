@@ -135,7 +135,7 @@ export default function Sidebar() {
             alignItems: "center",
           }}
         >
-          <a href="https://harmonydata.ac.uk">
+          <a href="https://harmonydata.ac.uk" target="harmonyHome">
             <Image
               src={getAssetPrefix() + "harmony.png"}
               alt="Harmony Logo"
@@ -292,7 +292,7 @@ export default function Sidebar() {
       >
         {/* Logo */}
         <Box sx={{ p: 1, pt: 3, display: "flex", justifyContent: "center" }}>
-          <a href="https://harmonydata.ac.uk">
+          <a href="https://harmonydata.ac.uk" target="harmonyHome">
             <Image
               src={getAssetPrefix() + "harmony.png"}
               alt="Harmony Logo"

@@ -42,7 +42,7 @@ import {
 } from "@/services/api";
 import { submitFeedback } from "@/services/feedback";
 import { useAuth } from "@/contexts/AuthContext";
-import { useSearch } from "@/contexts/SearchContext";
+import { useSearch, generateSearchKey } from "@/contexts/SearchContext";
 import { trackSearch } from "@/lib/analytics";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore/lite";
 import { db } from "../../firebase";
@@ -68,7 +68,7 @@ function DiscoverPageContent() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm")); // 600px breakpoint
   const isTablet = useMediaQuery(theme.breakpoints.down("lg")); // 1200px breakpoint
-  const { searchSettings, updateQuery, updateSearchSettings } = useSearch();
+  const { searchSettings, updateQuery, updateSearchSettings, setCachedResults, getCachedResults, clearCachedResults } = useSearch();
   const [results, setResults] = useState<SearchResult[]>([]);
   const [filters, setFilters] = useState<AggregateFilter[]>([]);
   const [loading, setLoading] = useState(false);
@@ -461,19 +461,49 @@ function DiscoverPageContent() {
         searchSettings.debouncedQuery
       : searchSettings.debouncedQuery;
 
-    // Only clear results and reset for search parameter changes, NOT page changes
-    if (isSearchParameterChange) {
-      console.log(
-        "🔍 Search parameters changed, clearing results and resetting to page 1"
-      );
+    // Check if we have search params but no results (e.g., navigating back from another page)
+    const hasSearchParams = 
+      (queryToUse && queryToUse.trim().length > 0) ||
+      (searchSettings.selectedFilters && Object.keys(searchSettings.selectedFilters).length > 0) ||
+      !!resourceType ||
+      !!searchSettings.similarUid;
+    const hasNoResults = results.length === 0 && !loading && !loadingMore;
 
-      // Set loading immediately to prevent "No results" message from showing
-      console.log("⏳ Setting loading to true BEFORE clearing results");
-      setLoading(true);
+    // Generate search key for caching
+    const currentSearchKey = generateSearchKey(searchSettings, resourceType);
+    
+    // Check for cached results first (only when restoring, not when parameters changed)
+    if (!isSearchParameterChange && hasSearchParams && hasNoResults) {
+      const cached = getCachedResults(currentSearchKey);
+      if (cached) {
+        console.log("✅ Restoring search results from cache");
+        setResults(cached.results);
+        setTotalHits(cached.totalHits);
+        // Note: filters are fetched separately and don't need to be restored from cache
+        setLoading(false);
+        return; // Don't trigger a new search if we have cached results
+      }
+    }
 
-      // Clear results immediately when search parameters change
-      console.log("🗑️ Clearing results array");
-      setResults([]);
+    // Trigger search if parameters changed OR if we have search params but no results (and no cache)
+    if (isSearchParameterChange || (hasSearchParams && hasNoResults)) {
+      if (isSearchParameterChange) {
+        console.log(
+          "🔍 Search parameters changed, clearing results and resetting to page 1"
+        );
+        // Clear cached results when search parameters change
+        clearCachedResults();
+        // Set loading immediately to prevent "No results" message from showing
+        console.log("⏳ Setting loading to true BEFORE clearing results");
+        setLoading(true);
+        // Clear results immediately when search parameters change
+        console.log("🗑️ Clearing results array");
+        setResults([]);
+      } else {
+        // Restoring search from URL - just trigger the search without clearing
+        console.log("🔍 Restoring search from URL - triggering search (no cache found)");
+        setLoading(true);
+      }
       // Reset pagination state for new search
       // Also reset if pagination strategy changed
       if (searchSettings.paginationStrategy !== paginationStrategyRef.current) {
@@ -1118,15 +1148,19 @@ function DiscoverPageContent() {
           setTotalHits(res.num_hits || 0);
           setIsResultCountLowerBound(res.is_result_count_lower_bound || false);
           
+          // Cache the results for instant restoration when navigating back
+          const cacheKey = generateSearchKey(searchSettings, resourceType);
+          setCachedResults(res, cacheKey);
+          
           // Track search analytics (only for first page, reliable calls, and only once per unique search)
           // Create a unique key for this search to prevent duplicate tracking
           // Include timestamp to ensure we track each actual API response
-          const searchKey = `${query || ""}_${JSON.stringify(combinedFilters)}_${searchSettings.useSearch2}_${searchSettings.hybridWeight}_${adjustedMaxDistance}_${apiDuration}`;
+          const analyticsKey = `${query || ""}_${JSON.stringify(combinedFilters)}_${searchSettings.useSearch2}_${searchSettings.hybridWeight}_${adjustedMaxDistance}_${apiDuration}`;
           
           // Only track if this is a different search than the last one we tracked
           // This ensures we only track once per actual API response, not on every render
-          if (lastTrackedSearchRef.current !== searchKey && res.num_hits !== undefined) {
-            lastTrackedSearchRef.current = searchKey;
+          if (lastTrackedSearchRef.current !== analyticsKey && res.num_hits !== undefined) {
+            lastTrackedSearchRef.current = analyticsKey;
             
             console.log("📊 Tracking search analytics - API response received:", {
               query: query || "",

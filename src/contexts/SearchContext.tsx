@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { startTransition } from "react";
+import { SearchResult, SearchResponse } from "@/services/api";
 
 export interface SearchSettings {
   query: string; // Immediate query for UI binding
@@ -26,8 +27,16 @@ export interface SearchSettings {
   similarUid: string | null;
 }
 
+interface CachedSearchResults {
+  results: SearchResult[];
+  totalHits: number;
+  aggregations: Record<string, any>;
+  searchKey: string; // Key that identifies this search
+}
+
 interface SearchContextType {
   searchSettings: SearchSettings;
+  cachedResults: CachedSearchResults | null;
   updateQuery: (query: string) => void; // For immediate input updates
   updateSearchSettings: (
     settings: Partial<Omit<SearchSettings, "query" | "debouncedQuery">>
@@ -44,6 +53,9 @@ interface SearchContextType {
     paginationStrategy?: "filter" | "offset" | "trust_estimate";
     selectedCategory?: string | null;
   }) => void;
+  setCachedResults: (results: SearchResponse | null, searchKey: string) => void;
+  getCachedResults: (searchKey: string) => CachedSearchResults | null;
+  clearCachedResults: () => void;
 }
 
 const defaultSearchSettings: SearchSettings = {
@@ -64,6 +76,7 @@ const defaultSearchSettings: SearchSettings = {
 // Default context value for SSR - no-op functions that don't throw errors
 const defaultSearchContext: SearchContextType = {
   searchSettings: defaultSearchSettings,
+  cachedResults: null,
   updateQuery: () => {
     console.warn("Search not available on server");
   },
@@ -74,6 +87,13 @@ const defaultSearchContext: SearchContextType = {
     console.warn("Search not available on server");
   },
   loadSearchFromSaved: () => {
+    console.warn("Search not available on server");
+  },
+  setCachedResults: () => {
+    console.warn("Search not available on server");
+  },
+  getCachedResults: () => null,
+  clearCachedResults: () => {
     console.warn("Search not available on server");
   },
 };
@@ -318,6 +338,24 @@ function urlToSearchSettings(
   };
 }
 
+// Helper function to generate a search key from search settings
+function generateSearchKey(settings: SearchSettings, resourceType?: string | null): string {
+  const parts = [
+    settings.debouncedQuery || "",
+    JSON.stringify(settings.selectedFilters),
+    settings.useSearch2 ? "1" : "0",
+    settings.hybridWeight.toString(),
+    settings.maxDistance.toString(),
+    settings.maxDistanceMode,
+    settings.directMatchWeight.toString(),
+    settings.paginationStrategy,
+    settings.selectedCategory || "",
+    resourceType || "",
+    settings.similarUid || "",
+  ];
+  return parts.join("|");
+}
+
 export function SearchProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -336,6 +374,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     }
     return defaultSearchSettings;
   });
+  const [cachedResults, setCachedResultsState] = useState<CachedSearchResults | null>(null);
   const [isRestoringFromNavigation, setIsRestoringFromNavigation] =
     useState(false);
   const isInitialMount = useRef(true);
@@ -577,20 +616,54 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  // Store cached results
+  const setCachedResults = useCallback((results: SearchResponse | null, searchKey: string) => {
+    if (results) {
+      setCachedResultsState({
+        results: results.results || [],
+        totalHits: results.num_hits || 0,
+        aggregations: results.aggregations || {},
+        searchKey,
+      });
+    } else {
+      setCachedResultsState(null);
+    }
+  }, []);
+
+  // Get cached results if they match the current search
+  const getCachedResults = useCallback((searchKey: string): CachedSearchResults | null => {
+    if (cachedResults && cachedResults.searchKey === searchKey) {
+      return cachedResults;
+    }
+    return null;
+  }, [cachedResults]);
+
+  // Clear cached results
+  const clearCachedResults = useCallback(() => {
+    setCachedResultsState(null);
+  }, []);
+
   return (
     <SearchContext.Provider
       value={{
         searchSettings,
+        cachedResults,
         updateQuery,
         updateSearchSettings,
         resetSearchSettings,
         loadSearchFromSaved,
+        setCachedResults,
+        getCachedResults,
+        clearCachedResults,
       }}
     >
       {children}
     </SearchContext.Provider>
   );
 }
+
+// Export the helper function for use in components
+export { generateSearchKey };
 
 export function useSearch() {
   const context = useContext(SearchContext);

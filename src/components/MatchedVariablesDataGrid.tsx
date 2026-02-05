@@ -161,6 +161,9 @@ function MatchedVariablesDataGrid({
   const [isApiReady, setIsApiReady] = useState(false);
   const [totalVariableCount, setTotalVariableCount] = useState<number | null>(null);
   const [shouldHideTable, setShouldHideTable] = useState(false);
+  const [currentSearchQuery, setCurrentSearchQuery] = useState<string>("");
+  const [hasUrlsFromServer, setHasUrlsFromServer] = useState(false);
+  const [hasResponseOptionsFromServer, setHasResponseOptionsFromServer] = useState(false);
   
   // Debouncing for search queries
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -198,9 +201,9 @@ function MatchedVariablesDataGrid({
     return {
       getRows: async (params: any) => {
         // Extract search query from filterModel (QuickFilter sets this)
-        // QuickFilter uses the "quickFilterValues" in filterModel
-        const quickFilterValue = params.filterModel?.quickFilterValues?.[0] || "";
-        const searchQuery = quickFilterValue;
+        // QuickFilter splits by spaces, so we need to join all values back together
+        const quickFilterValues = params.filterModel?.quickFilterValues || [];
+        const searchQuery = quickFilterValues.join(" ").trim();
         
         // Handle paginationModel (can be undefined in some cases)
         const paginationModel = params.paginationModel || { page: 0, pageSize: 50 };
@@ -257,6 +260,9 @@ function MatchedVariablesDataGrid({
             sortOrder = `${field}:${direction}`;
           }
           
+          // Update current search query for empty state display
+          setCurrentSearchQuery(searchQuery || "");
+          
           // Build fetch options - only include query/search params if we have a query
           const fetchOptions: Parameters<typeof fetchVariables>[0] = {
             // Use ancestor_uuid for all cases (works for both top-level studies and child datasets)
@@ -283,43 +289,39 @@ function MatchedVariablesDataGrid({
           let response = await fetchVariables(fetchOptions);
           let results = response.results || [];
           
-          // If no results and we have a search query, try again without the query
-          // Only do this on the first page (offset 0) to avoid retrying on every page
-          if (results.length === 0 && 
-              searchQuery && 
-              searchQuery.trim() && 
-              paginationModel.page === 0 && 
-              paginationModel.pageSize > 0) {
-            const retryOptions: Parameters<typeof fetchVariables>[0] = {
-              ...fetchOptions,
-              query: undefined, // Remove query for retry
-            };
-            
-            response = await fetchVariables(retryOptions);
-            results = response.results || [];
-            
-            // If still no results, hide the table
-            if (results.length === 0 && (response.num_hits === 0 || response.num_hits === undefined)) {
-              setShouldHideTable(true);
-              onShouldHideTable?.(true);
-            } else {
+          // Check for URLs and response options in the server response
+          // Only check on first page to avoid unnecessary updates
+          if (paginationModel.page === 0) {
+            const hasUrls = results.some((r: any) => 
+              r.urls && Array.isArray(r.urls) && r.urls.length > 0
+            );
+            const hasResponseOptions = results.some((r: any) => {
+              const options = r.response_options || r.options;
+              return options && Array.isArray(options) && options.length > 0;
+            });
+            setHasUrlsFromServer(hasUrls);
+            setHasResponseOptionsFromServer(hasResponseOptions);
+          }
+          
+          // Check if we should hide the table on first page with no results
+          // Only hide if there's no query - if there's a query, show empty state instead
+          if (paginationModel.page === 0 && 
+              results.length === 0 && 
+              (response.num_hits === 0 || response.num_hits === undefined)) {
+            // If there's a search query, show the table with empty state
+            // Otherwise, hide the table (no variables at all)
+            if (searchQuery && searchQuery.trim()) {
               setShouldHideTable(false);
               onShouldHideTable?.(false);
+            } else {
+              // No results and no query - hide the table
+              setShouldHideTable(true);
+              onShouldHideTable?.(true);
             }
           } else {
-            // Check if we should hide the table on first page with no results
-            // This applies whether or not there's a search query
-            if (paginationModel.page === 0 && 
-                results.length === 0 && 
-                (response.num_hits === 0 || response.num_hits === undefined)) {
-              // No results on first page - hide the table
-              setShouldHideTable(true);
-              onShouldHideTable?.(true);
-            } else {
-              // We have results or there are more results available - show the table
-              setShouldHideTable(false);
-              onShouldHideTable?.(false);
-            }
+            // We have results or there are more results available - show the table
+            setShouldHideTable(false);
+            onShouldHideTable?.(false);
           }
           
           // Create a Set of matched variable names for quick lookup
@@ -527,19 +529,31 @@ function MatchedVariablesDataGrid({
   }, []);
 
   // Check if any variables have response options data
+  // Use server data if available (server-side mode), otherwise check props variables (client-side mode)
   const hasResponseOptions = useMemo(() => {
+    if (studyUuid) {
+      // Server-side mode - use state from API response
+      return hasResponseOptionsFromServer;
+    }
+    // Client-side mode - check props variables
     return variables.some((v) => {
       const responseOptions = v.response_options || v.options;
       return responseOptions && Array.isArray(responseOptions) && responseOptions.length > 0;
     });
-  }, [variables]);
-
+  }, [studyUuid, hasResponseOptionsFromServer, variables]);
+  
   // Check if any variables have URLs
+  // Use server data if available (server-side mode), otherwise check props variables (client-side mode)
   const hasUrls = useMemo(() => {
+    if (studyUuid) {
+      // Server-side mode - use state from API response
+      return hasUrlsFromServer;
+    }
+    // Client-side mode - check props variables
     return variables.some((v) => {
       return v.urls && Array.isArray(v.urls) && v.urls.length > 0;
     });
-  }, [variables]);
+  }, [studyUuid, hasUrlsFromServer, variables]);
 
   const columns: GridColDef[] = useMemo(() => {
     const baseColumns: GridColDef[] = [
@@ -590,11 +604,12 @@ function MatchedVariablesDataGrid({
     if (hasUrls) {
       baseColumns.push({
         field: "url",
-        headerName: "",
-        width: 60,
+        headerName: "Learn more",
+        width: 120,
         sortable: false,
         renderCell: (params: any) => {
-          const variable = variables[params.row.originalIndex ?? 0];
+          // Get variable data from row (works for both client-side and server-side)
+          const variable = params.row;
           const firstUrl = variable?.urls && Array.isArray(variable.urls) && variable.urls.length > 0
             ? variable.urls[0]
             : null;
@@ -895,6 +910,24 @@ function MatchedVariablesDataGrid({
             showToolbar
             initialState={initialState}
             slots={{
+              noRowsOverlay: () => (
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                    p: 4,
+                  }}
+                >
+                  <Typography variant="body1" color="text.secondary">
+                    {currentSearchQuery && currentSearchQuery.trim()
+                      ? "No variables match your query. Remove it to see them all."
+                      : "No variables found."}
+                  </Typography>
+                </Box>
+              ),
               toolbar: () => (
                 <Box
                   sx={{

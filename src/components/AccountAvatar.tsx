@@ -113,6 +113,11 @@ export default function AccountAvatar({
 
   const handleUserMenuClick = (menuItem: string) => {
     switch (menuItem) {
+      case "My Harmony":
+        handleCloseUserMenu();
+        setComingSoonFeature("My Harmony");
+        setComingSoonOpen(true);
+        break;
       case "Logout":
         handleCloseUserMenu();
         console.log("logging out");

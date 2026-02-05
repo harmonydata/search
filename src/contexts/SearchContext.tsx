@@ -433,10 +433,13 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
   }, [searchSettings.query]);
 
   // Update URL when debounced query or filters change (but not during navigation restoration)
+  // Exclude studies and items pages from URL updates
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (isRestoringFromNavigation) return;
     if (isInitialMount.current) return; // Don't update URL on initial mount
+    // Exclude studies and items pages
+    if (pathname.startsWith("/studies/") || pathname.startsWith("/items/")) return;
 
     const newUrl = searchSettingsToUrl(searchSettings, pathname);
 
@@ -465,12 +468,15 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
   ]);
 
   // Handle URL changes from Next.js router (back/forward navigation or external navigation)
+  // Exclude studies and items pages from URL param syncing
   useEffect(() => {
     if (isRestoringFromNavigation) return;
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
+    // Exclude studies and items pages
+    if (pathname.startsWith("/studies/") || pathname.startsWith("/items/")) return;
 
     const urlSettings = urlToSearchSettings(searchParams);
     const urlQuery = urlSettings.debouncedQuery || "";

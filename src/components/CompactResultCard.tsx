@@ -6,6 +6,8 @@ import {
   Typography,
   IconButton,
   Avatar,
+  useTheme,
+  useMediaQuery,
 } from "@mui/material";
 import { SearchResult } from "@/services/api";
 import Image from "next/image";
@@ -176,6 +178,9 @@ export default function CompactResultCard({
 
   const avatarLetter = useMemo(() => getFirstLetter(title), [title]);
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
   return (
     <Box
       onClick={onClick}
@@ -196,10 +201,11 @@ export default function CompactResultCard({
     >
       <Box
         sx={{
-          width: 120,
-          minHeight: "100%",
-          py: 2,
-          flexShrink: 1,
+          width: { xs: 100, sm: 120 },
+          height: { xs: 100, sm: "auto" },
+          minHeight: { xs: 100, sm: "100%" },
+          py: { xs: 1, sm: 2 },
+          flexShrink: 0,
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
@@ -213,19 +219,23 @@ export default function CompactResultCard({
           <Image
             src={imageUrl}
             alt={title}
-            width={100}
-            height={100}
-            style={{ objectFit: "contain" }}
+            width={isMobile ? 80 : 100}
+            height={isMobile ? 80 : 100}
+            style={{ 
+              objectFit: "contain",
+              maxWidth: "100%",
+              maxHeight: "100%",
+            }}
             onError={() => setImageError(true)}
             unoptimized={true}
           />
         ) : (
           <Avatar
             sx={{
-              width: 60,
-              height: 60,
+              width: { xs: 50, sm: 60 },
+              height: { xs: 50, sm: 60 },
               bgcolor: avatarColor,
-              fontSize: "1.5rem",
+              fontSize: { xs: "1.25rem", sm: "1.5rem" },
               fontWeight: "bold",
             }}
           >

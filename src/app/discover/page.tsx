@@ -14,12 +14,10 @@ import {
   TextField,
   Button,
   Typography,
-  Drawer,
   IconButton,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
 import CloudOffIcon from "@mui/icons-material/CloudOff";
 import Image from "next/image";
 import SearchResults from "@/components/SearchResults";
@@ -82,8 +80,6 @@ function DiscoverPageContent() {
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(
     null
   );
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerImageError, setDrawerImageError] = useState(false);
 
   // Desktop expansion state
   const [isDetailExpanded, setIsDetailExpanded] = useState(false);
@@ -191,13 +187,18 @@ function DiscoverPageContent() {
     (result: SearchResult) => {
       setSelectedResult(result);
       if (isMobile) {
-        setDrawerOpen(true);
-      } else {
-        // For tablet and desktop, expand the detail panel
+        // On mobile, navigate to the study detail page
+        const slug = result.extra_data?.slug || result.extra_data?.uuid;
+        if (slug) {
+          router.push(`/studies/${slug}`);
+        }
+      } else if (isTablet) {
+        // For tablet only, expand the detail panel
         setIsDetailExpanded(true);
       }
+      // For desktop (lg+), don't auto-expand - user must interact with detail component
     },
-    [isMobile]
+    [isMobile, isTablet, router]
   );
 
   // Handle result selection
@@ -208,11 +209,6 @@ function DiscoverPageContent() {
     },
     [handleResultSelect]
   );
-
-  // Function to close the drawer
-  const handleCloseDrawer = useCallback(() => {
-    setDrawerOpen(false);
-  }, []);
 
   // Handle detail area click for tablet/desktop expansion
   const handleDetailClick = useCallback(() => {
@@ -317,11 +313,6 @@ function DiscoverPageContent() {
       setSelectedResult(null);
     }
   }, [results, selectedResult]);
-
-  // Reset drawer image error when selected result changes
-  useEffect(() => {
-    setDrawerImageError(false);
-  }, [selectedResult]);
 
   // Helper function to determine which result to display (for variable results with ancestors)
   const getDisplayResult = useCallback((result: SearchResult) => {
@@ -2056,19 +2047,35 @@ function DiscoverPageContent() {
             </Typography>
 
             {/* Save search button - always visible */}
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<Bookmark size={16} />}
-              onClick={saveSearch}
-              disabled={!searchSettings.query.trim() || loading}
-              sx={{
-                ml: 2,
-              }}
-              title="Save this search"
-            >
-              Save Search
-            </Button>
+            {isMobile ? (
+              <IconButton
+                size="small"
+                onClick={saveSearch}
+                disabled={!searchSettings.query.trim() || loading}
+                sx={{
+                  ml: 2,
+                  border: "1px solid",
+                  borderColor: "divider",
+                }}
+                title="Save this search"
+              >
+                <Bookmark size={16} />
+              </IconButton>
+            ) : (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<Bookmark size={16} />}
+                onClick={saveSearch}
+                disabled={!searchSettings.query.trim() || loading}
+                sx={{
+                  ml: 2,
+                }}
+                title="Save this search"
+              >
+                Save Search
+              </Button>
+            )}
           </Box>
         )}
 
@@ -2352,118 +2359,6 @@ function DiscoverPageContent() {
           </Box>
         )}
 
-        {/* Mobile Drawer for Study Details */}
-        <Drawer
-          anchor="right"
-          open={isMobile && drawerOpen}
-          onClose={handleCloseDrawer}
-          sx={{
-            "& .MuiDrawer-paper": {
-              width: { xs: "100%", sm: "80%", md: "60%" },
-              maxWidth: "600px",
-              p: 0,
-              overflow: "hidden",
-              display: "flex",
-              flexDirection: "column",
-            },
-          }}
-        >
-          <Box
-            sx={{
-              position: "sticky",
-              top: 0,
-              zIndex: 10,
-              bgcolor: "background.paper",
-              borderBottom: "1px solid",
-              borderColor: "grey.200",
-              p: 1,
-            }}
-          >
-            <IconButton
-              onClick={handleCloseDrawer}
-              sx={{ position: "absolute", top: 8, right: 8 }}
-            >
-              <CloseIcon />
-            </IconButton>
-            <Box
-              sx={{
-                py: 1,
-                pl: 1,
-                pr: 6,
-                display: "flex",
-                alignItems: "center",
-                gap: 2,
-              }}
-            >
-              <Typography variant="h6" sx={{ flex: 1 }}>
-                {selectedResult
-                  ? selectedResult.dataset_schema?.name || "Study Details"
-                  : "Study Details"}
-              </Typography>
-              {selectedResult &&
-                ((selectedResult.dataset_schema &&
-                  (selectedResult.dataset_schema as any).image) ||
-                  (selectedResult as any).image) &&
-                !drawerImageError && (
-                  <Box
-                    sx={{
-                      width: 50,
-                      height: 50,
-                      position: "relative",
-                      borderRadius: "4px",
-                      overflow: "hidden",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Image
-                      src={
-                        (selectedResult.dataset_schema &&
-                          (selectedResult.dataset_schema as any).image) ||
-                        (selectedResult as any).image
-                      }
-                      alt={selectedResult.dataset_schema?.name || "Study image"}
-                      fill
-                      style={{ objectFit: "contain" }}
-                      onError={() => setDrawerImageError(true)}
-                      unoptimized={true}
-                    />
-                  </Box>
-                )}
-            </Box>
-          </Box>
-          <Box
-            sx={{
-              p: 0,
-              overflow: "hidden",
-              display: "flex",
-              flexDirection: "column",
-              flex: 1,
-            }}
-          >
-            {/* Conditionally render StudyDetail or placeholder in drawer */}
-            {studyDetail ? (
-              <StudyDetail
-                studyDataComplete={false}
-                study={studyDetail}
-                isDrawerView={true}
-              />
-            ) : (
-              <Box
-                sx={{
-                  display: "flex",
-                  height: "100%",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  p: 2,
-                }}
-              >
-                <Typography color="text.secondary">
-                  Select a dataset to view details
-                </Typography>
-              </Box>
-            )}
-          </Box>
-        </Drawer>
       </Container>
 
       {/* Feedback Button */}

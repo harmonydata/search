@@ -77,3 +77,4 @@
 - Added Hotjar tracking gated behind harmonyCookieConsent cookie (shared with harmonydata.github.io) - created HotjarTracker client component that checks for consent cookie and polls for changes to enable cross-site consent sharing
 - Fixed TypeScript errors in admin page by adding explicit type annotations to valueFormatter functions and using match_reported field instead of non-existent question_index
 - Added parseFilters helper function in admin.ts to handle both old (JSON string) and new (object/map) filter formats for backward compatibility
+- Fixed variables table search input losing focus when get_variables returns - extracted QuickFilter toolbar to stable component (VariablesGridToolbar) to prevent re-mount on parent re-render

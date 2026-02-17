@@ -70,6 +70,70 @@ declare global {
   };
 }
 
+// Stable toolbar component - defined outside to prevent re-mount on parent re-render.
+// Inline toolbar: () => (...) causes QuickFilter to lose focus when get_variables returns.
+// See: https://github.com/mui/mui-x/issues/9580
+function VariablesGridToolbar(props: Record<string, unknown>) {
+  const harmonyExportRef = (props.harmonyExportRef ?? { current: null }) as React.RefObject<HTMLElement | null>;
+  const hasSelection = (props.hasSelection ?? (() => false)) as () => boolean;
+  const getSelectedCount = (props.getSelectedCount ?? (() => 0)) as () => number;
+  const onDownloadClick = props.onDownloadClick as ((e: React.MouseEvent<HTMLElement>) => void) | undefined;
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 2,
+        p: 1,
+        mr: 2,
+        flexWrap: "wrap",
+      }}
+    >
+      <Box sx={{ flex: 1, minWidth: 200 }}>
+        <QuickFilter expanded={true} style={{ width: "100%" }}>
+          <QuickFilterControl
+            placeholder="Search within variables"
+            style={{
+              background: "white",
+              borderRadius: 192,
+              fontSize: 14,
+            }}
+          />
+        </QuickFilter>
+      </Box>
+      <Tooltip title="Harmonise selected items">
+        <IconButton size="small" sx={{ width: 40, height: 40 }}>
+          <Box
+            ref={harmonyExportRef as any}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 20,
+              height: 20,
+            }}
+          />
+        </IconButton>
+      </Tooltip>
+      <Tooltip
+        title={
+          hasSelection()
+            ? `Download ${getSelectedCount()} selected questions`
+            : "Download all questions"
+        }
+      >
+        <IconButton
+          size="small"
+          onClick={onDownloadClick}
+          sx={{ width: 40, height: 40 }}
+        >
+          <Download size={30} />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  );
+}
+
 // Helper function to load XLSX script from public folder
 const loadXLSX = (): Promise<void> => {
   return new Promise((resolve, reject) => {
@@ -928,65 +992,16 @@ function MatchedVariablesDataGrid({
                   </Typography>
                 </Box>
               ),
-              toolbar: () => (
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 2,
-                    p: 1,
-                    mr: 2,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  {/* QuickFilter - always shown */}
-                  <Box sx={{ flex: 1, minWidth: 200 }}>
-                    <QuickFilter expanded={true} style={{ width: "100%" }}>
-                      <QuickFilterControl
-                        placeholder="Search within variables"
-                        style={{
-                          background: "white",
-                          borderRadius: 192,
-                          fontSize: 14,
-                        }}
-                      />
-                    </QuickFilter>
-                  </Box>
-                  
-                  {/* Action buttons */}
-                  <Tooltip title="Harmonise selected items">
-                    <IconButton size="small" sx={{ width: 40, height: 40 }}>
-                      <Box
-                        ref={harmonyExportRef as any}
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: 20,
-                          height: 20,
-                        }}
-                      />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip
-                    title={
-                      hasSelection()
-                        ? `Download ${getSelectedCount()} selected questions`
-                        : "Download all questions"
-                    }
-                  >
-                    <IconButton
-                      ref={downloadButtonRef}
-                      size="small"
-                      onClick={onDownloadClick}
-                      sx={{ width: 40, height: 40 }}
-                    >
-                      <Download size={30} />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              ),
+              toolbar: VariablesGridToolbar as never,
             }}
+            slotProps={{
+              toolbar: {
+                harmonyExportRef,
+                hasSelection,
+                getSelectedCount,
+                onDownloadClick,
+              },
+            } as never}
           />
         )}
       </Box>

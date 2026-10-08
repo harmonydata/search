@@ -3,6 +3,7 @@
 import { Box, Card, Typography } from "@mui/material";
 import Image from "next/image";
 import { findOrganizationLogo } from "@/lib/utils/shared";
+import { findSourceIdForCatalogue, sourceLogo } from "@/config/sourceAttribution";
 import { useEffect, useState } from "react";
 
 interface DataCatalogCardProps {
@@ -11,9 +12,17 @@ interface DataCatalogCardProps {
   logo?: string;
 }
 
+// Known sources follow config/sourceAttribution, not the image URL in the index
+function resolveLogo(name: string, url?: string, logo?: string) {
+  const sourceId = findSourceIdForCatalogue(name, url);
+  return sourceId ? sourceLogo(sourceId) : findOrganizationLogo(name, logo);
+}
+
 export default function DataCatalogCard({ name, url, logo }: DataCatalogCardProps) {
   // State to track the resolved logo path
-  const [resolvedLogo, setResolvedLogo] = useState<string | undefined>(logo);
+  const [resolvedLogo, setResolvedLogo] = useState<string | undefined>(() =>
+    resolveLogo(name, url, logo)
+  );
   // State to track if there was an error loading the image
   const [hasImageError, setHasImageError] = useState(false);
   
@@ -21,7 +30,7 @@ export default function DataCatalogCard({ name, url, logo }: DataCatalogCardProp
   useEffect(() => {
    // console.log(`Resolving logo for data catalog: "${name}"`);
     try {
-      const logoPath = findOrganizationLogo(name, logo);
+      const logoPath = resolveLogo(name, url, logo);
       console.log(`Resolved logo for data catalog "${name}":`, logoPath);
       setResolvedLogo(logoPath);
       setHasImageError(false); // Reset error state when resolving a new logo
@@ -29,7 +38,7 @@ export default function DataCatalogCard({ name, url, logo }: DataCatalogCardProp
       console.error(`Error resolving logo for data catalog "${name}":`, error);
       setResolvedLogo(undefined);
     }
-  }, [name, logo]);
+  }, [name, url, logo]);
 
   // Handle image load error
   const handleImageError = () => {

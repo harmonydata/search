@@ -5,6 +5,7 @@ import { Card, Box, Typography, Skeleton, CardContent } from "@mui/material";
 import Image from "next/image";
 import { ExternalLink } from "lucide-react";
 import { fetchOgData } from "@/services/api";
+import { SOURCES, findSourceIdForCatalogue } from "@/config/sourceAttribution";
 
 // Global request throttling mechanism
 // Keep track of URLs that are currently being fetched
@@ -93,6 +94,11 @@ export default function LinkPreviewCard({
   const [faviconError, setFaviconError] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  // Links to sources excluded from logo use (config/sourceAttribution) get no
+  // image or favicon, since both are usually the source's mark
+  const linkSourceId = findSourceIdForCatalogue(undefined, url);
+  const logoExcluded =
+    linkSourceId !== undefined && SOURCES[linkSourceId].faviconDomain === null;
 
   // Don't render if URL is empty or just whitespace
   if (!url || url.trim() === "") {
@@ -444,7 +450,7 @@ export default function LinkPreviewCard({
       }}
     >
       {/* Image section */}
-      {ogData.image && !imageError && !compact && (
+      {ogData.image && !imageError && !compact && !logoExcluded && (
         <Box
           sx={{
             position: "relative",
@@ -517,7 +523,7 @@ export default function LinkPreviewCard({
         </Box>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          {ogData.favicon && (
+          {ogData.favicon && !logoExcluded && (
             <Box
               sx={{
                 width: 16,
@@ -562,7 +568,7 @@ export default function LinkPreviewCard({
       </Box>
 
       {/* Image section for compact mode */}
-      {ogData.image && !imageError && compact && (
+      {ogData.image && !imageError && compact && !logoExcluded && (
         <Box
           sx={{
             position: "relative",

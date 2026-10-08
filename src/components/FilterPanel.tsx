@@ -22,6 +22,7 @@ import {
 } from "@/services/api";
 import FancySlider from "@/components/FancySlider";
 import { countryCodes } from "@/config/constants";
+import { SOURCES } from "@/config/sourceAttribution";
 import { useSearch } from "@/contexts/SearchContext";
 
 // Constants - consolidated at the top level
@@ -1059,9 +1060,11 @@ export default function FilterPanel({
 
     const mapping: Record<string, { name: string; logo?: string }> = {};
     Object.entries(sourcesData).forEach(([key, sourceInfo]) => {
+      // Sources excluded from logo use in config/sourceAttribution show their name
+      const excluded = SOURCES[key]?.faviconDomain === null;
       mapping[key] = {
         name: sourceInfo.name || sourceInfo.alternateName || key,
-        logo: sourceInfo.logo,
+        logo: excluded ? undefined : sourceInfo.logo,
       };
     });
     return mapping;

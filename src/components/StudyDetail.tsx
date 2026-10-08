@@ -13,6 +13,7 @@ import { ChevronDown, ChevronUp, Bookmark, Info } from "lucide-react";
 import { useState, memo, useMemo, useEffect, useRef } from "react";
 import SquareChip from "@/components/SquareChip";
 import DataCatalogCard from "@/components/DataCatalogCard";
+import SourceCredits from "@/components/SourceCredits";
 import OrganizationCard from "@/components/OrganizationCard";
 import TextWithLinkPreviews from "@/components/TextWithLinkPreviews";
 import LinkPreviewCard from "@/components/LinkPreviewCard";
@@ -1001,8 +1002,22 @@ const StudyDetailComponent = ({
                 )
               )}
             </Box>
+            <SourceCredits
+              source={displayStudy.extra_data?.source}
+              catalogs={study.dataset_schema.includedInDataCatalog}
+              publisher={displayStudy.dataset_schema?.publisher?.[0]?.name}
+            />
           </Box>
         )}
+      {/* Source credits on their own when there are no catalogue cards */}
+      {!study.dataset_schema?.includedInDataCatalog?.length && (
+        <Box sx={{ mb: 4 }}>
+          <SourceCredits
+            source={displayStudy.extra_data?.source}
+            publisher={displayStudy.dataset_schema?.publisher?.[0]?.name}
+          />
+        </Box>
+      )}
       {/* Topics section - only shown if topics exist */}
       {hasTopics && (
         <Box sx={{ mb: 4 }}>

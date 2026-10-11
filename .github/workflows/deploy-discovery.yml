@@ -8,10 +8,12 @@ on:
   repository_dispatch:
   push:
     branches: ["main"]
-  pull_request:
-    types: closed
-    branches: ["main"]
   workflow_dispatch:
+
+# One deploy at a time: concurrent runs race to force-push gh-pages
+concurrency:
+  group: deploy-gh-pages
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
